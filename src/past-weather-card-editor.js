@@ -1,17 +1,26 @@
 import { LitElement, html } from 'lit';
 
-const ALT_SCHEMA = [
-  { name: "temp", title: "Alternative temperature sensor", selector: { entity: { domain: 'sensor' } } },
-  { name: "feels_like", title: "Alternative feels like temperature sensor", selector: { entity: { domain: 'sensor' } } },
-  { name: "description", title: "Alternative weather description sensor", selector: { entity: { domain: 'sensor' } } },
-  { name: "press", title: "Alternative pressure sensor", selector: { entity: { domain: 'sensor' } } },
-  { name: "humid", title: "Alternative humidity sensor", selector: { entity: { domain: 'sensor' } } },
-  { name: "uv", title: "Alternative UV index sensor", selector: { entity: { domain: 'sensor' } } },
-  { name: "winddir", title: "Alternative wind bearing sensor", selector: { entity: { domain: 'sensor' } } },
-  { name: "windspeed", title: "Alternative wind speed sensor", selector: { entity: { domain: 'sensor' } } },
-  { name: "dew_point", title: "Alternative dew pointsensor", selector: { entity: { domain: 'sensor' } } },
-  { name: "wind_gust_speed", title: "Alternative wind gust speed sensor", selector: { entity: { domain: 'sensor' } } },
-  { name: "visibility", title: "Alternative visibility sensor", selector: { entity: { domain: 'sensor' } } },
+const SENSORS_SCHEMA = [
+  { name: "temperature",    title: "Temperature sensor",
+    selector: { entity: { domain: 'sensor', device_class: 'temperature' } } },
+  { name: "humidity",       title: "Humidity sensor",
+    selector: { entity: { domain: 'sensor', device_class: 'humidity' } } },
+  { name: "illuminance",    title: "Illuminance sensor",
+    selector: { entity: { domain: 'sensor', device_class: 'illuminance' } } },
+  { name: "precipitation",  title: "Precipitation sensor (cumulative or daily-sum)",
+    selector: { entity: { domain: 'sensor' } } },
+  { name: "pressure",       title: "Pressure sensor",
+    selector: { entity: { domain: 'sensor', device_class: 'atmospheric_pressure' } } },
+  { name: "wind_speed",     title: "Wind speed sensor",
+    selector: { entity: { domain: 'sensor', device_class: 'wind_speed' } } },
+  { name: "gust_speed",     title: "Gust speed sensor",
+    selector: { entity: { domain: 'sensor', device_class: 'wind_speed' } } },
+  { name: "wind_direction", title: "Wind direction sensor",
+    selector: { entity: { domain: 'sensor' } } },
+  { name: "uv_index",       title: "UV index sensor",
+    selector: { entity: { domain: 'sensor' } } },
+  { name: "dew_point",      title: "Dew point sensor",
+    selector: { entity: { domain: 'sensor', device_class: 'temperature' } } },
 ];
 
 class PastWeatherCardEditor extends LitElement {
@@ -38,38 +47,13 @@ class PastWeatherCardEditor extends LitElement {
       throw new Error("Invalid configuration");
     }
     this._config = config;
-    this._entity = config.entity || '';
-    this.hasApparentTemperature = (
-      this.hass &&
-      this.hass.states[config.entity] &&
-      this.hass.states[config.entity].attributes &&
-      this.hass.states[config.entity].attributes.apparent_temperature !== undefined
-    ) || config.feels_like !== undefined;
-    this.hasDewpoint = (
-      this.hass &&
-      this.hass.states[config.entity] &&
-      this.hass.states[config.entity].attributes &&
-      this.hass.states[config.entity].attributes.dew_point !== undefined
-    ) || config.dew_point !== undefined;
-    this.hasWindgustspeed = (
-      this.hass &&
-      this.hass.states[config.entity] &&
-      this.hass.states[config.entity].attributes &&
-      this.hass.states[config.entity].attributes.wind_gust_speed !== undefined
-    ) || config.wind_gust_speed !== undefined;
-    this.hasVisibility = (
-      this.hass &&
-      this.hass.states[config.entity] &&
-      this.hass.states[config.entity].attributes &&
-      this.hass.states[config.entity].attributes.visibility !== undefined
-    ) || config.visibility !== undefined;
-    this.hasDescription = (
-      this.hass &&
-      this.hass.states[config.entity] &&
-      this.hass.states[config.entity].attributes &&
-      this.hass.states[config.entity].attributes.description !== undefined
-    ) || config.description !== undefined;
-    this.fetchEntities();	  
+    const sensors = config.sensors || {};
+    // Surface toggles only make sense if the corresponding sensor is configured.
+    this.hasApparentTemperature = false;
+    this.hasDewpoint = !!sensors.dew_point;
+    this.hasWindgustspeed = !!sensors.gust_speed;
+    this.hasVisibility = false;
+    this.hasDescription = false;
     this.requestUpdate();
   }
 
@@ -78,29 +62,15 @@ class PastWeatherCardEditor extends LitElement {
   }
 
   updated(changedProperties) {
-    if (changedProperties.has('hass')) {
-      this.fetchEntities();
-    }
-    if (changedProperties.has('_config') && this._config && this._config.entity) {
-      this._entity = this._config.entity;
-    }
+    // No weather-entity dependency to watch for in this fork.
   }
 
-  fetchEntities() {
-    if (this.hass) {
-      this.entities = Object.keys(this.hass.states).filter((e) => e.startsWith('weather.'));
-      this.requestUpdate();
-    }
-  }
-
-  _EntityChanged(event, key) {
-    if (!this._config) {
-      return;
-    }
-    const newConfig = { ...this._config };
-    newConfig.entity = event.target.value;
-    this._entity = event.target.value;
+  _sensorsChanged(event) {
+    if (!this._config) return;
+    if (event.target.tagName.toLowerCase() !== 'ha-form') return;
+    const newConfig = { ...this._config, sensors: event.detail.value };
     this.configChanged(newConfig);
+    this.requestUpdate();
   }
 
   configChanged(newConfig) {
@@ -198,11 +168,9 @@ class PastWeatherCardEditor extends LitElement {
   }
 
   render() {
-    if (this._config && this._config.entity !== this._entity) {
-      this._entity = this._config.entity;
-    }
     const forecastConfig = this._config.forecast || {};
     const unitsConfig = this._config.units || {};
+    const sensorsConfig = this._config.sensors || {};
     const isShowTimeOn = this._config.show_time !== false;
 
 
@@ -275,49 +243,27 @@ class PastWeatherCardEditor extends LitElement {
       </style>
       <div>
       <div class="textfield-container">
-<ha-select
-  naturalMenuWidth
-  fixedMenuPosition
-  label="Entity"
-  .configValue=${'entity'}
-  .value=${this._entity}
-  @change=${(e) => this._EntityChanged(e, 'entity')}
-  @closed=${(ev) => ev.stopPropagation()}
->
-  ${this.entities.map((entity) => html`<ha-list-item .value=${entity}>${entity}</ha-list-item>`)}
-</ha-select>
-      <ha-textfield
-        label="Title"
-        .value="${this._config.title || ''}"
-        @change="${(e) => this._valueChanged(e, 'title')}"
-      ></ha-textfield>
+        <h5>Sensors:</h5>
+        <ha-form
+          .data=${sensorsConfig}
+          .schema=${SENSORS_SCHEMA}
+          .hass=${this.hass}
+          @value-changed=${this._sensorsChanged}
+        ></ha-form>
+        <ha-textfield
+          label="Title"
+          .value="${this._config.title || ''}"
+          @change="${(e) => this._valueChanged(e, 'title')}"
+        ></ha-textfield>
+        <ha-textfield
+          label="Days"
+          type="number"
+          min="1"
+          max="14"
+          .value="${this._config.days || 7}"
+          @change="${(e) => this._valueChanged(e, 'days')}"
+        ></ha-textfield>
        </div>
-
-      <h5>Forecast type:</h5>
-
-      <div class="radio-group">
-        <ha-radio
-          name="type"
-          value="daily"
-          @change="${this._handleTypeChange}"
-          .checked="${forecastConfig.type === 'daily'}"
-        ></ha-radio>
-        <label class="check-label">
-          Daily forecast
-        </label>
-      </div>
-
-      <div class="radio-group">
-        <ha-radio
-          name="type"
-          value="hourly"
-          @change="${this._handleTypeChange}"
-          .checked="${forecastConfig.type === 'hourly'}"
-        ></ha-radio>
-        <label class="check-label">
-          Hourly forecast
-        </label>
-      </div>
 
       <h5>Chart style:</h5>
       <div class="radio-container">
@@ -350,9 +296,8 @@ class PastWeatherCardEditor extends LitElement {
        <h4>Settings:</h4>
        <div class="buttons-container">
          <mwc-button @click="${() => this.showPage('card')}">Main</mwc-button>
-         <mwc-button @click="${() => this.showPage('forecast')}">Forecast</mwc-button>
+         <mwc-button @click="${() => this.showPage('forecast')}">Chart</mwc-button>
          <mwc-button @click="${() => this.showPage('units')}">Units</mwc-button>
-         <mwc-button @click="${() => this.showPage('alternate')}">Alternate entities</mwc-button>
        </div>
 
         <!-- Card Settings Page -->
@@ -788,16 +733,6 @@ class PastWeatherCardEditor extends LitElement {
           </div>
         </div>
 
-        <!-- Alternate Page -->
-        <div class="page-container ${this.currentPage === 'alternate' ? 'active' : ''}">
-          <h5>Alternative sensors for the main card attributes:</h5>
-          <ha-form
-            .data=${this._config}
-            .schema=${ALT_SCHEMA}
-            .hass=${this.hass}
-            @value-changed=${this._formValueChanged}
-          ></ha-form>
-        </div>
     `;
   }
 }
