@@ -4,10 +4,10 @@ import {
   weatherIcons,
   weatherIconsDay,
   weatherIconsNight,
-  WeatherEntityFeature
 } from './const.js';
 import {LitElement, html} from 'lit';
 import './past-weather-card-editor.js';
+import { MeasuredDataSource } from './data-source.js';
 import { property } from 'lit/decorators.js';
 import {Chart, registerables} from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
@@ -20,25 +20,49 @@ static getConfigElement() {
 }
 
 static getStubConfig(hass, unusedEntities, allEntities) {
-  let entity = unusedEntities.find((eid) => eid.split(".")[0] === "weather");
-  if (!entity) {
-    entity = allEntities.find((eid) => eid.split(".")[0] === "weather");
-  }
+  // Auto-detect station sensors by device_class. Fall back to entity-id
+  // pattern matching for the precipitation case (no standard device_class
+  // for cumulative rain on every integration).
+  const findByClass = (cls) => {
+    const all = allEntities || [];
+    return all.find((eid) => {
+      if (!eid.startsWith('sensor.')) return false;
+      const st = hass && hass.states && hass.states[eid];
+      return st && st.attributes && st.attributes.device_class === cls;
+    });
+  };
+  const findByPattern = (re) => {
+    const all = allEntities || [];
+    return all.find((eid) => eid.startsWith('sensor.') && re.test(eid));
+  };
+
   return {
-    entity,
-    show_main: true,
+    sensors: {
+      temperature: findByClass('temperature') || '',
+      humidity: findByClass('humidity') || '',
+      illuminance: findByClass('illuminance') || '',
+      precipitation: findByPattern(/precipitation/) || '',
+      pressure: findByClass('atmospheric_pressure') || findByClass('pressure') || '',
+      wind_speed: findByClass('wind_speed') || '',
+      gust_speed: findByPattern(/gust/) || '',
+      wind_direction: findByPattern(/(direction|bearing|wind.?dir)/) || '',
+      uv_index: findByPattern(/uv/) || '',
+      dew_point: findByPattern(/dew/) || '',
+    },
+    days: 7,
+    show_main: false,
     show_temperature: true,
-    show_current_condition: true,
-    show_attributes: true,
+    show_current_condition: false,
+    show_attributes: false,
     show_time: false,
     show_time_seconds: false,
     show_day: false,
     show_date: false,
-    show_humidity: true,
-    show_pressure: true,
+    show_humidity: false,
+    show_pressure: false,
     show_wind_direction: true,
     show_wind_speed: true,
-    show_sun: true,
+    show_sun: false,
     show_feels_like: false,
     show_dew_point: false,
     show_wind_gust_speed: false,
@@ -59,8 +83,8 @@ static getStubConfig(hass, unusedEntities, allEntities) {
       condition_icons: true,
       round_temp: false,
       type: 'daily',
-      number_of_forecasts: '0', 
-      disable_animation: false, 
+      number_of_forecasts: '0',
+      disable_animation: false,
     },
   };
 }
@@ -91,12 +115,15 @@ setConfig(config) {
     current_temp_size: 28,
     time_size: 26,
     day_date_size: 15,
+    show_main: false,
     show_feels_like: false,
     show_dew_point: false,
     show_wind_gust_speed: false,
     show_visibility: false,
     show_last_changed: false,
     show_description: false,
+    days: 7,
+    sensors: {},
     ...config,
     forecast: {
       precipitation_type: 'rainfall',
@@ -129,8 +156,8 @@ setConfig(config) {
     'https://cdn.jsdelivr.net/gh/chriguschneider/past-weather-card/dist/icons/' ;
 
   this.config = cardConfig;
-  if (!config.entity) {
-    throw new Error('Please, define entity in the card config');
+  if (!cardConfig.sensors || !cardConfig.sensors.temperature) {
+    throw new Error('Please define at least sensors.temperature in the card config');
   }
 }
 
@@ -138,64 +165,68 @@ set hass(hass) {
   this._hass = hass;
   this.language = this.config.locale || hass.selectedLanguage || hass.language;
   this.sun = 'sun.sun' in hass.states ? hass.states['sun.sun'] : null;
-  this.unitSpeed = this.config.units.speed ? this.config.units.speed : this.weather && this.weather.attributes.wind_speed_unit;
-  this.unitPressure = this.config.units.pressure ? this.config.units.pressure : this.weather && this.weather.attributes.pressure_unit;
-  this.unitVisibility = this.config.units.visibility ? this.config.units.visibility : this.weather && this.weather.attributes.visibility_unit;
-  this.weather = this.config.entity in hass.states
-    ? hass.states[this.config.entity]
-    : null;
 
-  if (this.weather) {
-    this.temperature = this.config.temp ? hass.states[this.config.temp].state : this.weather.attributes.temperature;
-    this.humidity = this.config.humid ? hass.states[this.config.humid].state : this.weather.attributes.humidity;
-    this.pressure = this.config.press ? hass.states[this.config.press].state : this.weather.attributes.pressure;
-    this.uv_index = this.config.uv ? hass.states[this.config.uv].state : this.weather.attributes.uv_index;
-    this.windSpeed = this.config.windspeed ? hass.states[this.config.windspeed].state : this.weather.attributes.wind_speed;
-    this.dew_point = this.config.dew_point ? hass.states[this.config.dew_point].state : this.weather.attributes.dew_point;
-    this.wind_gust_speed = this.config.wind_gust_speed ? hass.states[this.config.wind_gust_speed].state : this.weather.attributes.wind_gust_speed;
-    this.visibility = this.config.visibility ? hass.states[this.config.visibility].state : this.weather.attributes.visibility;
+  const sensors = this.config.sensors || {};
+  const stateOf = (eid) => (eid && hass.states[eid]) ? hass.states[eid] : null;
+  const valueOf = (eid) => { const s = stateOf(eid); return s ? s.state : undefined; };
+  const attrOf = (eid, attr) => { const s = stateOf(eid); return s ? s.attributes[attr] : undefined; };
 
-    if (this.config.winddir && hass.states[this.config.winddir] && hass.states[this.config.winddir].state !== undefined) {
-      this.windDirection = parseFloat(hass.states[this.config.winddir].state);
-    } else {
-      this.windDirection = this.weather.attributes.wind_bearing;
-    }
+  this.unitSpeed = this.config.units.speed
+    || attrOf(sensors.wind_speed, 'unit_of_measurement')
+    || 'm/s';
+  this.unitPressure = this.config.units.pressure
+    || attrOf(sensors.pressure, 'unit_of_measurement')
+    || 'hPa';
+  this.unitVisibility = this.config.units.visibility || 'km';
 
-    this.feels_like = this.config.feels_like && hass.states[this.config.feels_like] ? hass.states[this.config.feels_like].state : this.weather.attributes.apparent_temperature;
-    this.description = this.config.description && hass.states[this.config.description] ? hass.states[this.config.description].state : this.weather.attributes.description;
-  }
+  // No weather entity in this fork — synthesize a stand-in so render code that
+  // reads `this.weather.attributes.*_unit` keeps working without rewrites.
+  this.temperature = valueOf(sensors.temperature);
+  this.humidity = valueOf(sensors.humidity);
+  this.pressure = valueOf(sensors.pressure);
+  this.uv_index = valueOf(sensors.uv_index);
+  this.windSpeed = valueOf(sensors.wind_speed);
+  this.dew_point = valueOf(sensors.dew_point);
+  this.wind_gust_speed = valueOf(sensors.gust_speed);
+  this.visibility = undefined;
+  this.windDirection = sensors.wind_direction && hass.states[sensors.wind_direction]
+    ? parseFloat(hass.states[sensors.wind_direction].state)
+    : undefined;
+  this.feels_like = undefined;
+  this.description = undefined;
 
-  if (this.weather && !this.forecastSubscriber) {
-    this.subscribeForecastEvents();
-  }
-}
-
-subscribeForecastEvents() {
-  const forecastType = this.config.forecast.type || 'daily';
-  const isHourly = forecastType === 'hourly';
-
-  const feature = isHourly ? WeatherEntityFeature.FORECAST_HOURLY : WeatherEntityFeature.FORECAST_DAILY;
-  if (!this.supportsFeature(feature)) {
-    console.error(`Weather entity "${this.config.entity}" does not support ${isHourly ? 'hourly' : 'daily'} forecasts.`);
-    return;
-  }
-
-  const callback = (event) => {
-    this.forecasts = event.forecast;
-    this.requestUpdate();
-    this.drawChart();
+  this.weather = {
+    attributes: {
+      wind_speed_unit: this.unitSpeed,
+      pressure_unit: this.unitPressure,
+      visibility_unit: this.unitVisibility,
+      temperature_unit: attrOf(sensors.temperature, 'unit_of_measurement') || '°C',
+      temperature: this.temperature,
+      humidity: this.humidity,
+      pressure: this.pressure,
+      uv_index: this.uv_index,
+      wind_speed: this.windSpeed,
+      wind_bearing: this.windDirection,
+      dew_point: this.dew_point,
+      wind_gust_speed: this.wind_gust_speed,
+      visibility: this.visibility,
+      apparent_temperature: undefined,
+      description: undefined,
+      supported_features: 0,
+    },
   };
 
-  this.forecastSubscriber = this._hass.connection.subscribeMessage(callback, {
-    type: "weather/subscribe_forecast",
-    forecast_type: isHourly ? 'hourly' : 'daily',
-    entity_id: this.config.entity,
-  });
-}
-
-  supportsFeature(feature) {
-    return (this.weather.attributes.supported_features & feature) !== 0;
+  if (!this._dataSource) {
+    this._dataSource = new MeasuredDataSource(hass, this.config);
+    this._dataUnsubscribe = this._dataSource.subscribe((event) => {
+      this.forecasts = event.forecast;
+      this.requestUpdate();
+      this.drawChart();
+    });
+  } else {
+    this._dataSource.setHass(hass);
   }
+}
 
   constructor() {
     super();
@@ -220,9 +251,11 @@ subscribeForecastEvents() {
   disconnectedCallback() {
     super.disconnectedCallback();
     this.detachResizeObserver();
-    if (this.forecastSubscriber) {
-      this.forecastSubscriber.then((unsub) => unsub());
+    if (this._dataUnsubscribe) {
+      this._dataUnsubscribe();
+      this._dataUnsubscribe = null;
     }
+    this._dataSource = null;
   }
 
   attachResizeObserver() {
@@ -393,16 +426,23 @@ async updated(changedProperties) {
   if (changedProperties.has('config')) {
     const oldConfig = changedProperties.get('config');
 
-    const entityChanged = oldConfig && this.config.entity !== oldConfig.entity;
-    const forecastTypeChanged = oldConfig && this.config.forecast.type !== oldConfig.forecast.type;
+    const sensorsChanged = oldConfig && JSON.stringify(this.config.sensors) !== JSON.stringify(oldConfig.sensors);
+    const daysChanged = oldConfig && this.config.days !== oldConfig.days;
     const autoscrollChanged = oldConfig && this.config.autoscroll !== oldConfig.autoscroll;
 
-    if (entityChanged || forecastTypeChanged) {
-      if (this.forecastSubscriber && typeof this.forecastSubscriber === 'function') {
-        this.forecastSubscriber();
+    if (sensorsChanged || daysChanged) {
+      if (this._dataUnsubscribe) {
+        this._dataUnsubscribe();
+        this._dataUnsubscribe = null;
       }
-
-      this.subscribeForecastEvents();
+      if (this._hass) {
+        this._dataSource = new MeasuredDataSource(this._hass, this.config);
+        this._dataUnsubscribe = this._dataSource.subscribe((event) => {
+          this.forecasts = event.forecast;
+          this.requestUpdate();
+          this.drawChart();
+        });
+      }
     }
 
     if (this.forecasts && this.forecasts.length) {
@@ -1229,7 +1269,7 @@ renderForecastConditionIcons({ config, forecastItems, sun } = this) {
   }
 
   return html`
-    <div class="conditions" @click="${(e) => this.showMoreInfo(config.entity)}">
+    <div class="conditions" @click="${(e) => this.showMoreInfo(config.sensors && config.sensors.temperature)}">
       ${forecast.map((item) => {
         const forecastTime = new Date(item.datetime);
         const sunriseTime = new Date(sun.attributes.next_rising);
