@@ -1012,24 +1012,10 @@ class WeatherStationCardEditor extends s {
     this.requestUpdate();
   }
 
-  // ha-select fires `selected` reliably across recent HA frontend versions;
-  // `change` is intermittent in shadow DOM. Mirrors _valueChanged's nested-
-  // path write but reads the value off the target after the menu closes.
-  _unitChanged(event, key) {
+  _unitsChanged(event) {
     if (!this._config) return;
-    const value = event.target && event.target.value;
-    if (value === undefined) return;
-
-    const parts = key.split('.');
-    const newConfig = { ...this._config };
-    let cursor = newConfig;
-    for (let i = 0; i < parts.length - 1; i++) {
-      cursor[parts[i]] = { ...(cursor[parts[i]] || {}) };
-      cursor = cursor[parts[i]];
-    }
-    if (cursor[parts[parts.length - 1]] === value) return;
-    cursor[parts[parts.length - 1]] = value;
-
+    if (event.target.tagName.toLowerCase() !== 'ha-form') return;
+    const newConfig = { ...this._config, units: event.detail.value };
     this.configChanged(newConfig);
     this.requestUpdate();
   }
@@ -1665,39 +1651,31 @@ class WeatherStationCardEditor extends s {
         <!-- Units Page -->
         <div class="page-container ${this.currentPage === 'units' ? 'active' : ''}">
           <div class="textfield-container">
-            <ha-select
-              naturalMenuWidth
-              fixedMenuPosition
-              label="Convert pressure to"
-              .configValue=${'units.pressure'}
-              .value=${unitsConfig.pressure || ''}
-              @selected=${(e) => this._unitChanged(e, 'units.pressure')}
-              @closed=${(ev) => ev.stopPropagation()}
-            >
-              <ha-list-item .value=${'hPa'}>hPa</ha-list-item>
-              <ha-list-item .value=${'mmHg'}>mmHg</ha-list-item>
-              <ha-list-item .value=${'inHg'}>inHg</ha-list-item>
-            </ha-select>
-            <ha-select
-              naturalMenuWidth
-              fixedMenuPosition
-              label="Convert wind speed to"
-              .configValue=${'units.speed'}
-              .value=${unitsConfig.speed || ''}
-              @selected=${(e) => this._unitChanged(e, 'units.speed')}
-              @closed=${(ev) => ev.stopPropagation()}
-            >
-              <ha-list-item .value=${'km/h'}>km/h</ha-list-item>
-              <ha-list-item .value=${'m/s'}>m/s</ha-list-item>
-              <ha-list-item .value=${'Bft'}>Bft</ha-list-item>
-              <ha-list-item .value=${'mph'}>mph</ha-list-item>
-            </ha-select>
+            <ha-form
+              .data=${unitsConfig}
+              .schema=${UNITS_SCHEMA}
+              .hass=${this.hass}
+              .computeLabel=${(s) => UNIT_LABELS[s.name] || s.name}
+              @value-changed=${this._unitsChanged}
+            ></ha-form>
           </div>
         </div>
 
     `;
   }
 }
+
+const UNITS_SCHEMA = [
+  { name: "pressure",
+    selector: { select: { mode: "dropdown", options: ["hPa", "mmHg", "inHg"] } } },
+  { name: "speed",
+    selector: { select: { mode: "dropdown", options: ["km/h", "m/s", "mph", "Bft"] } } },
+];
+
+const UNIT_LABELS = {
+  pressure: "Convert pressure to",
+  speed: "Convert wind speed to",
+};
 customElements.define("weather-station-card-editor", WeatherStationCardEditor);
 
 // DataSource: feeds the card a `forecast`-shaped array.
