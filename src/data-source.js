@@ -53,8 +53,12 @@ export class MeasuredDataSource {
     const days = parseInt(this.config.days, 10) || 7;
     const sensors = this.config.sensors || {};
 
+    // Window ends at tomorrow midnight (exclusive) so today's partial-day
+    // bucket is included as the rightmost column. Start is `days` days back
+    // from that, e.g. days=7 → six full past days plus today.
     const end = new Date();
     end.setHours(0, 0, 0, 0);
+    end.setDate(end.getDate() + 1);
     const start = new Date(end);
     start.setDate(start.getDate() - days);
 

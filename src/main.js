@@ -700,7 +700,8 @@ drawChart({ config, language, weather, forecastItems } = this) {
 
                   if (config.forecast.type !== 'hourly') {
                       var weekday = dateObj.toLocaleString(language, { weekday: 'short' }).toUpperCase();
-                      return weekday;
+                      var dateLabel = dateObj.toLocaleDateString(language, { day: '2-digit', month: '2-digit' });
+                      return [weekday, dateLabel];
                   }
 
                   time = time.replace('a.m.', 'AM').replace('p.m.', 'PM');
