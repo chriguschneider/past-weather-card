@@ -19381,7 +19381,7 @@ return x`
           ` : ''}
           ${showWindgustspeed && wind_gust_speed !== undefined ? x`
             <ha-icon icon="hass:weather-windy-variant"></ha-icon>
-            ${wind_gust_speed} ${this.ll('units')[this.unitSpeed]}
+            ${this._convertWindSpeed(parseFloat(wind_gust_speed))} ${this.ll('units')[this.unitSpeed]}
           ` : ''}
         </div>
       ` : ''}
