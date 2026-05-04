@@ -79,29 +79,49 @@ export class MeasuredDataSource {
   }
 
   _buildForecast(stats, sensors, start, days) {
+    // Index each entity's series by midnight-of-day so day alignment doesn't
+    // depend on positional indices (the API omits entries for empty days).
+    const byDate = {};
+    for (const [eid, series] of Object.entries(stats || {})) {
+      const m = new Map();
+      for (const entry of series || []) {
+        const d = new Date(entry.start);
+        d.setHours(0, 0, 0, 0);
+        m.set(d.getTime(), entry);
+      }
+      byDate[eid] = m;
+    }
+
+    const dayMs = (date) => {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    };
+
     const out = [];
-    // Index 0 is the baseline-only day used for precipitation diffing; we
-    // emit entries for indexes 1..days (inclusive).
     for (let i = 1; i <= days; i++) {
       const dayStart = new Date(start);
       dayStart.setDate(start.getDate() + i);
+      const dayKey = dayMs(dayStart);
+      const prevKey = dayKey - 24 * 60 * 60 * 1000;
 
-      const pickAt = (eid, field) => {
-        if (!eid) return null;
-        const series = stats && stats[eid];
-        if (!series || !series[i]) return null;
-        const v = series[i][field];
+      const at = (eid, field) => {
+        const m = byDate[eid];
+        if (!m) return null;
+        const e = m.get(dayKey);
+        if (!e) return null;
+        const v = e[field];
         return v === undefined ? null : v;
       };
 
-      const tempMax = pickAt(sensors.temperature, 'max');
-      const tempMin = pickAt(sensors.temperature, 'min');
+      const tempMax = at(sensors.temperature, 'max');
+      const tempMin = at(sensors.temperature, 'min');
 
-      const precipitation = this._dailyPrecipitation(stats, sensors.precipitation, i);
+      const precipitation = this._dailyPrecipitation(byDate[sensors.precipitation], dayKey, prevKey);
 
-      const gustMax = pickAt(sensors.gust_speed, 'max');
-      const windMean = pickAt(sensors.wind_speed, 'mean');
-      const luxMean = pickAt(sensors.illuminance, 'mean');
+      const gustMax = at(sensors.gust_speed, 'max');
+      const windMean = at(sensors.wind_speed, 'mean');
+      const luxMean = at(sensors.illuminance, 'mean');
 
       out.push({
         datetime: dayStart.toISOString(),
@@ -110,10 +130,10 @@ export class MeasuredDataSource {
         precipitation,
         precipitation_probability: null,
         wind_speed: gustMax ?? windMean ?? null,
-        wind_bearing: pickAt(sensors.wind_direction, 'mean'),
-        pressure: pickAt(sensors.pressure, 'mean'),
-        humidity: pickAt(sensors.humidity, 'mean'),
-        uv_index: pickAt(sensors.uv_index, 'max'),
+        wind_bearing: at(sensors.wind_direction, 'mean'),
+        pressure: at(sensors.pressure, 'mean'),
+        humidity: at(sensors.humidity, 'mean'),
+        uv_index: at(sensors.uv_index, 'max'),
         condition: this._mapCondition({
           precipitation,
           lux: luxMean,
@@ -128,28 +148,26 @@ export class MeasuredDataSource {
   //
   //   total_increasing → API returns `change`     (use as-is)
   //   total            → API returns `sum`        (use as-is)
-  //   measurement      → API returns max/min/mean (diff max[i]-max[i-1])
+  //   measurement      → API returns max only     (diff max - prevMax)
   //
   // For the diff path a non-positive delta means the lifetime counter
   // reset between buckets (battery swap, device reinstall, integration
   // restart); fall back to today's max as the day's total in that case.
-  _dailyPrecipitation(stats, entityId, i) {
-    if (!entityId) return null;
-    const series = stats && stats[entityId];
-    if (!series) return null;
-    const day = series[i];
-    if (!day) return null;
+  _dailyPrecipitation(byDate, dayKey, prevKey) {
+    if (!byDate) return null;
+    const today = byDate.get(dayKey);
+    if (!today) return null;
 
-    if (day.change != null) return day.change;
-    if (day.sum != null) return day.sum;
-    if (day.max == null) return null;
+    if (today.change != null) return today.change;
+    if (today.sum != null) return today.sum;
+    if (today.max == null) return null;
 
-    const prev = series[i - 1];
-    if (prev && prev.max != null) {
-      const delta = day.max - prev.max;
-      return delta >= 0 ? delta : day.max;
+    const yesterday = byDate.get(prevKey);
+    if (yesterday && yesterday.max != null) {
+      const delta = today.max - yesterday.max;
+      return delta >= 0 ? delta : today.max;
     }
-    return day.max;
+    return today.max;
   }
 
   _mapCondition({ precipitation, lux, gust }) {
