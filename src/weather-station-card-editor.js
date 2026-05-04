@@ -32,7 +32,7 @@ const SENSORS_SCHEMA = [
 
 const _computeSensorLabel = (schema) => schema.label || schema.name;
 
-class PastWeatherCardEditor extends LitElement {
+class WeatherStationCardEditor extends LitElement {
   static get properties() {
     return {
       _config: { type: Object },
@@ -746,4 +746,4 @@ class PastWeatherCardEditor extends LitElement {
     `;
   }
 }
-customElements.define("past-weather-card-editor", PastWeatherCardEditor);
+customElements.define("weather-station-card-editor", WeatherStationCardEditor);

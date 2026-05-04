@@ -1,10 +1,10 @@
-# Past Weather Card
+# Weather Station Card
 
-A Lovelace card for Home Assistant that displays **past weather station measurements** in the same per-day layout as the [`weather-chart-card`](https://github.com/mlamberts78/weather-chart-card) — but driven by sensor history (`recorder/statistics_during_period`) instead of a `weather.*` entity's forecast.
+A Lovelace card for Home Assistant that displays **past weather-station measurements** in the same per-day layout as the [`weather-chart-card`](https://github.com/mlamberts78/weather-chart-card) — but driven by sensor history (`recorder/statistics_during_period`) instead of a `weather.*` entity's forecast.
 
 ## Status
 
-Work in progress. Phase 1 (fork & rename) complete; data layer and editor adaptation are next.
+Work in progress. Renamed from `past-weather-card` (older v0.1.x) to `weather-station-card`.
 
 Tracking issue: [chriguschneider/homeassistant#12](https://github.com/chriguschneider/homeassistant/issues/12)
 

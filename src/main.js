@@ -6,17 +6,17 @@ import {
   weatherIconsNight,
 } from './const.js';
 import {LitElement, html} from 'lit';
-import './past-weather-card-editor.js';
+import './weather-station-card-editor.js';
 import { MeasuredDataSource } from './data-source.js';
 import { property } from 'lit/decorators.js';
 import {Chart, registerables} from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 Chart.register(...registerables, ChartDataLabels);
 
-class PastWeatherCard extends LitElement {
+class WeatherStationCard extends LitElement {
 
 static getConfigElement() {
-  return document.createElement("past-weather-card-editor");
+  return document.createElement("weather-station-card-editor");
 }
 
 static getStubConfig(hass, unusedEntities, allEntities) {
@@ -158,8 +158,8 @@ setConfig(config) {
   cardConfig.units.speed = config.speed ? config.speed : cardConfig.units.speed;
 
   this.baseIconPath = cardConfig.icon_style === 'style2' ?
-    'https://cdn.jsdelivr.net/gh/chriguschneider/past-weather-card/dist/icons2/':
-    'https://cdn.jsdelivr.net/gh/chriguschneider/past-weather-card/dist/icons/' ;
+    'https://cdn.jsdelivr.net/gh/chriguschneider/weather-station-card/dist/icons2/':
+    'https://cdn.jsdelivr.net/gh/chriguschneider/weather-station-card/dist/icons/' ;
 
   this.config = cardConfig;
   if (!cardConfig.sensors || !cardConfig.sensors.temperature) {
@@ -1432,13 +1432,13 @@ renderLastUpdated() {
   }
 }
 
-customElements.define('past-weather-card', PastWeatherCard);
+customElements.define('weather-station-card', WeatherStationCard);
 
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "past-weather-card",
-  name: "Past Weather Card",
+  type: "weather-station-card",
+  name: "Weather Station Card",
   description: "Weather-chart-card layout for past weather station measurements.",
   preview: true,
-  documentationURL: "https://github.com/chriguschneider/past-weather-card",
+  documentationURL: "https://github.com/chriguschneider/weather-station-card",
 });

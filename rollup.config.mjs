@@ -17,9 +17,9 @@ const serveopts = {
 export default {
   input: 'src/main.js',
   output: {
-    file: 'dist/past-weather-card.js',
+    file: 'dist/weather-station-card.js',
     format: 'cjs',
-    name: 'PastWeatherCard',
+    name: 'WeatherStationCard',
     sourcemap: dev ? true : false,
   },
   plugins: [

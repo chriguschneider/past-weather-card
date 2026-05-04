@@ -1,6 +1,6 @@
 {
-  "name": "past-weather-card",
-  "version": "0.1.0",
+  "name": "weather-station-card",
+  "version": "0.1.7",
   "description": "Lovelace card showing past weather station measurements with the weather-chart-card layout. Fork of mlamberts78/weather-chart-card.",
   "keywords": [
     "home-assistant",
@@ -11,7 +11,7 @@
     "custom-cards"
   ],
   "module": "src/main.js",
-  "repository": "git@github.com:chriguschneider/past-weather-card.git",
+  "repository": "git@github.com:chriguschneider/weather-station-card.git",
   "author": "chrigu",
   "contributors": [
     "Marc Lamberts (original weather-chart-card author)"

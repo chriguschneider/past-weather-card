@@ -45,7 +45,7 @@ export class MeasuredDataSource {
       const forecast = await this._fetchAggregates();
       if (this._listener) this._listener({ forecast });
     } catch (err) {
-      console.error('[past-weather-card] statistics fetch failed', err);
+      console.error('[weather-station-card] statistics fetch failed', err);
     }
   }
 

@@ -891,7 +891,7 @@ const SENSORS_SCHEMA = [
 
 const _computeSensorLabel = (schema) => schema.label || schema.name;
 
-class PastWeatherCardEditor extends s {
+class WeatherStationCardEditor extends s {
   static get properties() {
     return {
       _config: { type: Object },
@@ -1605,7 +1605,7 @@ class PastWeatherCardEditor extends s {
     `;
   }
 }
-customElements.define("past-weather-card-editor", PastWeatherCardEditor);
+customElements.define("weather-station-card-editor", WeatherStationCardEditor);
 
 // DataSource: feeds the card a `forecast`-shaped array.
 //
@@ -1654,7 +1654,7 @@ class MeasuredDataSource {
       const forecast = await this._fetchAggregates();
       if (this._listener) this._listener({ forecast });
     } catch (err) {
-      console.error('[past-weather-card] statistics fetch failed', err);
+      console.error('[weather-station-card] statistics fetch failed', err);
     }
   }
 
@@ -18087,10 +18087,10 @@ var plugin = {
 
 Chart.register(...registerables, plugin);
 
-class PastWeatherCard extends s {
+class WeatherStationCard extends s {
 
 static getConfigElement() {
-  return document.createElement("past-weather-card-editor");
+  return document.createElement("weather-station-card-editor");
 }
 
 static getStubConfig(hass, unusedEntities, allEntities) {
@@ -18232,8 +18232,8 @@ setConfig(config) {
   cardConfig.units.speed = config.speed ? config.speed : cardConfig.units.speed;
 
   this.baseIconPath = cardConfig.icon_style === 'style2' ?
-    'https://cdn.jsdelivr.net/gh/chriguschneider/past-weather-card/dist/icons2/':
-    'https://cdn.jsdelivr.net/gh/chriguschneider/past-weather-card/dist/icons/' ;
+    'https://cdn.jsdelivr.net/gh/chriguschneider/weather-station-card/dist/icons2/':
+    'https://cdn.jsdelivr.net/gh/chriguschneider/weather-station-card/dist/icons/' ;
 
   this.config = cardConfig;
   if (!cardConfig.sensors || !cardConfig.sensors.temperature) {
@@ -19506,13 +19506,13 @@ renderLastUpdated() {
   }
 }
 
-customElements.define('past-weather-card', PastWeatherCard);
+customElements.define('weather-station-card', WeatherStationCard);
 
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "past-weather-card",
-  name: "Past Weather Card",
+  type: "weather-station-card",
+  name: "Weather Station Card",
   description: "Weather-chart-card layout for past weather station measurements.",
   preview: true,
-  documentationURL: "https://github.com/chriguschneider/past-weather-card",
+  documentationURL: "https://github.com/chriguschneider/weather-station-card",
 });
