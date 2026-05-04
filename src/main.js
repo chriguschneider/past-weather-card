@@ -952,6 +952,12 @@ updateChart({ forecasts, forecastChart } = this) {
           flex-direction: column;
           align-items: center;
           margin: 1px;
+          padding: 2px 6px;
+          border: 2px solid transparent;
+          border-radius: 6px;
+        }
+        .forecast-item.today {
+          border-color: var(--primary-color);
         }
         .wind-details {
           display: flex;
@@ -963,6 +969,12 @@ updateChart({ forecasts, forecastChart } = this) {
           display: flex;
           align-items: center;
           margin: 1px;
+          padding: 1px 4px;
+          border: 2px solid transparent;
+          border-radius: 6px;
+        }
+        .wind-detail.today {
+          border-color: var(--primary-color);
         }
         .wind-detail ha-icon {
           --mdc-icon-size: 15px;
@@ -1285,6 +1297,15 @@ renderForecastConditionIcons({ config, forecastItems, sun } = this) {
     return html``;
   }
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayMs = today.getTime();
+  const isToday = (item) => {
+    const d = new Date(item.datetime);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime() === todayMs;
+  };
+
   return html`
     <div class="conditions" @click="${(e) => this.showMoreInfo(config.sensors && config.sensors.temperature)}">
       ${forecast.map((item) => {
@@ -1328,7 +1349,7 @@ renderForecastConditionIcons({ config, forecastItems, sun } = this) {
         }
 
         return html`
-          <div class="forecast-item">
+          <div class="forecast-item ${isToday(item) ? 'today' : ''}">
             ${iconHtml}
           </div>
         `;
@@ -1346,6 +1367,15 @@ renderWind({ config, weather, windSpeed, windDirection, forecastItems } = this) 
 
   const forecast = this.forecasts ? this.forecasts.slice(0, forecastItems) : [];
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayMs = today.getTime();
+  const isToday = (item) => {
+    const d = new Date(item.datetime);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime() === todayMs;
+  };
+
   return html`
     <div class="wind-details">
       ${showWindForecast ? html`
@@ -1354,7 +1384,7 @@ renderWind({ config, weather, windSpeed, windDirection, forecastItems } = this) 
           const dWindSpeed = this._convertWindSpeed(raw);
 
           return html`
-            <div class="wind-detail">
+            <div class="wind-detail ${isToday(item) ? 'today' : ''}">
               <ha-icon class="wind-icon" icon="hass:${this.getWindDirIcon(item.wind_bearing)}"></ha-icon>
               <span class="wind-speed">${dWindSpeed ?? ''}</span>
               <span class="wind-unit">${this.ll('units')[this.unitSpeed]}</span>
