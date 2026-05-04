@@ -911,6 +911,21 @@ function buildSensorsSchema(hass) {
         .map(([id]) => id)
     : [];
 
+  // UV: no canonical device_class and no universal unit. Match either
+  // 'uv' as a separator-bounded token (uv_index, uvindex, foo_uv) or a
+  // friendly_name containing 'uv index' / 'uv-index'.
+  const uvRegex = /(?:^|[._-])uv(?:[._-]|index|$)/i;
+  const uvNameRegex = /\buv[\s_-]?index\b|\buv\b/i;
+  const uvEntities = hass
+    ? Object.entries(hass.states)
+        .filter(([id, s]) => {
+          if (!id.startsWith('sensor.')) return false;
+          const name = (s.attributes && s.attributes.friendly_name) || '';
+          return uvRegex.test(id) || uvNameRegex.test(name);
+        })
+        .map(([id]) => id)
+    : [];
+
   return [
     { name: "temperature",    label: "Temperature",
       selector: { entity: { domain: 'sensor', device_class: 'temperature' } } },
@@ -929,7 +944,7 @@ function buildSensorsSchema(hass) {
     { name: "wind_direction", label: "Wind direction",
       selector: { entity: { include_entities: directionEntities } } },
     { name: "uv_index",       label: "UV index",
-      selector: { entity: { domain: 'sensor' } } },
+      selector: { entity: { include_entities: uvEntities } } },
     { name: "dew_point",      label: "Dew point",
       selector: { entity: { domain: 'sensor', device_class: 'temperature' } } },
   ];
