@@ -18308,16 +18308,22 @@ set hass(hass) {
   const valueOf = (eid) => { const s = stateOf(eid); return s ? s.state : undefined; };
   const attrOf = (eid, attr) => { const s = stateOf(eid); return s ? s.attributes[attr] : undefined; };
 
-  this.unitSpeed = this.config.units.speed
-    || attrOf(sensors.wind_speed, 'unit_of_measurement')
+  // Source units come from the actual sensor entities; target units come
+  // from config (or default to source). Keeping them separate is what
+  // _convertWindSpeed / pressure conversion compare against — feeding the
+  // target into both ends silently skips the conversion and the displayed
+  // numbers stay in source units under a target-unit label.
+  const sourceWindUnit = attrOf(sensors.wind_speed, 'unit_of_measurement')
+    || attrOf(sensors.gust_speed, 'unit_of_measurement')
     || 'm/s';
-  this.unitPressure = this.config.units.pressure
-    || attrOf(sensors.pressure, 'unit_of_measurement')
-    || 'hPa';
-  this.unitVisibility = this.config.units.visibility || 'km';
+  const sourcePressureUnit = attrOf(sensors.pressure, 'unit_of_measurement') || 'hPa';
+  const sourceVisibilityUnit = 'km';
+  const sourceTempUnit = attrOf(sensors.temperature, 'unit_of_measurement') || '°C';
 
-  // No weather entity in this fork — synthesize a stand-in so render code that
-  // reads `this.weather.attributes.*_unit` keeps working without rewrites.
+  this.unitSpeed = this.config.units.speed || sourceWindUnit;
+  this.unitPressure = this.config.units.pressure || sourcePressureUnit;
+  this.unitVisibility = this.config.units.visibility || sourceVisibilityUnit;
+
   this.temperature = valueOf(sensors.temperature);
   this.humidity = valueOf(sensors.humidity);
   this.pressure = valueOf(sensors.pressure);
@@ -18332,12 +18338,16 @@ set hass(hass) {
   this.feels_like = undefined;
   this.description = undefined;
 
+  // Synthesized stand-in for the original weather entity. The *_unit fields
+  // here represent the SOURCE units (what the data layer actually emits);
+  // the conversion code compares them against this.unitSpeed / unitPressure
+  // to decide whether to convert.
   this.weather = {
     attributes: {
-      wind_speed_unit: this.unitSpeed,
-      pressure_unit: this.unitPressure,
-      visibility_unit: this.unitVisibility,
-      temperature_unit: attrOf(sensors.temperature, 'unit_of_measurement') || '°C',
+      wind_speed_unit: sourceWindUnit,
+      pressure_unit: sourcePressureUnit,
+      visibility_unit: sourceVisibilityUnit,
+      temperature_unit: sourceTempUnit,
       temperature: this.temperature,
       humidity: this.humidity,
       pressure: this.pressure,
