@@ -120,6 +120,28 @@ class WeatherStationCardEditor extends LitElement {
     this.requestUpdate();
   }
 
+  // ha-select fires `selected` reliably across recent HA frontend versions;
+  // `change` is intermittent in shadow DOM. Mirrors _valueChanged's nested-
+  // path write but reads the value off the target after the menu closes.
+  _unitChanged(event, key) {
+    if (!this._config) return;
+    const value = event.target && event.target.value;
+    if (value === undefined) return;
+
+    const parts = key.split('.');
+    const newConfig = { ...this._config };
+    let cursor = newConfig;
+    for (let i = 0; i < parts.length - 1; i++) {
+      cursor[parts[i]] = { ...(cursor[parts[i]] || {}) };
+      cursor = cursor[parts[i]];
+    }
+    if (cursor[parts[parts.length - 1]] === value) return;
+    cursor[parts[parts.length - 1]] = value;
+
+    this.configChanged(newConfig);
+    this.requestUpdate();
+  }
+
   configChanged(newConfig) {
     const event = new Event("config-changed", {
       bubbles: true,
@@ -756,8 +778,8 @@ class WeatherStationCardEditor extends LitElement {
               fixedMenuPosition
               label="Convert pressure to"
               .configValue=${'units.pressure'}
-              .value=${unitsConfig.pressure}
-              @change=${(e) => this._valueChanged(e, 'units.pressure')}
+              .value=${unitsConfig.pressure || ''}
+              @selected=${(e) => this._unitChanged(e, 'units.pressure')}
               @closed=${(ev) => ev.stopPropagation()}
             >
               <ha-list-item .value=${'hPa'}>hPa</ha-list-item>
@@ -769,8 +791,8 @@ class WeatherStationCardEditor extends LitElement {
               fixedMenuPosition
               label="Convert wind speed to"
               .configValue=${'units.speed'}
-              .value=${unitsConfig.speed}
-              @change=${(e) => this._valueChanged(e, 'units.speed')}
+              .value=${unitsConfig.speed || ''}
+              @selected=${(e) => this._unitChanged(e, 'units.speed')}
               @closed=${(ev) => ev.stopPropagation()}
             >
               <ha-list-item .value=${'km/h'}>km/h</ha-list-item>
