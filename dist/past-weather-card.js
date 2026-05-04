@@ -866,7 +866,7 @@ const SENSORS_SCHEMA = [
     selector: { entity: { domain: 'sensor', device_class: 'humidity' } } },
   { name: "illuminance",    title: "Illuminance sensor",
     selector: { entity: { domain: 'sensor', device_class: 'illuminance' } } },
-  { name: "precipitation",  title: "Precipitation sensor — pick a daily-reset one (e.g. *_today)",
+  { name: "precipitation",  title: "Precipitation sensor (cumulative or daily-reset both work)",
     selector: { entity: { domain: 'sensor' } } },
   { name: "pressure",       title: "Pressure sensor",
     selector: { entity: { domain: 'sensor', device_class: 'atmospheric_pressure' } } },
@@ -1653,13 +1653,14 @@ class MeasuredDataSource {
     const sensors = this.config.sensors || {};
 
     // Window ends at tomorrow midnight (exclusive) so today's partial-day
-    // bucket is included as the rightmost column. Start is `days` days back
-    // from that, e.g. days=7 → six full past days plus today.
+    // bucket is included as the rightmost column. We fetch one extra day
+    // at the start (days+1) so a cumulative precipitation sensor has a
+    // baseline value to diff against on the oldest displayed day.
     const end = new Date();
     end.setHours(0, 0, 0, 0);
     end.setDate(end.getDate() + 1);
     const start = new Date(end);
-    start.setDate(start.getDate() - days);
+    start.setDate(start.getDate() - (days + 1));
 
     const entityIds = Object.values(sensors).filter(Boolean);
     if (entityIds.length === 0) return [];
@@ -1678,7 +1679,9 @@ class MeasuredDataSource {
 
   _buildForecast(stats, sensors, start, days) {
     const out = [];
-    for (let i = 0; i < days; i++) {
+    // Index 0 is the baseline-only day used for precipitation diffing; we
+    // emit entries for indexes 1..days (inclusive).
+    for (let i = 1; i <= days; i++) {
       const dayStart = new Date(start);
       dayStart.setDate(start.getDate() + i);
 
@@ -1693,12 +1696,7 @@ class MeasuredDataSource {
       const tempMax = pickAt(sensors.temperature, 'max');
       const tempMin = pickAt(sensors.temperature, 'min');
 
-      // Precipitation source state_class varies (measurement vs total_increasing);
-      // accept whichever aggregate the API returned.
-      const precipChange = pickAt(sensors.precipitation, 'change');
-      const precipSum = pickAt(sensors.precipitation, 'sum');
-      const precipMax = pickAt(sensors.precipitation, 'max');
-      const precipitation = precipChange ?? precipSum ?? precipMax ?? null;
+      const precipitation = this._dailyPrecipitation(stats, sensors.precipitation, i);
 
       const gustMax = pickAt(sensors.gust_speed, 'max');
       const windMean = pickAt(sensors.wind_speed, 'mean');
@@ -1723,6 +1721,34 @@ class MeasuredDataSource {
       });
     }
     return out;
+  }
+
+  // Daily-rainfall extraction that adapts to the sensor's state_class:
+  //
+  //   total_increasing → API returns `change`     (use as-is)
+  //   total            → API returns `sum`        (use as-is)
+  //   measurement      → API returns max/min/mean (diff max[i]-max[i-1])
+  //
+  // For the diff path a non-positive delta means the lifetime counter
+  // reset between buckets (battery swap, device reinstall, integration
+  // restart); fall back to today's max as the day's total in that case.
+  _dailyPrecipitation(stats, entityId, i) {
+    if (!entityId) return null;
+    const series = stats && stats[entityId];
+    if (!series) return null;
+    const day = series[i];
+    if (!day) return null;
+
+    if (day.change != null) return day.change;
+    if (day.sum != null) return day.sum;
+    if (day.max == null) return null;
+
+    const prev = series[i - 1];
+    if (prev && prev.max != null) {
+      const delta = day.max - prev.max;
+      return delta >= 0 ? delta : day.max;
+    }
+    return day.max;
   }
 
   _mapCondition({ precipitation, lux, gust }) {
