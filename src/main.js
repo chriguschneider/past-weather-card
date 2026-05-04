@@ -689,9 +689,41 @@ drawChart({ config, language, weather, forecastItems } = this) {
     },
   };
 
+  // Plugin: draws the date (dd.mm) below each weekday tick label in a
+  // lighter color than the weekday itself. The tick callback returns
+  // only the weekday so the default tick rendering doesn't include the
+  // date — we paint it ourselves here.
+  const dateLineLighterPlugin = {
+    id: 'dateLineLighter',
+    afterDraw(chart) {
+      if (config.forecast.type === 'hourly') return;
+      const xScale = chart.scales.x;
+      if (!xScale || !xScale.ticks) return;
+      const c = chart.ctx;
+      const fontSize = parseInt(config.forecast.labels_font_size) || 11;
+      c.save();
+      c.fillStyle = style.getPropertyValue('--secondary-text-color') || textColor;
+      c.font = `${fontSize}px Helvetica, Arial, sans-serif`;
+      c.textAlign = 'center';
+      c.textBaseline = 'top';
+      const dateY = xScale.top + fontSize + 4;
+      for (let i = 0; i < xScale.ticks.length; i++) {
+        const x = xScale.getPixelForTick(i);
+        const datetime = data.dateTime[i];
+        if (!datetime) continue;
+        const dateLabel = new Date(datetime).toLocaleDateString(language, {
+          day: '2-digit',
+          month: '2-digit',
+        });
+        c.fillText(dateLabel, x, dateY);
+      }
+      c.restore();
+    },
+  };
+
   this.forecastChart = new Chart(ctx, {
     type: 'bar',
-    plugins: [todayLeftBorderPlugin],
+    plugins: [todayLeftBorderPlugin, dateLineLighterPlugin],
     data: {
       labels: data.dateTime,
       datasets: datasets,
@@ -741,9 +773,10 @@ drawChart({ config, language, weather, forecastItems } = this) {
                   }
 
                   if (config.forecast.type !== 'hourly') {
-                      var weekday = dateObj.toLocaleString(language, { weekday: 'short' }).toUpperCase();
-                      var dateLabel = dateObj.toLocaleDateString(language, { day: '2-digit', month: '2-digit' });
-                      return [weekday, dateLabel];
+                      // Tick callback returns only the weekday (rendered with
+                      // the default tick color); the date line is drawn by
+                      // the dateLineLighter plugin below in a lighter color.
+                      return dateObj.toLocaleString(language, { weekday: 'short' }).toUpperCase();
                   }
 
                   time = time.replace('a.m.', 'AM').replace('p.m.', 'PM');
@@ -792,9 +825,13 @@ drawChart({ config, language, weather, forecastItems } = this) {
           borderWidth: 1.5,
           padding: config.forecast.precipitation_type === 'rainfall' && config.forecast.show_probability && config.forecast.type !== 'hourly' ? 3 : 4,
           color: chart_text_color || textColor,
-          font: {
-            size: config.forecast.labels_font_size,
-            lineHeight: 0.7,
+          font: function (context) {
+            const isLast = context.dataIndex === (context.chart.data.labels.length - 1);
+            return {
+              size: parseInt(config.forecast.labels_font_size) || 11,
+              lineHeight: 0.7,
+              weight: isLast ? 'bold' : 'normal',
+            };
           },
           formatter: function (value, context) {
             return context.dataset.data[context.dataIndex] + '°';
