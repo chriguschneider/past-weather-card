@@ -17,7 +17,7 @@ const SENSORS_SCHEMA = [
     selector: { entity: { domain: 'sensor', device_class: 'humidity' } } },
   { name: "illuminance",    label: "Illuminance",
     selector: { entity: { domain: 'sensor', device_class: 'illuminance' } } },
-  { name: "precipitation",  label: "Precipitation (cumulative or daily-reset both work)",
+  { name: "precipitation",  label: "Precipitation",
     selector: { entity: { domain: 'sensor', device_class: 'precipitation' } } },
   { name: "pressure",       label: "Pressure",
     selector: { entity: { domain: 'sensor' } } },
