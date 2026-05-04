@@ -686,22 +686,7 @@ drawChart({ config, language, weather, forecastItems } = this) {
           },
           grid: {
             drawTicks: false,
-            color: (ctx) => {
-              if (!ctx.tick) return dividerColor;
-              const ticks = ctx.chart && ctx.chart.scales && ctx.chart.scales[ctx.scale.id]
-                ? ctx.chart.scales[ctx.scale.id].ticks
-                : [];
-              return (ctx.index === 0 || ctx.index === ticks.length - 1)
-                ? (textColor || dividerColor)
-                : dividerColor;
-            },
-            lineWidth: (ctx) => {
-              if (!ctx.tick) return 1;
-              const ticks = ctx.chart && ctx.chart.scales && ctx.chart.scales[ctx.scale.id]
-                ? ctx.chart.scales[ctx.scale.id].ticks
-                : [];
-              return (ctx.index === 0 || ctx.index === ticks.length - 1) ? 3 : 1;
-            },
+            color: dividerColor,
           },
           ticks: {
               maxRotation: 0,
@@ -746,6 +731,10 @@ drawChart({ config, language, weather, forecastItems } = this) {
           beginAtZero: false,
           suggestedMin: Math.min(...data.tempHigh, ...data.tempLow) - 5,
           suggestedMax: Math.max(...data.tempHigh, ...data.tempLow) + 3,
+          border: {
+            width: 2,
+            color: style.getPropertyValue('--secondary-text-color') || dividerColor,
+          },
           grid: {
             display: false,
             drawTicks: false,
@@ -757,6 +746,10 @@ drawChart({ config, language, weather, forecastItems } = this) {
         PrecipAxis: {
           position: 'right',
           suggestedMax: precipMax,
+          border: {
+            width: 2,
+            color: style.getPropertyValue('--secondary-text-color') || dividerColor,
+          },
           grid: {
             display: false,
             drawTicks: false,
