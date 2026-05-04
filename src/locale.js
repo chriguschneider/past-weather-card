@@ -99,7 +99,22 @@ const locale = {
     'snowy-rainy': 'Schneeregen',
     'sunny': 'Sonne',
     'windy': 'Windig',
-    'windy-variant': 'Windig'
+    'windy-variant': 'Windig',
+    'editor': {
+      'temperature': 'Temperatur',
+      'humidity': 'Luftfeuchtigkeit',
+      'illuminance': 'Helligkeit',
+      'precipitation': 'Niederschlag (kumulativ oder mit täglichem Reset, beides funktioniert)',
+      'pressure': 'Luftdruck',
+      'wind_speed': 'Windgeschwindigkeit',
+      'gust_speed': 'Böen',
+      'wind_direction': 'Windrichtung',
+      'uv_index': 'UV-Index',
+      'dew_point': 'Taupunkt',
+      'title': 'Titel',
+      'days': 'Tage',
+      'sensors_heading': 'Sensoren'
+    }
   },
   nl: {
     'tempHi': 'Temperatuur',
@@ -167,7 +182,26 @@ const locale = {
     'snowy-rainy': 'Snowy, rainy',
     'sunny': 'Sunny',
     'windy': 'Windy',
-    'windy-variant': 'Windy'
+    'windy-variant': 'Windy',
+    // Canonical English strings for the visual editor. Other languages
+    // should add an `editor: {…}` block matching these keys; missing
+    // keys (or whole missing editor blocks) fall back to English at
+    // runtime via the `t()` helper in the editor module.
+    'editor': {
+      'temperature': 'Temperature',
+      'humidity': 'Humidity',
+      'illuminance': 'Illuminance',
+      'precipitation': 'Precipitation (cumulative or daily-reset both work)',
+      'pressure': 'Pressure',
+      'wind_speed': 'Wind speed',
+      'gust_speed': 'Gust speed',
+      'wind_direction': 'Wind direction',
+      'uv_index': 'UV index',
+      'dew_point': 'Dew point',
+      'title': 'Title',
+      'days': 'Days',
+      'sensors_heading': 'Sensors'
+    }
   },
   es: {
     'tempHi': 'Temperatura máxima',

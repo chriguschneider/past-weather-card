@@ -1,12 +1,15 @@
 import { LitElement, html } from 'lit';
+import locale from './locale.js';
 
 // Schema for the per-metric sensor pickers. `device_class` filters are
 // applied only where they reliably narrow the result; for metrics that
 // integrations classify inconsistently (pressure on BTHome ships with
 // unit mbar and no canonical class; wind/gust device classes are not
-// universal) the selector accepts any sensor and the user picks. The
-// `label` field is what we surface in the editor — `computeLabel` below
-// reads it.
+// universal) the selector accepts any sensor and the user picks.
+//
+// `name` doubles as the i18n key — see locale.js `editor` blocks. The
+// English `label` here is the runtime fallback when the user's HA
+// language has no translation registered.
 const SENSORS_SCHEMA = [
   { name: "temperature",    label: "Temperature",
     selector: { entity: { domain: 'sensor', device_class: 'temperature' } } },
@@ -30,7 +33,17 @@ const SENSORS_SCHEMA = [
     selector: { entity: { domain: 'sensor' } } },
 ];
 
-const _computeSensorLabel = (schema) => schema.label || schema.name;
+// Resolve a localized editor string. Falls back along
+// language → base-language → English → key.
+function tEditor(hass, key) {
+  const lang = (hass && hass.language) || 'en';
+  const baseLang = lang.split('-')[0];
+  for (const l of [lang, baseLang, 'en']) {
+    const block = locale[l] && locale[l].editor;
+    if (block && typeof block[key] === 'string') return block[key];
+  }
+  return key;
+}
 
 class WeatherStationCardEditor extends LitElement {
   static get properties() {
@@ -252,21 +265,21 @@ class WeatherStationCardEditor extends LitElement {
       </style>
       <div>
       <div class="textfield-container">
-        <h5>Sensors:</h5>
+        <h5>${tEditor(this.hass, 'sensors_heading')}:</h5>
         <ha-form
           .data=${sensorsConfig}
           .schema=${SENSORS_SCHEMA}
           .hass=${this.hass}
-          .computeLabel=${_computeSensorLabel}
+          .computeLabel=${(s) => tEditor(this.hass, s.name)}
           @value-changed=${this._sensorsChanged}
         ></ha-form>
         <ha-textfield
-          label="Title"
+          label="${tEditor(this.hass, 'title')}"
           .value="${this._config.title || ''}"
           @change="${(e) => this._valueChanged(e, 'title')}"
         ></ha-textfield>
         <ha-textfield
-          label="Days"
+          label="${tEditor(this.hass, 'days')}"
           type="number"
           min="1"
           max="14"
