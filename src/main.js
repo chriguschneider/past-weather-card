@@ -689,10 +689,12 @@ drawChart({ config, language, weather, forecastItems } = this) {
     },
   };
 
-  // Plugin: paints the date line of each daily tick label in a lighter
-  // color than the weekday. Chart.js draws both lines in the default
-  // tick color first; we mask the bottom (date) line with the card
-  // background, then redraw the date string in --secondary-text-color.
+  // Plugin: replaces Chart.js's daily tick labels with our own so we can
+  // colour weekday and date differently. Chart.js still draws the labels
+  // first (we need it to, otherwise it doesn't reserve axis height).
+  // The plugin then masks the whole label area for each tick and
+  // repaints weekday on top in the primary text colour, date below in
+  // --secondary-text-color.
   const dailyTickLabelsPlugin = {
     id: 'dailyTickLabels',
     afterDraw(chart) {
@@ -701,28 +703,31 @@ drawChart({ config, language, weather, forecastItems } = this) {
       if (!xScale || !xScale.ticks) return;
       const c = chart.ctx;
       const fontSize = parseInt(config.forecast.labels_font_size) || 11;
-      const lineH = Math.ceil(fontSize * 1.2);
-      const tickPad = 4;
-      const dateBaselineY = xScale.bottom - tickPad;
-      const dateColor = style.getPropertyValue('--secondary-text-color')
-        || (config.forecast.chart_datetime_color || textColor);
+      const lineH = Math.ceil(fontSize * 1.3);
+      const weekdayColor = config.forecast.chart_datetime_color || textColor;
+      const dateColor = style.getPropertyValue('--secondary-text-color') || weekdayColor;
       c.save();
       c.font = `${fontSize}px Helvetica, Arial, sans-serif`;
       c.textAlign = 'center';
       c.textBaseline = 'bottom';
+      // Mask + repaint each tick's label column, covering both lines.
       for (let i = 0; i < xScale.ticks.length; i++) {
         const x = xScale.getPixelForTick(i);
         const datetime = data.dateTime[i];
         if (!datetime) continue;
-        const dateLabel = new Date(datetime).toLocaleDateString(language, {
+        const d = new Date(datetime);
+        const weekday = d.toLocaleString(language, { weekday: 'short' }).toUpperCase();
+        const dateLabel = d.toLocaleDateString(language, {
           day: '2-digit',
           month: '2-digit',
         });
-        const w = c.measureText(dateLabel).width + 6;
+        const colW = (xScale.width / xScale.ticks.length);
         c.fillStyle = backgroundColor;
-        c.fillRect(x - w / 2, dateBaselineY - lineH, w, lineH + 2);
+        c.fillRect(x - colW / 2, xScale.top, colW, xScale.bottom - xScale.top);
         c.fillStyle = dateColor;
-        c.fillText(dateLabel, x, dateBaselineY);
+        c.fillText(dateLabel, x, xScale.bottom - 2);
+        c.fillStyle = weekdayColor;
+        c.fillText(weekday, x, xScale.bottom - 2 - lineH);
       }
       c.restore();
     },
