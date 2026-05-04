@@ -26,6 +26,7 @@ export class MeasuredDataSource {
     this.config = config;
     this._timer = null;
     this._listener = null;
+    this._failureCount = 0;
   }
 
   setHass(hass) {
@@ -51,9 +52,16 @@ export class MeasuredDataSource {
     if (!this._listener || !this.hass) return;
     try {
       const forecast = await this._fetchAggregates();
+      this._failureCount = 0;
       if (this._listener) this._listener({ forecast });
     } catch (err) {
+      this._failureCount += 1;
       console.error('[weather-station-card] statistics fetch failed', err);
+      // After a few consecutive failures, surface to the render layer so
+      // the card can display a banner instead of hanging on stale data.
+      if (this._failureCount >= 3 && this._listener) {
+        this._listener({ forecast: [], error: String(err && err.message ? err.message : err) });
+      }
     }
   }
 

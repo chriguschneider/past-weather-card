@@ -990,11 +990,8 @@ class WeatherStationCardEditor extends s {
     this._config = config;
     const sensors = config.sensors || {};
     // Surface toggles only make sense if the corresponding sensor is configured.
-    this.hasApparentTemperature = false;
     this.hasDewpoint = !!sensors.dew_point;
     this.hasWindgustspeed = !!sensors.gust_speed;
-    this.hasVisibility = false;
-    this.hasDescription = false;
     this.requestUpdate();
   }
 
@@ -1226,28 +1223,6 @@ class WeatherStationCardEditor extends s {
               Show Main
             </label>
           </div>
-      <div class="switch-container">
-        ${this.hasApparentTemperature ? x`
-          <ha-switch
-            @change="${(e) => this._valueChanged(e, 'show_feels_like')}"
-            .checked="${this._config.show_feels_like !== false}"
-          ></ha-switch>
-          <label class="switch-label">
-            Show Feels Like Temperature
-          </label>
-        ` : ''}
-      </div>
-      <div class="switch-container">
-        ${this.hasDescription ? x`
-          <ha-switch
-            @change="${(e) => this._valueChanged(e, 'show_description')}"
-            .checked="${this._config.show_description !== false}"
-          ></ha-switch>
-          <label class="switch-label">
-            Show Weather Description
-          </label>
-        ` : ''}
-      </div>
           <div class="switch-container">
             <ha-switch
               @change="${(e) => this._valueChanged(e, 'show_temperature')}"
@@ -1342,26 +1317,6 @@ class WeatherStationCardEditor extends s {
           </label>
         ` : ''}
       </div>
-      <div class="switch-container">
-        ${this.hasVisibility ? x`
-          <ha-switch
-            @change="${(e) => this._valueChanged(e, 'show_visibility')}"
-            .checked="${this._config.show_visibility !== false}"
-          ></ha-switch>
-          <label class="switch-label">
-            Show Visibility
-          </label>
-        ` : ''}
-      </div>
-          <div class="switch-container">
-            <ha-switch
-              @change="${(e) => this._valueChanged(e, 'show_last_changed')}"
-              .checked="${this._config.show_last_changed !== false}"
-            ></ha-switch>
-            <label class="switch-label">
-              Show when last data changed
-            </label>
-          </div>
           <div class="switch-container">
             <ha-switch
               @change="${(e) => this._valueChanged(e, 'use_12hour_format')}"
@@ -1841,6 +1796,7 @@ class MeasuredDataSource {
     this.config = config;
     this._timer = null;
     this._listener = null;
+    this._failureCount = 0;
   }
 
   setHass(hass) {
@@ -1866,9 +1822,16 @@ class MeasuredDataSource {
     if (!this._listener || !this.hass) return;
     try {
       const forecast = await this._fetchAggregates();
+      this._failureCount = 0;
       if (this._listener) this._listener({ forecast });
     } catch (err) {
+      this._failureCount += 1;
       console.error('[weather-station-card] statistics fetch failed', err);
+      // After a few consecutive failures, surface to the render layer so
+      // the card can display a banner instead of hanging on stale data.
+      if (this._failureCount >= 3 && this._listener) {
+        this._listener({ forecast: [], error: String(err && err.message ? err.message : err) });
+      }
     }
   }
 
@@ -18361,11 +18324,8 @@ static getStubConfig(hass, unusedEntities, allEntities) {
     show_wind_direction: true,
     show_wind_speed: true,
     show_sun: false,
-    show_feels_like: false,
     show_dew_point: false,
     show_wind_gust_speed: false,
-    show_visibility: false,
-    show_last_changed: false,
     use_12hour_format: false,
     icons_size: 25,
     animated_icons: false,
@@ -18414,12 +18374,8 @@ setConfig(config) {
     time_size: 26,
     day_date_size: 15,
     show_main: false,
-    show_feels_like: false,
     show_dew_point: false,
     show_wind_gust_speed: false,
-    show_visibility: false,
-    show_last_changed: false,
-    show_description: false,
     days: 7,
     sensors: {},
     ...config,
@@ -18478,12 +18434,10 @@ set hass(hass) {
     || attrOf(sensors.gust_speed, 'unit_of_measurement')
     || 'm/s';
   const sourcePressureUnit = attrOf(sensors.pressure, 'unit_of_measurement') || 'hPa';
-  const sourceVisibilityUnit = 'km';
   const sourceTempUnit = attrOf(sensors.temperature, 'unit_of_measurement') || '°C';
 
   this.unitSpeed = this.config.units.speed || sourceWindUnit;
   this.unitPressure = this.config.units.pressure || sourcePressureUnit;
-  this.unitVisibility = this.config.units.visibility || sourceVisibilityUnit;
 
   this.temperature = valueOf(sensors.temperature);
   this.humidity = valueOf(sensors.humidity);
@@ -18492,12 +18446,9 @@ set hass(hass) {
   this.windSpeed = valueOf(sensors.wind_speed);
   this.dew_point = valueOf(sensors.dew_point);
   this.wind_gust_speed = valueOf(sensors.gust_speed);
-  this.visibility = undefined;
   this.windDirection = sensors.wind_direction && hass.states[sensors.wind_direction]
     ? parseFloat(hass.states[sensors.wind_direction].state)
     : undefined;
-  this.feels_like = undefined;
-  this.description = undefined;
 
   // Live "now" condition derived from current sensor states. The same
   // classifier is used as for daily forecast columns, just fed with
@@ -18541,7 +18492,6 @@ set hass(hass) {
     attributes: {
       wind_speed_unit: sourceWindUnit,
       pressure_unit: sourcePressureUnit,
-      visibility_unit: sourceVisibilityUnit,
       temperature_unit: sourceTempUnit,
       temperature: this.temperature,
       humidity: this.humidity,
@@ -18551,9 +18501,6 @@ set hass(hass) {
       wind_bearing: this.windDirection,
       dew_point: this.dew_point,
       wind_gust_speed: this.wind_gust_speed,
-      visibility: this.visibility,
-      apparent_temperature: undefined,
-      description: undefined,
       supported_features: 0,
     },
   };
@@ -18562,11 +18509,22 @@ set hass(hass) {
     this._dataSource = new MeasuredDataSource(hass, this.config);
     this._dataUnsubscribe = this._dataSource.subscribe((event) => {
       this.forecasts = event.forecast;
+      this._dataError = event.error || null;
       this.requestUpdate();
       this.drawChart();
     });
   } else {
     this._dataSource.setHass(hass);
+  }
+
+  // Detect missing/unavailable sensor entities for the render-time banner.
+  this._missingSensors = [];
+  for (const [key, eid] of Object.entries(sensors)) {
+    if (!eid) continue;
+    const s = hass.states[eid];
+    if (!s || s.state === 'unavailable' || s.state === 'unknown') {
+      this._missingSensors.push(`${key} (${eid})`);
+    }
   }
 }
 
@@ -18598,6 +18556,14 @@ set hass(hass) {
       this._dataUnsubscribe = null;
     }
     this._dataSource = null;
+    if (this._clockTimer) {
+      clearInterval(this._clockTimer);
+      this._clockTimer = null;
+    }
+    if (this.autoscrollTimeout) {
+      clearTimeout(this.autoscrollTimeout);
+      this.autoscrollTimeout = null;
+    }
   }
 
   attachResizeObserver() {
@@ -18722,17 +18688,10 @@ calculateBeaufortScale(windSpeed) {
     'mph': 1.60934,
   };
 
-  if (!this.weather || !this.weather.attributes.wind_speed_unit) {
-    throw new Error('wind_speed_unit not available in weather attributes.');
-  }
-
-  const wind_speed_unit = this.weather.attributes.wind_speed_unit;
-  const conversionFactor = unitConversion[wind_speed_unit];
-
-  if (typeof conversionFactor !== 'number') {
-    throw new Error(`Unknown wind_speed_unit: ${wind_speed_unit}`);
-  }
-
+  const wind_speed_unit = this.weather && this.weather.attributes
+    ? this.weather.attributes.wind_speed_unit
+    : null;
+  const conversionFactor = unitConversion[wind_speed_unit] || unitConversion['m/s'];
   const windSpeedInKmPerHour = windSpeed * conversionFactor;
 
   if (windSpeedInKmPerHour < 1) return 0;
@@ -18822,7 +18781,7 @@ autoscroll() {
     this.autoscrollTimeout = setTimeout(() => {
       this.autoscrollTimeout = null;
       this.updateChart();
-      drawChartOncePerHour();
+      updateChartOncePerHour();
     }, nextHour - now);
   };
 
@@ -19315,7 +19274,7 @@ updateChart({ forecasts, forecastChart } = this) {
         .card {
           padding-top: ${config.title ? '0px' : '16px'};
           padding-right: 16px;
-          padding-bottom: ${config.show_last_changed === true ? '2px' : '16px'};
+          padding-bottom: 16px;
           padding-left: 16px;
         }
         .main {
@@ -19419,27 +19378,11 @@ updateChart({ forecasts, forecastChart } = this) {
           font-size: ${config.day_date_size}px;
           color: var(--secondary-text-color);
         }
-        .main .feels-like {
-          font-size: 13px;
-          margin-top: 5px;
-          font-weight: 400;
-        }
-        .main .description {
-	  font-style: italic;
-          font-size: 13px;
-          margin-top: 5px;
-          font-weight: 400;
-        }
-        .updated {
-          font-size: 13px;
-          align-items: right;
-          font-weight: 300;
-          margin-bottom: 1px;
-        }
       </style>
 
       <ha-card header="${config.title}">
         <div class="card">
+          ${this.renderErrorBanner()}
           ${this.renderMain()}
           ${this.renderAttributes()}
           <div class="chart-container">
@@ -19447,13 +19390,28 @@ updateChart({ forecasts, forecastChart } = this) {
           </div>
           ${this.renderForecastConditionIcons()}
           ${this.renderWind()}
-          ${this.renderLastUpdated()}
         </div>
       </ha-card>
     `;
   }
 
-renderMain({ config, sun, weather, temperature, feels_like, description } = this) {
+renderErrorBanner() {
+  const errors = [];
+  if (this._dataError) {
+    errors.push(`Statistics fetch failed: ${this._dataError}`);
+  }
+  if (this._missingSensors && this._missingSensors.length) {
+    errors.push(`Sensors unavailable: ${this._missingSensors.join(', ')}`);
+  }
+  if (!errors.length) return x``;
+  return x`
+    <div style="background: var(--error-color, #b71c1c); color: white; padding: 8px 12px; margin: 8px; border-radius: 4px; font-size: 13px;">
+      ${errors.map((e) => x`<div>${e}</div>`)}
+    </div>
+  `;
+}
+
+renderMain({ config, sun, weather, temperature } = this) {
   if (config.show_main === false)
     return x``;
 
@@ -19461,8 +19419,6 @@ renderMain({ config, sun, weather, temperature, feels_like, description } = this
   const showTime = config.show_time;
   const showDay = config.show_day;
   const showDate = config.show_date;
-  const showFeelsLike = config.show_feels_like;
-  const showDescription = config.show_description;
   const showCurrentCondition = config.show_current_condition !== false;
   const showTemperature = config.show_temperature !== false;
   const showSeconds = config.show_time_seconds === true;
@@ -19470,11 +19426,6 @@ renderMain({ config, sun, weather, temperature, feels_like, description } = this
   let roundedTemperature = parseFloat(temperature);
   if (!isNaN(roundedTemperature) && roundedTemperature % 1 !== 0) {
     roundedTemperature = Math.round(roundedTemperature * 10) / 10;
-  }
-
-  let roundedFeelsLike = parseFloat(feels_like);
-  if (!isNaN(roundedFeelsLike) && roundedFeelsLike % 1 !== 0) {
-    roundedFeelsLike = Math.round(roundedFeelsLike * 10) / 10;
   }
 
   const iconHtml = config.animated_icons || config.icons
@@ -19516,8 +19467,12 @@ renderMain({ config, sun, weather, temperature, feels_like, description } = this
 
   updateClock();
 
+  if (this._clockTimer) {
+    clearInterval(this._clockTimer);
+    this._clockTimer = null;
+  }
   if (showTime) {
-    setInterval(updateClock, 1000);
+    this._clockTimer = setInterval(updateClock, 1000);
   }
 
   return x`
@@ -19526,20 +19481,9 @@ renderMain({ config, sun, weather, temperature, feels_like, description } = this
       <div>
         <div>
           ${showTemperature ? x`${roundedTemperature}<span>${this.getUnit('temperature')}</span>` : ''}
-          ${showFeelsLike && roundedFeelsLike ? x`
-            <div class="feels-like">
-              ${this.ll('feelsLike')}
-              ${roundedFeelsLike}${this.getUnit('temperature')}
-            </div>
-          ` : ''}
           ${showCurrentCondition ? x`
             <div class="current-condition">
               <span>${this.ll(weather.state)}</span>
-            </div>
-          ` : ''}
-          ${showDescription ? x`
-            <div class="description">
-              ${description}
             </div>
           ` : ''}
         </div>
@@ -19556,7 +19500,7 @@ renderMain({ config, sun, weather, temperature, feels_like, description } = this
   `;
 }
 
-renderAttributes({ config, humidity, pressure, windSpeed, windDirection, sun, language, uv_index, dew_point, wind_gust_speed, visibility } = this) {
+renderAttributes({ config, humidity, pressure, windSpeed, windDirection, sun, language, uv_index, dew_point, wind_gust_speed } = this) {
   let dWindSpeed = windSpeed;
   let dPressure = pressure;
 
@@ -19623,11 +19567,10 @@ renderAttributes({ config, humidity, pressure, windSpeed, windDirection, sun, la
   const showSun = config.show_sun !== false;
   const showDewpoint = config.show_dew_point == true;
   const showWindgustspeed = config.show_wind_gust_speed == true;
-  const showVisibility = config.show_visibility == true;
 
 return x`
     <div class="attributes">
-      ${((showHumidity && humidity !== undefined) || (showPressure && dPressure !== undefined) || (showDewpoint && dew_point !== undefined) || (showVisibility && visibility !== undefined)) ? x`
+      ${((showHumidity && humidity !== undefined) || (showPressure && dPressure !== undefined) || (showDewpoint && dew_point !== undefined)) ? x`
         <div>
           ${showHumidity && humidity !== undefined ? x`
             <ha-icon icon="hass:water-percent"></ha-icon> ${humidity} %<br>
@@ -19637,9 +19580,6 @@ return x`
           ` : ''}
           ${showDewpoint && dew_point !== undefined ? x`
             <ha-icon icon="hass:thermometer-water"></ha-icon> ${dew_point} ${this.weather.attributes.temperature_unit} <br>
-          ` : ''}
-          ${showVisibility && visibility !== undefined ? x`
-            <ha-icon icon="hass:eye"></ha-icon> ${visibility} ${this.weather.attributes.visibility_unit}
           ` : ''}
         </div>
       ` : ''}
@@ -19801,38 +19741,6 @@ _convertWindSpeed(raw) {
     return this.calculateBeaufortScale(raw);
   }
   return Math.round(raw);
-}
-
-renderLastUpdated() {
-  if (this.config.show_last_changed !== true) {
-    return x``;
-  }
-
-  const lastUpdatedString = this.weather && this.weather.last_changed;
-  const lastUpdatedTimestamp = lastUpdatedString
-    ? new Date(lastUpdatedString).getTime()
-    : NaN;
-
-  if (!Number.isFinite(lastUpdatedTimestamp)) {
-    return x``;
-  }
-
-  const timeDifference = Date.now() - lastUpdatedTimestamp;
-  const minutesAgo = Math.floor(timeDifference / (1000 * 60));
-  const hoursAgo = Math.floor(minutesAgo / 60);
-
-  const formatter = new Intl.RelativeTimeFormat(this.language, { numeric: 'auto' });
-  const formattedLastUpdated = hoursAgo > 0
-    ? formatter.format(-hoursAgo, 'hour')
-    : formatter.format(-minutesAgo, 'minute');
-
-  return x`
-    <div class="updated">
-      <div>
-        ${formattedLastUpdated}
-      </div>
-    </div>
-  `;
 }
 
   _fire(type, detail, options) {

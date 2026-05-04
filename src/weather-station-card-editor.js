@@ -90,11 +90,8 @@ class WeatherStationCardEditor extends LitElement {
     this._config = config;
     const sensors = config.sensors || {};
     // Surface toggles only make sense if the corresponding sensor is configured.
-    this.hasApparentTemperature = false;
     this.hasDewpoint = !!sensors.dew_point;
     this.hasWindgustspeed = !!sensors.gust_speed;
-    this.hasVisibility = false;
-    this.hasDescription = false;
     this.requestUpdate();
   }
 
@@ -326,28 +323,6 @@ class WeatherStationCardEditor extends LitElement {
               Show Main
             </label>
           </div>
-      <div class="switch-container">
-        ${this.hasApparentTemperature ? html`
-          <ha-switch
-            @change="${(e) => this._valueChanged(e, 'show_feels_like')}"
-            .checked="${this._config.show_feels_like !== false}"
-          ></ha-switch>
-          <label class="switch-label">
-            Show Feels Like Temperature
-          </label>
-        ` : ''}
-      </div>
-      <div class="switch-container">
-        ${this.hasDescription ? html`
-          <ha-switch
-            @change="${(e) => this._valueChanged(e, 'show_description')}"
-            .checked="${this._config.show_description !== false}"
-          ></ha-switch>
-          <label class="switch-label">
-            Show Weather Description
-          </label>
-        ` : ''}
-      </div>
           <div class="switch-container">
             <ha-switch
               @change="${(e) => this._valueChanged(e, 'show_temperature')}"
@@ -442,26 +417,6 @@ class WeatherStationCardEditor extends LitElement {
           </label>
         ` : ''}
       </div>
-      <div class="switch-container">
-        ${this.hasVisibility ? html`
-          <ha-switch
-            @change="${(e) => this._valueChanged(e, 'show_visibility')}"
-            .checked="${this._config.show_visibility !== false}"
-          ></ha-switch>
-          <label class="switch-label">
-            Show Visibility
-          </label>
-        ` : ''}
-      </div>
-          <div class="switch-container">
-            <ha-switch
-              @change="${(e) => this._valueChanged(e, 'show_last_changed')}"
-              .checked="${this._config.show_last_changed !== false}"
-            ></ha-switch>
-            <label class="switch-label">
-              Show when last data changed
-            </label>
-          </div>
           <div class="switch-container">
             <ha-switch
               @change="${(e) => this._valueChanged(e, 'use_12hour_format')}"

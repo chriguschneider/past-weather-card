@@ -1,6 +1,7 @@
 MIT License
 
-Copyright (c) 2023 Marc Lamberts
+Copyright (c) 2025 Christian Schneider (weather-station-card fork)
+Copyright (c) 2023 Marc Lamberts (original weather-chart-card)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

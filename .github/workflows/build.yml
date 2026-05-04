@@ -1,0 +1,55 @@
+name: Build & Lint
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run rollup
+
+      - name: Verify committed bundle matches source
+        run: |
+          if ! git diff --quiet -- dist/weather-station-card.js; then
+            echo "::error::dist/weather-station-card.js is out of sync with source. Run 'npm run build' and commit the result."
+            git --no-pager diff --stat -- dist/weather-station-card.js
+            exit 1
+          fi
+
+      - name: Verify package.json version matches tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg=$(node -p "require('./package.json').version")
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version $pkg."
+            exit 1
+          fi
+
+      - name: Upload bundle to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/weather-station-card.js

@@ -1,17 +1,30 @@
 {
   "name": "weather-station-card",
-  "version": "0.3.1",
-  "description": "Lovelace card showing past weather station measurements with the weather-chart-card layout. Fork of mlamberts78/weather-chart-card.",
+  "version": "0.4.0",
+  "description": "Lovelace card showing past weather-station measurements with the weather-chart-card layout, plus live current-condition rendering driven by sensor history.",
   "keywords": [
     "home-assistant",
     "homeassistant",
     "hass",
-    "automation",
     "lovelace",
-    "custom-cards"
+    "custom-cards",
+    "weather",
+    "weather-station",
+    "sensor",
+    "history",
+    "statistics",
+    "chart"
   ],
+  "main": "dist/weather-station-card.js",
   "module": "src/main.js",
-  "repository": "git@github.com:chriguschneider/weather-station-card.git",
+  "homepage": "https://github.com/chriguschneider/weather-station-card",
+  "bugs": {
+    "url": "https://github.com/chriguschneider/weather-station-card/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chriguschneider/weather-station-card.git"
+  },
   "author": "chrigu",
   "contributors": [
     "Marc Lamberts (original weather-chart-card author)"
@@ -33,7 +46,7 @@
   "scripts": {
     "start": "rollup -c rollup.config.dev.js --watch",
     "build": "npm run lint && npm run rollup",
-    "lint": "eslint 'src/**/*.js'",
+    "lint": "eslint src",
     "rollup": "rollup -c"
   }
 }
