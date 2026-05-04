@@ -1,37 +1,47 @@
 import { LitElement, html } from 'lit';
 import locale from './locale.js';
 
-// Schema for the per-metric sensor pickers. `device_class` filters are
-// applied only where they reliably narrow the result; for metrics that
-// integrations classify inconsistently (pressure on BTHome ships with
-// unit mbar and no canonical class; wind/gust device classes are not
-// universal) the selector accepts any sensor and the user picks.
+// Per-metric sensor pickers. Most filter by `device_class`; wind direction
+// has no canonical class but a stable unit (degrees) so it gets a runtime
+// include-list keyed off `hass.states`. UV index has neither a class nor a
+// universal unit and stays unfiltered.
 //
 // `name` doubles as the i18n key — see locale.js `editor` blocks. The
 // English `label` here is the runtime fallback when the user's HA
 // language has no translation registered.
-const SENSORS_SCHEMA = [
-  { name: "temperature",    label: "Temperature",
-    selector: { entity: { domain: 'sensor', device_class: 'temperature' } } },
-  { name: "humidity",       label: "Humidity",
-    selector: { entity: { domain: 'sensor', device_class: 'humidity' } } },
-  { name: "illuminance",    label: "Illuminance",
-    selector: { entity: { domain: 'sensor', device_class: 'illuminance' } } },
-  { name: "precipitation",  label: "Precipitation",
-    selector: { entity: { domain: 'sensor', device_class: 'precipitation' } } },
-  { name: "pressure",       label: "Pressure",
-    selector: { entity: { domain: 'sensor', device_class: ['atmospheric_pressure', 'pressure'] } } },
-  { name: "wind_speed",     label: "Wind speed",
-    selector: { entity: { domain: 'sensor', device_class: ['wind_speed', 'speed'] } } },
-  { name: "gust_speed",     label: "Gust speed",
-    selector: { entity: { domain: 'sensor', device_class: ['wind_speed', 'speed'] } } },
-  { name: "wind_direction", label: "Wind direction",
-    selector: { entity: { domain: 'sensor' } } },
-  { name: "uv_index",       label: "UV index",
-    selector: { entity: { domain: 'sensor' } } },
-  { name: "dew_point",      label: "Dew point",
-    selector: { entity: { domain: 'sensor', device_class: 'temperature' } } },
-];
+function buildSensorsSchema(hass) {
+  const directionEntities = hass
+    ? Object.entries(hass.states)
+        .filter(([id, s]) =>
+          id.startsWith('sensor.') &&
+          (s.attributes.unit_of_measurement === '°' ||
+           s.attributes.unit_of_measurement === 'deg'))
+        .map(([id]) => id)
+    : [];
+
+  return [
+    { name: "temperature",    label: "Temperature",
+      selector: { entity: { domain: 'sensor', device_class: 'temperature' } } },
+    { name: "humidity",       label: "Humidity",
+      selector: { entity: { domain: 'sensor', device_class: 'humidity' } } },
+    { name: "illuminance",    label: "Illuminance",
+      selector: { entity: { domain: 'sensor', device_class: 'illuminance' } } },
+    { name: "precipitation",  label: "Precipitation",
+      selector: { entity: { domain: 'sensor', device_class: 'precipitation' } } },
+    { name: "pressure",       label: "Pressure",
+      selector: { entity: { domain: 'sensor', device_class: ['atmospheric_pressure', 'pressure'] } } },
+    { name: "wind_speed",     label: "Wind speed",
+      selector: { entity: { domain: 'sensor', device_class: ['wind_speed', 'speed'] } } },
+    { name: "gust_speed",     label: "Gust speed",
+      selector: { entity: { domain: 'sensor', device_class: ['wind_speed', 'speed'] } } },
+    { name: "wind_direction", label: "Wind direction",
+      selector: { entity: { include_entities: directionEntities } } },
+    { name: "uv_index",       label: "UV index",
+      selector: { entity: { domain: 'sensor' } } },
+    { name: "dew_point",      label: "Dew point",
+      selector: { entity: { domain: 'sensor', device_class: 'temperature' } } },
+  ];
+}
 
 // Resolve a localized editor string. Falls back along
 // language → base-language → English → key.
@@ -268,7 +278,7 @@ class WeatherStationCardEditor extends LitElement {
         <h5>${tEditor(this.hass, 'sensors_heading')}:</h5>
         <ha-form
           .data=${sensorsConfig}
-          .schema=${SENSORS_SCHEMA}
+          .schema=${buildSensorsSchema(this.hass)}
           .hass=${this.hass}
           .computeLabel=${(s) => tEditor(this.hass, s.name)}
           @value-changed=${this._sensorsChanged}
