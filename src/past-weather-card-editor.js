@@ -1,27 +1,36 @@
 import { LitElement, html } from 'lit';
 
+// Schema for the per-metric sensor pickers. `device_class` filters are
+// applied only where they reliably narrow the result; for metrics that
+// integrations classify inconsistently (pressure on BTHome ships with
+// unit mbar and no canonical class; wind/gust device classes are not
+// universal) the selector accepts any sensor and the user picks. The
+// `label` field is what we surface in the editor — `computeLabel` below
+// reads it.
 const SENSORS_SCHEMA = [
-  { name: "temperature",    title: "Temperature sensor",
+  { name: "temperature",    label: "Temperature",
     selector: { entity: { domain: 'sensor', device_class: 'temperature' } } },
-  { name: "humidity",       title: "Humidity sensor",
+  { name: "humidity",       label: "Humidity",
     selector: { entity: { domain: 'sensor', device_class: 'humidity' } } },
-  { name: "illuminance",    title: "Illuminance sensor",
+  { name: "illuminance",    label: "Illuminance",
     selector: { entity: { domain: 'sensor', device_class: 'illuminance' } } },
-  { name: "precipitation",  title: "Precipitation sensor (cumulative or daily-reset both work)",
+  { name: "precipitation",  label: "Precipitation (cumulative or daily-reset both work)",
     selector: { entity: { domain: 'sensor' } } },
-  { name: "pressure",       title: "Pressure sensor",
-    selector: { entity: { domain: 'sensor', device_class: 'atmospheric_pressure' } } },
-  { name: "wind_speed",     title: "Wind speed sensor",
-    selector: { entity: { domain: 'sensor', device_class: 'wind_speed' } } },
-  { name: "gust_speed",     title: "Gust speed sensor",
-    selector: { entity: { domain: 'sensor', device_class: 'wind_speed' } } },
-  { name: "wind_direction", title: "Wind direction sensor",
+  { name: "pressure",       label: "Pressure",
     selector: { entity: { domain: 'sensor' } } },
-  { name: "uv_index",       title: "UV index sensor",
+  { name: "wind_speed",     label: "Wind speed",
     selector: { entity: { domain: 'sensor' } } },
-  { name: "dew_point",      title: "Dew point sensor",
-    selector: { entity: { domain: 'sensor', device_class: 'temperature' } } },
+  { name: "gust_speed",     label: "Gust speed",
+    selector: { entity: { domain: 'sensor' } } },
+  { name: "wind_direction", label: "Wind direction",
+    selector: { entity: { domain: 'sensor' } } },
+  { name: "uv_index",       label: "UV index",
+    selector: { entity: { domain: 'sensor' } } },
+  { name: "dew_point",      label: "Dew point",
+    selector: { entity: { domain: 'sensor' } } },
 ];
+
+const _computeSensorLabel = (schema) => schema.label || schema.name;
 
 class PastWeatherCardEditor extends LitElement {
   static get properties() {
@@ -248,6 +257,7 @@ class PastWeatherCardEditor extends LitElement {
           .data=${sensorsConfig}
           .schema=${SENSORS_SCHEMA}
           .hass=${this.hass}
+          .computeLabel=${_computeSensorLabel}
           @value-changed=${this._sensorsChanged}
         ></ha-form>
         <ha-textfield
