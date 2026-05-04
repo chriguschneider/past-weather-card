@@ -18817,7 +18817,15 @@ drawChart({ config, language, weather, forecastItems } = this) {
           },
           grid: {
             drawTicks: false,
-            color: dividerColor,
+            color: (ctx) => {
+              if (!ctx.tick) return dividerColor;
+              const ticks = ctx.chart && ctx.chart.scales && ctx.chart.scales[ctx.scale.id]
+                ? ctx.chart.scales[ctx.scale.id].ticks
+                : [];
+              return (ctx.index === 0 || ctx.index === ticks.length - 1)
+                ? (textColor || dividerColor)
+                : dividerColor;
+            },
             lineWidth: (ctx) => {
               if (!ctx.tick) return 1;
               const ticks = ctx.chart && ctx.chart.scales && ctx.chart.scales[ctx.scale.id]
