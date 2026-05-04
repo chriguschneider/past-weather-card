@@ -866,7 +866,7 @@ const SENSORS_SCHEMA = [
     selector: { entity: { domain: 'sensor', device_class: 'humidity' } } },
   { name: "illuminance",    title: "Illuminance sensor",
     selector: { entity: { domain: 'sensor', device_class: 'illuminance' } } },
-  { name: "precipitation",  title: "Precipitation sensor (cumulative or daily-sum)",
+  { name: "precipitation",  title: "Precipitation sensor — pick a daily-reset one (e.g. *_today)",
     selector: { entity: { domain: 'sensor' } } },
   { name: "pressure",       title: "Pressure sensor",
     selector: { entity: { domain: 'sensor', device_class: 'atmospheric_pressure' } } },
@@ -18061,7 +18061,13 @@ static getStubConfig(hass, unusedEntities, allEntities) {
       temperature: findByClass('temperature') || '',
       humidity: findByClass('humidity') || '',
       illuminance: findByClass('illuminance') || '',
-      precipitation: findByPattern(/precipitation/) || '',
+      // Prefer a daily-reset sensor (e.g. utility_meter cycle: daily) so the
+      // statistics max-per-day equals the day's rainfall. A cumulative
+      // (lifetime) sensor would yield the running total, not daily mm.
+      precipitation: findByPattern(/precipitation_today/)
+        || findByPattern(/precipitation_daily/)
+        || findByPattern(/precipitation/)
+        || '',
       pressure: findByClass('atmospheric_pressure') || findByClass('pressure') || '',
       wind_speed: findByClass('wind_speed') || '',
       gust_speed: findByPattern(/gust/) || '',
