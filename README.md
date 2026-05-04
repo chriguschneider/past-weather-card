@@ -20,6 +20,24 @@ Forked from [`mlamberts78/weather-chart-card`](https://github.com/mlamberts78/we
 
 Not yet ready for end users. Documentation, screenshots, and HACS Custom Repository instructions will land once the data layer is in place.
 
+## Current ("now") condition
+
+When `show_main: true`, the main panel's icon and condition text reflect a
+**live** classification of the current sensor states (re-evaluated whenever
+any sensor updates). The same classifier is used as for the daily forecast
+columns, fed with instantaneous values and an instantaneous clear-sky
+reference (zenith from latitude + longitude + current UTC time).
+
+Because turning a cumulative precipitation counter into a current rate
+requires extra history, **precipitation only contributes to the live
+condition when the sensor's `unit_of_measurement` is a rate** (`mm/h`,
+`mm/hr`, `mm/hour`). With a cumulative counter the classifier falls
+through to the cloud / wind / fog rules instead of guessing rain.
+
+Day/night-aware icons are still automatic: when `sun.sun` is below the
+horizon, `sunny` and `partlycloudy` swap to their night variants
+(`clear-night`, `partlycloudy-night`).
+
 ## How daily conditions are determined
 
 Every day's icon is derived from that day's sensor statistics by a deterministic

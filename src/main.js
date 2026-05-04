@@ -8,6 +8,7 @@ import {
 import {LitElement, html} from 'lit';
 import './weather-station-card-editor.js';
 import { MeasuredDataSource } from './data-source.js';
+import { classifyDay, clearSkyLuxAt } from './condition-classifier.js';
 import { property } from 'lit/decorators.js';
 import {Chart, registerables} from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
@@ -207,11 +208,45 @@ set hass(hass) {
   this.feels_like = undefined;
   this.description = undefined;
 
+  // Live "now" condition derived from current sensor states. The same
+  // classifier is used as for daily forecast columns, just fed with
+  // instantaneous values and an instantaneous clear-sky reference.
+  // Precipitation only contributes when the sensor reports a rate
+  // (unit ends in /h) — cumulative counters can't be turned into a
+  // current rate without extra history and would otherwise spuriously
+  // trigger 'rainy' on a dry day.
+  const numOrNull = (v) => {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const nowTemp = numOrNull(this.temperature);
+  const luxNow = numOrNull(valueOf(sensors.illuminance));
+  const precipUnit = attrOf(sensors.precipitation, 'unit_of_measurement') || '';
+  const precipIsRate = /\/(h|hr|hour)$/i.test(precipUnit);
+  const precipRateNow = precipIsRate ? numOrNull(valueOf(sensors.precipitation)) : null;
+  const lat = hass.config && hass.config.latitude;
+  const lon = hass.config && hass.config.longitude;
+  const clearskyNow = lat != null && lon != null
+    ? clearSkyLuxAt(lat, lon, new Date())
+    : 110000;
+  const currentCondition = classifyDay({
+    temp_max: nowTemp,
+    temp_min: nowTemp,
+    humidity: numOrNull(this.humidity),
+    lux_max: luxNow,
+    precip_total: precipRateNow,
+    wind_mean: numOrNull(this.windSpeed),
+    gust_max: numOrNull(this.wind_gust_speed),
+    dew_point_mean: numOrNull(this.dew_point),
+    clearsky_lux: clearskyNow,
+  }, this.config.condition_mapping || {});
+
   // Synthesized stand-in for the original weather entity. The *_unit fields
   // here represent the SOURCE units (what the data layer actually emits);
   // the conversion code compares them against this.unitSpeed / unitPressure
   // to decide whether to convert.
   this.weather = {
+    state: currentCondition,
     attributes: {
       wind_speed_unit: sourceWindUnit,
       pressure_unit: sourcePressureUnit,

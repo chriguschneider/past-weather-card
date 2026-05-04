@@ -69,6 +69,26 @@ export function clearSkyNoonLux(latDeg, dayOfYear) {
   return 110000 * Math.cos(zenith * Math.PI / 180);
 }
 
+// Theoretical clear-sky illuminance at an arbitrary moment. Used for live
+// "current condition" classification where solar noon is the wrong reference.
+// Hour angle from local solar time (UTC + longitude/15); equation-of-time
+// correction omitted (max ~16 min, negligible at the cloud-ratio resolution
+// we need). cos(zenith) = sinφ·sinδ + cosφ·cosδ·cos(H).
+export function clearSkyLuxAt(latDeg, lonDeg, date) {
+  const d = date instanceof Date ? date : new Date();
+  if (!Number.isFinite(latDeg) || !Number.isFinite(lonDeg)) return 110000;
+  const start = new Date(d.getFullYear(), 0, 0);
+  const dayOfYear = Math.floor((d - start) / (24 * 60 * 60 * 1000));
+  const decl = declinationDeg(dayOfYear) * Math.PI / 180;
+  const lat = latDeg * Math.PI / 180;
+  const utcHours = d.getUTCHours() + d.getUTCMinutes() / 60 + d.getUTCSeconds() / 3600;
+  const solarHour = utcHours + lonDeg / 15;
+  const hourAngle = (solarHour - 12) * 15 * Math.PI / 180;
+  const cosZ = Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.cos(hourAngle);
+  if (cosZ <= 0) return 0;
+  return 110000 * cosZ;
+}
+
 // Map a per-day record to an HA condition ID. Worst-of-day priority:
 // extreme weather > precipitation > fog > wind > cloud cover.
 export function classifyDay(day, overrides = {}) {
