@@ -7,16 +7,16 @@ import {
   WeatherEntityFeature
 } from './const.js';
 import {LitElement, html} from 'lit';
-import './weather-chart-card-editor.js';
+import './past-weather-card-editor.js';
 import { property } from 'lit/decorators.js';
 import {Chart, registerables} from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 Chart.register(...registerables, ChartDataLabels);
 
-class WeatherChartCard extends LitElement {
+class PastWeatherCard extends LitElement {
 
 static getConfigElement() {
-  return document.createElement("weather-chart-card-editor");
+  return document.createElement("past-weather-card-editor");
 }
 
 static getStubConfig(hass, unusedEntities, allEntities) {
@@ -125,8 +125,8 @@ setConfig(config) {
   cardConfig.units.speed = config.speed ? config.speed : cardConfig.units.speed;
 
   this.baseIconPath = cardConfig.icon_style === 'style2' ?
-    'https://cdn.jsdelivr.net/gh/mlamberts78/weather-chart-card/dist/icons2/':
-    'https://cdn.jsdelivr.net/gh/mlamberts78/weather-chart-card/dist/icons/' ;
+    'https://cdn.jsdelivr.net/gh/chriguschneider/past-weather-card/dist/icons2/':
+    'https://cdn.jsdelivr.net/gh/chriguschneider/past-weather-card/dist/icons/' ;
 
   this.config = cardConfig;
   if (!config.entity) {
@@ -1389,13 +1389,13 @@ renderLastUpdated() {
   }
 }
 
-customElements.define('weather-chart-card', WeatherChartCard);
+customElements.define('past-weather-card', PastWeatherCard);
 
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "weather-chart-card",
-  name: "Weather Chart Card",
-  description: "A custom weather card with chart.",
+  type: "past-weather-card",
+  name: "Past Weather Card",
+  description: "Weather-chart-card layout for past weather station measurements.",
   preview: true,
-  documentationURL: "https://github.com/mlamberts78/weather-chart-card",
+  documentationURL: "https://github.com/chriguschneider/past-weather-card",
 });

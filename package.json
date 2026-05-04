@@ -1,7 +1,7 @@
 {
-  "name": "weather-chart-card",
-  "version": "1.0.1",
-  "description": "Weather card with charts for Home Assistant Lovelace UI",
+  "name": "past-weather-card",
+  "version": "0.1.0",
+  "description": "Lovelace card showing past weather station measurements with the weather-chart-card layout. Fork of mlamberts78/weather-chart-card.",
   "keywords": [
     "home-assistant",
     "homeassistant",
@@ -11,8 +11,11 @@
     "custom-cards"
   ],
   "module": "src/main.js",
-  "repository": "git@github.com:mlamberts78/weather-chart-card.git",
-  "author": "Marc Lamberts",
+  "repository": "git@github.com:chriguschneider/past-weather-card.git",
+  "author": "chrigu",
+  "contributors": [
+    "Marc Lamberts (original weather-chart-card author)"
+  ],
   "license": "MIT",
   "dependencies": {
     "chart.js": "^4.4.1",

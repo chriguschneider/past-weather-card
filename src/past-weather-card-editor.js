@@ -14,7 +14,7 @@ const ALT_SCHEMA = [
   { name: "visibility", title: "Alternative visibility sensor", selector: { entity: { domain: 'sensor' } } },
 ];
 
-class WeatherChartCardEditor extends LitElement {
+class PastWeatherCardEditor extends LitElement {
   static get properties() {
     return {
       _config: { type: Object },
@@ -801,4 +801,4 @@ class WeatherChartCardEditor extends LitElement {
     `;
   }
 }
-customElements.define("weather-chart-card-editor", WeatherChartCardEditor);
+customElements.define("past-weather-card-editor", PastWeatherCardEditor);
