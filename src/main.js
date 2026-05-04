@@ -706,16 +706,17 @@ drawChart({ config, language, weather, forecastItems } = this) {
       const lineH = Math.ceil(fontSize * 1.3);
       const weekdayColor = config.forecast.chart_datetime_color || textColor;
       const dateColor = style.getPropertyValue('--secondary-text-color') || weekdayColor;
+      const todayMs = (() => { const t = new Date(); t.setHours(0,0,0,0); return t.getTime(); })();
       c.save();
-      c.font = `${fontSize}px Helvetica, Arial, sans-serif`;
       c.textAlign = 'center';
       c.textBaseline = 'bottom';
-      // Mask + repaint each tick's label column, covering both lines.
       for (let i = 0; i < xScale.ticks.length; i++) {
         const x = xScale.getPixelForTick(i);
         const datetime = data.dateTime[i];
         if (!datetime) continue;
         const d = new Date(datetime);
+        const dKey = (() => { const k = new Date(d); k.setHours(0,0,0,0); return k.getTime(); })();
+        const isToday = dKey === todayMs;
         const weekday = d.toLocaleString(language, { weekday: 'short' }).toUpperCase();
         const dateLabel = d.toLocaleDateString(language, {
           day: '2-digit',
@@ -724,8 +725,10 @@ drawChart({ config, language, weather, forecastItems } = this) {
         const colW = (xScale.width / xScale.ticks.length);
         c.fillStyle = backgroundColor;
         c.fillRect(x - colW / 2, xScale.top, colW, xScale.bottom - xScale.top);
+        c.font = `${fontSize}px Helvetica, Arial, sans-serif`;
         c.fillStyle = dateColor;
         c.fillText(dateLabel, x, xScale.bottom - 2);
+        c.font = `${isToday ? 'bold ' : ''}${fontSize}px Helvetica, Arial, sans-serif`;
         c.fillStyle = weekdayColor;
         c.fillText(weekday, x, xScale.bottom - 2 - lineH);
       }
@@ -837,11 +840,15 @@ drawChart({ config, language, weather, forecastItems } = this) {
           padding: config.forecast.precipitation_type === 'rainfall' && config.forecast.show_probability && config.forecast.type !== 'hourly' ? 3 : 4,
           color: chart_text_color || textColor,
           font: function (context) {
-            const isLast = context.dataIndex === (context.chart.data.labels.length - 1);
+            const dt = data.dateTime[context.dataIndex];
+            const k = dt ? new Date(dt) : null;
+            if (k) k.setHours(0, 0, 0, 0);
+            const t = new Date(); t.setHours(0, 0, 0, 0);
+            const isToday = k && k.getTime() === t.getTime();
             return {
               size: parseInt(config.forecast.labels_font_size) || 11,
               lineHeight: 0.7,
-              weight: isLast ? 'bold' : 'normal',
+              weight: isToday ? 'bold' : 'normal',
             };
           },
           formatter: function (value, context) {
