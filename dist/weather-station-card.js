@@ -910,7 +910,7 @@ const SENSORS_SCHEMA = [
   { name: "illuminance",    label: "Illuminance",
     selector: { entity: { domain: 'sensor', device_class: 'illuminance' } } },
   { name: "precipitation",  label: "Precipitation (cumulative or daily-reset both work)",
-    selector: { entity: { domain: 'sensor' } } },
+    selector: { entity: { domain: 'sensor', device_class: 'precipitation' } } },
   { name: "pressure",       label: "Pressure",
     selector: { entity: { domain: 'sensor' } } },
   { name: "wind_speed",     label: "Wind speed",
