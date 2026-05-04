@@ -689,10 +689,10 @@ drawChart({ config, language, weather, forecastItems } = this) {
     },
   };
 
-  // Plugin: renders the daily tick labels (weekday + date) ourselves.
-  // We hide Chart.js's own tick label drawing (ticks.display: false in
-  // daily mode) so we can apply two different colors — primary text for
-  // the weekday line and --secondary-text-color for the date line below.
+  // Plugin: paints the date line of each daily tick label in a lighter
+  // color than the weekday. Chart.js draws both lines in the default
+  // tick color first; we mask the bottom (date) line with the card
+  // background, then redraw the date string in --secondary-text-color.
   const dailyTickLabelsPlugin = {
     id: 'dailyTickLabels',
     afterDraw(chart) {
@@ -701,12 +701,11 @@ drawChart({ config, language, weather, forecastItems } = this) {
       if (!xScale || !xScale.ticks) return;
       const c = chart.ctx;
       const fontSize = parseInt(config.forecast.labels_font_size) || 11;
-      const lineH = Math.ceil(fontSize * 1.25);
-      const tickPadding = 4;
-      const dateY = xScale.bottom - tickPadding;
-      const weekdayY = dateY - lineH;
-      const weekdayColor = config.forecast.chart_datetime_color || textColor;
-      const dateColor = style.getPropertyValue('--secondary-text-color') || weekdayColor;
+      const lineH = Math.ceil(fontSize * 1.2);
+      const tickPad = 4;
+      const dateBaselineY = xScale.bottom - tickPad;
+      const dateColor = style.getPropertyValue('--secondary-text-color')
+        || (config.forecast.chart_datetime_color || textColor);
       c.save();
       c.font = `${fontSize}px Helvetica, Arial, sans-serif`;
       c.textAlign = 'center';
@@ -715,16 +714,15 @@ drawChart({ config, language, weather, forecastItems } = this) {
         const x = xScale.getPixelForTick(i);
         const datetime = data.dateTime[i];
         if (!datetime) continue;
-        const d = new Date(datetime);
-        const weekday = d.toLocaleString(language, { weekday: 'short' }).toUpperCase();
-        const dateLabel = d.toLocaleDateString(language, {
+        const dateLabel = new Date(datetime).toLocaleDateString(language, {
           day: '2-digit',
           month: '2-digit',
         });
-        c.fillStyle = weekdayColor;
-        c.fillText(weekday, x, weekdayY);
+        const w = c.measureText(dateLabel).width + 6;
+        c.fillStyle = backgroundColor;
+        c.fillRect(x - w / 2, dateBaselineY - lineH, w, lineH + 2);
         c.fillStyle = dateColor;
-        c.fillText(dateLabel, x, dateY);
+        c.fillText(dateLabel, x, dateBaselineY);
       }
       c.restore();
     },
@@ -756,7 +754,6 @@ drawChart({ config, language, weather, forecastItems } = this) {
             color: dividerColor,
           },
           ticks: {
-              display: config.forecast.type === 'hourly',
               maxRotation: 0,
               color: config.forecast.chart_datetime_color || textColor,
               padding: config.forecast.precipitation_type === 'rainfall' && config.forecast.show_probability && config.forecast.type !== 'hourly' ? 4 : 10,
@@ -783,11 +780,9 @@ drawChart({ config, language, weather, forecastItems } = this) {
                   }
 
                   if (config.forecast.type !== 'hourly') {
-                      // For daily mode, ticks are hidden (display:false) and
-                      // the dailyTickLabels plugin renders weekday + date
-                      // with separate colors. Return the weekday string only
-                      // so Chart.js still measures axis size correctly.
-                      return dateObj.toLocaleString(language, { weekday: 'short' }).toUpperCase();
+                      var weekday = dateObj.toLocaleString(language, { weekday: 'short' }).toUpperCase();
+                      var dateLabel = dateObj.toLocaleDateString(language, { day: '2-digit', month: '2-digit' });
+                      return [weekday, dateLabel];
                   }
 
                   time = time.replace('a.m.', 'AM').replace('p.m.', 'PM');
