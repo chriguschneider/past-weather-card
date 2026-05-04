@@ -348,16 +348,9 @@ class WeatherStationCardEditor extends LitElement {
         </div>
       </div>
 
-        <!-- Buttons to switch between pages -->
-       <h4>Settings:</h4>
-       <div class="buttons-container">
-         <mwc-button @click="${() => this.showPage('card')}">Main</mwc-button>
-         <mwc-button @click="${() => this.showPage('forecast')}">Chart</mwc-button>
-         <mwc-button @click="${() => this.showPage('units')}">Units</mwc-button>
-       </div>
-
-        <!-- Card Settings Page -->
-        <div class="page-container ${this.currentPage === 'card' ? 'active' : ''}">
+        <!-- Main panel settings -->
+        <h4>Main panel</h4>
+        <div>
           <div class="switch-container">
             <ha-switch
               @change="${(e) => this._valueChanged(e, 'show_main')}"
@@ -661,8 +654,9 @@ class WeatherStationCardEditor extends LitElement {
         </div>
       </div>
 
-        <!-- Forecast Settings Page -->
-        <div class="page-container ${this.currentPage === 'forecast' ? 'active' : ''}">
+        <!-- Chart settings -->
+        <h4>Chart</h4>
+        <div>
           <div class="switch-container">
             <ha-switch
               @change="${(e) => this._valueChanged(e, 'forecast.condition_icons')}"
@@ -756,17 +750,16 @@ class WeatherStationCardEditor extends LitElement {
           </div>
         </div>
 
-        <!-- Units Page -->
-        <div class="page-container ${this.currentPage === 'units' ? 'active' : ''}">
-          <div class="textfield-container">
-            <ha-form
-              .data=${unitsConfig}
-              .schema=${UNITS_SCHEMA}
-              .hass=${this.hass}
-              .computeLabel=${(s) => UNIT_LABELS[s.name] || s.name}
-              @value-changed=${this._unitsChanged}
-            ></ha-form>
-          </div>
+        <!-- Units -->
+        <h4>Units</h4>
+        <div class="textfield-container">
+          <ha-form
+            .data=${unitsConfig}
+            .schema=${UNITS_SCHEMA}
+            .hass=${this.hass}
+            .computeLabel=${(s) => UNIT_LABELS[s.name] || s.name}
+            @value-changed=${this._unitsChanged}
+          ></ha-form>
         </div>
 
     `;
