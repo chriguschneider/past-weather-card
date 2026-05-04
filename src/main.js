@@ -1375,31 +1375,27 @@ renderWind({ config, weather, windSpeed, windDirection, forecastItems } = this) 
 }
 
 renderLastUpdated() {
-  const lastUpdatedString = this.weather.last_changed;
-  const lastUpdatedTimestamp = new Date(lastUpdatedString).getTime();
-  const currentTimestamp = Date.now();
-  const timeDifference = currentTimestamp - lastUpdatedTimestamp;
+  if (this.config.show_last_changed !== true) {
+    return html``;
+  }
 
+  const lastUpdatedString = this.weather && this.weather.last_changed;
+  const lastUpdatedTimestamp = lastUpdatedString
+    ? new Date(lastUpdatedString).getTime()
+    : NaN;
+
+  if (!Number.isFinite(lastUpdatedTimestamp)) {
+    return html``;
+  }
+
+  const timeDifference = Date.now() - lastUpdatedTimestamp;
   const minutesAgo = Math.floor(timeDifference / (1000 * 60));
   const hoursAgo = Math.floor(minutesAgo / 60);
 
-  const locale = this.language;
-
-  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
-
-  let formattedLastUpdated;
-
-  if (hoursAgo > 0) {
-    formattedLastUpdated = formatter.format(-hoursAgo, 'hour');
-  } else {
-    formattedLastUpdated = formatter.format(-minutesAgo, 'minute');
-  }
-
-  const showLastUpdated = this.config.show_last_changed == true;
-
-  if (!showLastUpdated) {
-    return html``;
-  }
+  const formatter = new Intl.RelativeTimeFormat(this.language, { numeric: 'auto' });
+  const formattedLastUpdated = hoursAgo > 0
+    ? formatter.format(-hoursAgo, 'hour')
+    : formatter.format(-minutesAgo, 'minute');
 
   return html`
     <div class="updated">
