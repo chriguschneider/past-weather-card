@@ -1340,15 +1340,13 @@ renderWind({ config, weather, windSpeed, windDirection, forecastItems } = this) 
     <div class="wind-details">
       ${showWindForecast ? html`
         ${forecast.map((item) => {
-          const dWindSpeed = this._convertWindSpeed(item.wind_speed);
-          const dGustSpeed = this._convertWindSpeed(item.wind_gust_speed);
-          const parts = [dWindSpeed, dGustSpeed].filter((v) => v !== null && v !== undefined);
-          const display = parts.length === 0 ? '' : parts.join(' / ');
+          const raw = item.wind_gust_speed != null ? item.wind_gust_speed : item.wind_speed;
+          const dWindSpeed = this._convertWindSpeed(raw);
 
           return html`
             <div class="wind-detail">
               <ha-icon class="wind-icon" icon="hass:${this.getWindDirIcon(item.wind_bearing)}"></ha-icon>
-              <span class="wind-speed">${display}</span>
+              <span class="wind-speed">${dWindSpeed ?? ''}</span>
               <span class="wind-unit">${this.ll('units')[this.unitSpeed]}</span>
             </div>
           `;
