@@ -115,7 +115,11 @@ const locale = {
       'dew_point': 'Taupunkt',
       'title': 'Titel',
       'days': 'Tage',
-      'sensors_heading': 'Sensoren'
+      'sensors_heading': 'Sensoren',
+      'card_heading': 'Karte',
+      'display_heading': 'Anzeige',
+      'chart_heading': 'Diagramm',
+      'units_heading': 'Einheiten'
     }
   },
   nl: {
@@ -202,7 +206,11 @@ const locale = {
       'dew_point': 'Dew point',
       'title': 'Title',
       'days': 'Days',
-      'sensors_heading': 'Sensors'
+      'sensors_heading': 'Sensors',
+      'card_heading': 'Card',
+      'display_heading': 'Display',
+      'chart_heading': 'Chart',
+      'units_heading': 'Units'
     }
   },
   es: {
@@ -966,18 +974,12 @@ class WeatherStationCardEditor extends s {
   static get properties() {
     return {
       _config: { type: Object },
-      currentPage: { type: String },
-      entities: { type: Array },
       hass: { type: Object },
-      _entity: { type: String },
     };
   }
 
   constructor() {
     super();
-    this.currentPage = 'card';
-    this._entity = '';
-    this.entities = [];
     this._formValueChanged = this._formValueChanged.bind(this);
   }
 
@@ -1109,11 +1111,6 @@ class WeatherStationCardEditor extends s {
     }
   }
 
-  showPage(pageName) {
-    this.currentPage = pageName;
-    this.requestUpdate();
-  }
-
   render() {
     const forecastConfig = this._config.forecast || {};
     const unitsConfig = this._config.units || {};
@@ -1123,17 +1120,22 @@ class WeatherStationCardEditor extends s {
 
     return x`
       <style>
+        h3.section {
+          font-size: 1rem;
+          font-weight: 500;
+          color: var(--primary-text-color);
+          margin: 24px 0 12px;
+          padding-bottom: 4px;
+          border-bottom: 1px solid var(--divider-color);
+        }
+        h3.section:first-of-type {
+          margin-top: 0;
+        }
         .switch-label {
           padding-left: 14px;
         }
         .switch-container {
           margin-bottom: 12px;
-        }
-        .page-container {
-	  display: none;
-        }
-        .page-container.active {
-          display: block;
         }
         .time-container {
           display: flex;
@@ -1159,7 +1161,7 @@ class WeatherStationCardEditor extends s {
           display: flex;
           flex-direction: column;
           margin-bottom: 10px;
-	  gap: 20px;
+          gap: 20px;
         }
         .radio-container {
           display: flex;
@@ -1173,11 +1175,6 @@ class WeatherStationCardEditor extends s {
         .radio-group label {
           margin-left: 4px;
         }
-	div.buttons-container {
-          border-bottom: 2px solid #ccc;
-          padding-bottom: 10px;
-          margin-bottom: 20px;
-        }
         .flex-container {
           display: flex;
           flex-direction: row;
@@ -1189,59 +1186,36 @@ class WeatherStationCardEditor extends s {
         }
       </style>
       <div>
-      <div class="textfield-container">
-        <h5>${tEditor(this.hass, 'sensors_heading')}:</h5>
-        <ha-form
-          .data=${sensorsConfig}
-          .schema=${buildSensorsSchema(this.hass)}
-          .hass=${this.hass}
-          .computeLabel=${(s) => tEditor(this.hass, s.name)}
-          @value-changed=${this._sensorsChanged}
-        ></ha-form>
-        <ha-textfield
-          label="${tEditor(this.hass, 'title')}"
-          .value="${this._config.title || ''}"
-          @change="${(e) => this._valueChanged(e, 'title')}"
-        ></ha-textfield>
-        <ha-textfield
-          label="${tEditor(this.hass, 'days')}"
-          type="number"
-          min="1"
-          max="14"
-          .value="${this._config.days || 7}"
-          @change="${(e) => this._valueChanged(e, 'days')}"
-        ></ha-textfield>
-       </div>
 
-      <h5>Chart style:</h5>
-      <div class="radio-container">
-        <div class="switch-right">
-          <ha-radio
-            name="style"
-            value="style1"
-            @change="${this._handleStyleChange}"
-            .checked="${forecastConfig.style === 'style1'}"
-          ></ha-radio>
-          <label class="check-label">
-            Chart style 1
-          </label>
+        <h3 class="section">${tEditor(this.hass, 'sensors_heading')}</h3>
+        <div class="textfield-container">
+          <ha-form
+            .data=${sensorsConfig}
+            .schema=${buildSensorsSchema(this.hass)}
+            .hass=${this.hass}
+            .computeLabel=${(s) => tEditor(this.hass, s.name)}
+            @value-changed=${this._sensorsChanged}
+          ></ha-form>
         </div>
 
-        <div class="switch-right">
-          <ha-radio
-            name="style"
-            value="style2"
-            @change="${this._handleStyleChange}"
-            .checked="${forecastConfig.style === 'style2'}"
-          ></ha-radio>
-          <label class="check-label">
-            Chart style 2
-          </label>
+        <h3 class="section">${tEditor(this.hass, 'card_heading')}</h3>
+        <div class="textfield-container">
+          <ha-textfield
+            label="${tEditor(this.hass, 'title')}"
+            .value="${this._config.title || ''}"
+            @change="${(e) => this._valueChanged(e, 'title')}"
+          ></ha-textfield>
+          <ha-textfield
+            label="${tEditor(this.hass, 'days')}"
+            type="number"
+            min="1"
+            max="14"
+            .value="${this._config.days || 7}"
+            @change="${(e) => this._valueChanged(e, 'days')}"
+          ></ha-textfield>
         </div>
-      </div>
 
-        <!-- Main panel settings -->
-        <h4>Main panel</h4>
+        <h3 class="section">${tEditor(this.hass, 'display_heading')}</h3>
         <div>
           <div class="switch-container">
             <ha-switch
@@ -1546,8 +1520,27 @@ class WeatherStationCardEditor extends s {
         </div>
       </div>
 
-        <!-- Chart settings -->
-        <h4>Chart</h4>
+        <h3 class="section">${tEditor(this.hass, 'chart_heading')}</h3>
+        <div class="radio-container" style="margin-bottom: 12px;">
+          <div class="switch-right">
+            <ha-radio
+              name="style"
+              value="style1"
+              @change="${this._handleStyleChange}"
+              .checked="${forecastConfig.style === 'style1'}"
+            ></ha-radio>
+            <label class="check-label">Chart style 1</label>
+          </div>
+          <div class="switch-right">
+            <ha-radio
+              name="style"
+              value="style2"
+              @change="${this._handleStyleChange}"
+              .checked="${forecastConfig.style === 'style2'}"
+            ></ha-radio>
+            <label class="check-label">Chart style 2</label>
+          </div>
+        </div>
         <div>
           <div class="switch-container">
             <ha-switch
@@ -1642,8 +1635,7 @@ class WeatherStationCardEditor extends s {
           </div>
         </div>
 
-        <!-- Units -->
-        <h4>Units</h4>
+        <h3 class="section">${tEditor(this.hass, 'units_heading')}</h3>
         <div class="textfield-container">
           <ha-form
             .data=${unitsConfig}

@@ -113,7 +113,11 @@ const locale = {
       'dew_point': 'Taupunkt',
       'title': 'Titel',
       'days': 'Tage',
-      'sensors_heading': 'Sensoren'
+      'sensors_heading': 'Sensoren',
+      'card_heading': 'Karte',
+      'display_heading': 'Anzeige',
+      'chart_heading': 'Diagramm',
+      'units_heading': 'Einheiten'
     }
   },
   nl: {
@@ -200,7 +204,11 @@ const locale = {
       'dew_point': 'Dew point',
       'title': 'Title',
       'days': 'Days',
-      'sensors_heading': 'Sensors'
+      'sensors_heading': 'Sensors',
+      'card_heading': 'Card',
+      'display_heading': 'Display',
+      'chart_heading': 'Chart',
+      'units_heading': 'Units'
     }
   },
   es: {
