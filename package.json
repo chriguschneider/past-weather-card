@@ -1,6 +1,6 @@
 {
   "name": "weather-station-card",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Lovelace card showing past weather station measurements with the weather-chart-card layout. Fork of mlamberts78/weather-chart-card.",
   "keywords": [
     "home-assistant",

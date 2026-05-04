@@ -1663,6 +1663,137 @@ const UNIT_LABELS = {
 };
 customElements.define("weather-station-card-editor", WeatherStationCardEditor);
 
+// Sensor-driven daily weather condition classifier.
+//
+// Pure module — no Home Assistant or DOM dependencies. Inputs are unit-aware
+// (caller must supply °C, mm/24h, m/s, %, lx). Outputs one of HA's standard
+// weather condition IDs from the decision tree below.
+//
+// Each rule cites its meteorological source. The HA condition vocabulary
+// itself is defined in the Weather entity spec:
+//   https://developers.home-assistant.io/docs/core/entity/weather/
+//
+// `lightning`, `lightning-rainy`, and `hail` are intentionally never emitted:
+// reliable detection requires dedicated hardware (AS3935 lightning detector,
+// hail-pad / impact sensor) which a typical weather station does not provide.
+
+// Default thresholds. Every value is grounded in an official scale or
+// glossary entry; users can override individual keys via the card's
+// `condition_mapping` config.
+const DEFAULTS = Object.freeze({
+  // Beaufort 10 ("storm") begins at 24.5 m/s. WMO No. 306 Vol. I.1.
+  exceptional_gust_ms: 24.5,
+  // NWS "Excessive Rainfall Outlook" daily heavy-rain threshold.
+  exceptional_precip_mm: 50,
+
+  // Trace amount per WMO/NWS glossaries; below this is dew/sensor noise.
+  rainy_threshold_mm: 0.5,
+  // Heavy-rain rate is > 7.6 mm/h (NWS); 10 mm in a single day is a robust
+  // worst-of-day proxy in temperate climates without overfiring on drizzle.
+  pouring_threshold_mm: 10,
+
+  // Solid precipitation: AMS Glossary "Wet-bulb temperature" — snow
+  // dominates at wet-bulb ≤ ~1°C. Without wet-bulb we fall back to temp_max.
+  snow_max_c: 0,
+  snow_rain_max_c: 3,
+
+  // METAR FG visibility < 1 km is not measurable here; AMS Glossary "Fog"
+  // forecasting proxy: humidity ≥ 95 % AND temp–dewpoint spread ≤ 1°C
+  // with calm wind.
+  fog_humidity_pct: 95,
+  fog_dewpoint_spread_c: 1,
+  fog_wind_max_ms: 3,
+
+  // Beaufort 6 = "strong breeze" begins at 10.8 m/s; Bft 5 sustained at
+  // 8.0 m/s is "fresh breeze, very noticeable". WMO No. 306 Vol. I.1.
+  windy_threshold_ms: 10.8,
+  windy_mean_threshold_ms: 8.0,
+
+  // Cloud-cover by daylight ratio. Clear-sky noon illuminance ≈ 110 000 lx
+  // at sea level (IES Lighting Handbook §3); overcast typical 5 000–10 000.
+  // Mapped to WMO oktas: ≥ 0.70 ≈ 0–2/8 (clear), 0.30–0.70 ≈ 3–6/8 (broken),
+  // < 0.30 ≈ 7–8/8 (overcast).
+  sunny_cloud_ratio: 0.70,
+  partly_cloud_ratio: 0.30,
+});
+
+// Solar declination in degrees (Cooper 1969 — accurate to ~0.5°, plenty for
+// a ratio-based cloud check).
+function declinationDeg(dayOfYear) {
+  return 23.45 * Math.sin(((360 * (284 + dayOfYear)) / 365) * Math.PI / 180);
+}
+
+// Theoretical clear-sky illuminance at solar noon in lux. Based on
+// cos(zenith) × 110 000 lx, with zenith = |lat − declination| at solar noon.
+// Reference: AMS Glossary "Solar elevation"; IES Lighting Handbook §3 for
+// the 110 000 lx clear-sky maximum at perpendicular incidence.
+function clearSkyNoonLux(latDeg, dayOfYear) {
+  if (!Number.isFinite(latDeg) || !Number.isFinite(dayOfYear)) return 110000;
+  const zenith = Math.abs(latDeg - declinationDeg(dayOfYear));
+  if (zenith >= 90) return 0;
+  return 110000 * Math.cos(zenith * Math.PI / 180);
+}
+
+// Map a per-day record to an HA condition ID. Worst-of-day priority:
+// extreme weather > precipitation > fog > wind > cloud cover.
+function classifyDay(day, overrides = {}) {
+  const t = { ...DEFAULTS, ...overrides };
+
+  const {
+    temp_max,
+    temp_min,
+    humidity,
+    lux_max,
+    precip_total,
+    wind_mean,
+    gust_max,
+    dew_point_mean,
+    clearsky_lux,
+  } = day;
+
+  // 1. EXCEPTIONAL — Bft 10 storm or NWS daily heavy-rain threshold.
+  if (gust_max != null && gust_max >= t.exceptional_gust_ms) return 'exceptional';
+  if (precip_total != null && precip_total >= t.exceptional_precip_mm) return 'exceptional';
+
+  // 2. PRECIPITATION dominant.
+  if (precip_total != null && precip_total >= t.rainy_threshold_mm) {
+    if (temp_max != null && temp_max <= t.snow_max_c) return 'snowy';
+    if (temp_max != null && temp_max <= t.snow_rain_max_c) return 'snowy-rainy';
+    if (precip_total >= t.pouring_threshold_mm) return 'pouring';
+    return 'rainy';
+  }
+
+  // 3. FOG — only when humidity AND dew-point are present.
+  if (
+    humidity != null && humidity >= t.fog_humidity_pct &&
+    dew_point_mean != null && temp_min != null &&
+    (temp_min - dew_point_mean) <= t.fog_dewpoint_spread_c &&
+    (wind_mean == null || wind_mean < t.fog_wind_max_ms)
+  ) {
+    return 'fog';
+  }
+
+  // 5. CLOUD COVER — ratio used for both cloud condition and windy variant.
+  let cloudRatio = null;
+  if (lux_max != null && clearsky_lux != null && clearsky_lux > 0) {
+    cloudRatio = lux_max / clearsky_lux;
+  }
+
+  // 4. WIND dominant.
+  const windy =
+    (gust_max != null && gust_max >= t.windy_threshold_ms) ||
+    (wind_mean != null && wind_mean >= t.windy_mean_threshold_ms);
+  if (windy) {
+    if (cloudRatio != null && cloudRatio < t.sunny_cloud_ratio) return 'windy-variant';
+    return 'windy';
+  }
+
+  if (cloudRatio == null) return 'cloudy';
+  if (cloudRatio >= t.sunny_cloud_ratio) return 'sunny';
+  if (cloudRatio >= t.partly_cloud_ratio) return 'partlycloudy';
+  return 'cloudy';
+}
+
 // DataSource: feeds the card a `forecast`-shaped array.
 //
 // The render layer consumes `this.forecasts` — an array of entries with
@@ -1675,7 +1806,14 @@ customElements.define("weather-station-card-editor", WeatherStationCardEditor);
 // v2 will add a ForecastDataSource (wrapping weather/subscribe_forecast)
 // for forecast-vs-actual overlays — same surface, no render-layer change.
 
+
 const POLL_INTERVAL_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function dayOfYearFromDate(date) {
+  const start = new Date(date.getFullYear(), 0, 0);
+  return Math.floor((date - start) / DAY_MS);
+}
 
 class MeasuredDataSource {
   constructor(hass, config) {
@@ -1768,7 +1906,7 @@ class MeasuredDataSource {
       const dayStart = new Date(start);
       dayStart.setDate(start.getDate() + i);
       const dayKey = dayMs(dayStart);
-      const prevKey = dayKey - 24 * 60 * 60 * 1000;
+      const prevKey = dayKey - DAY_MS;
 
       const at = (eid, field) => {
         const m = byDate[eid];
@@ -1781,12 +1919,14 @@ class MeasuredDataSource {
 
       const tempMax = at(sensors.temperature, 'max');
       const tempMin = at(sensors.temperature, 'min');
+      const humidityMean = at(sensors.humidity, 'mean');
+      const pressureMean = at(sensors.pressure, 'mean');
+      const windMean = at(sensors.wind_speed, 'mean');
+      const gustMax = at(sensors.gust_speed, 'max');
+      const luxMax = at(sensors.illuminance, 'max');
+      const dewPointMean = at(sensors.dew_point, 'mean');
 
       const precipitation = this._dailyPrecipitation(byDate[sensors.precipitation], dayKey, prevKey);
-
-      const gustMax = at(sensors.gust_speed, 'max');
-      const windMean = at(sensors.wind_speed, 'mean');
-      const luxMean = at(sensors.illuminance, 'mean');
 
       out.push({
         datetime: dayStart.toISOString(),
@@ -1797,13 +1937,19 @@ class MeasuredDataSource {
         wind_speed: windMean,
         wind_gust_speed: gustMax,
         wind_bearing: at(sensors.wind_direction, 'mean'),
-        pressure: at(sensors.pressure, 'mean'),
-        humidity: at(sensors.humidity, 'mean'),
+        pressure: pressureMean,
+        humidity: humidityMean,
         uv_index: at(sensors.uv_index, 'max'),
         condition: this._mapCondition({
-          precipitation,
-          lux: luxMean,
-          gust: gustMax,
+          temp_max: tempMax,
+          temp_min: tempMin,
+          humidity: humidityMean,
+          lux_max: luxMax,
+          precip_total: precipitation,
+          wind_mean: windMean,
+          gust_max: gustMax,
+          dew_point_mean: dewPointMean,
+          dayOfYear: dayOfYearFromDate(dayStart),
         }),
       });
     }
@@ -1836,17 +1982,12 @@ class MeasuredDataSource {
     return today.max;
   }
 
-  _mapCondition({ precipitation, lux, gust }) {
-    const m = this.config.condition_mapping || {};
-    const rainyThresh = m.rainy_threshold_mm ?? 0.5;
-    const windyThresh = m.windy_threshold_ms ?? 14;
-    if (precipitation != null && precipitation >= rainyThresh) return 'rainy';
-    if (gust != null && gust >= windyThresh) return 'windy';
-    if (lux == null) return 'cloudy';
-    if (lux >= 32000) return 'sunny';
-    if (lux >= 10000) return 'partlycloudy';
-    if (lux >= 100) return 'cloudy';
-    return 'clear-night';
+  _mapCondition(day) {
+    const lat = this.hass && this.hass.config ? this.hass.config.latitude : null;
+    const clearsky_lux = lat != null
+      ? clearSkyNoonLux(lat, day.dayOfYear)
+      : 110000; // sea-level perpendicular-sun fallback (IES)
+    return classifyDay({ ...day, clearsky_lux }, this.config.condition_mapping || {});
   }
 }
 

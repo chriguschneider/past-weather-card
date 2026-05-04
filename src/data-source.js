@@ -10,7 +10,15 @@
 // v2 will add a ForecastDataSource (wrapping weather/subscribe_forecast)
 // for forecast-vs-actual overlays — same surface, no render-layer change.
 
+import { classifyDay, clearSkyNoonLux } from './condition-classifier.js';
+
 const POLL_INTERVAL_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function dayOfYearFromDate(date) {
+  const start = new Date(date.getFullYear(), 0, 0);
+  return Math.floor((date - start) / DAY_MS);
+}
 
 export class MeasuredDataSource {
   constructor(hass, config) {
@@ -103,7 +111,7 @@ export class MeasuredDataSource {
       const dayStart = new Date(start);
       dayStart.setDate(start.getDate() + i);
       const dayKey = dayMs(dayStart);
-      const prevKey = dayKey - 24 * 60 * 60 * 1000;
+      const prevKey = dayKey - DAY_MS;
 
       const at = (eid, field) => {
         const m = byDate[eid];
@@ -116,12 +124,14 @@ export class MeasuredDataSource {
 
       const tempMax = at(sensors.temperature, 'max');
       const tempMin = at(sensors.temperature, 'min');
+      const humidityMean = at(sensors.humidity, 'mean');
+      const pressureMean = at(sensors.pressure, 'mean');
+      const windMean = at(sensors.wind_speed, 'mean');
+      const gustMax = at(sensors.gust_speed, 'max');
+      const luxMax = at(sensors.illuminance, 'max');
+      const dewPointMean = at(sensors.dew_point, 'mean');
 
       const precipitation = this._dailyPrecipitation(byDate[sensors.precipitation], dayKey, prevKey);
-
-      const gustMax = at(sensors.gust_speed, 'max');
-      const windMean = at(sensors.wind_speed, 'mean');
-      const luxMean = at(sensors.illuminance, 'mean');
 
       out.push({
         datetime: dayStart.toISOString(),
@@ -132,13 +142,19 @@ export class MeasuredDataSource {
         wind_speed: windMean,
         wind_gust_speed: gustMax,
         wind_bearing: at(sensors.wind_direction, 'mean'),
-        pressure: at(sensors.pressure, 'mean'),
-        humidity: at(sensors.humidity, 'mean'),
+        pressure: pressureMean,
+        humidity: humidityMean,
         uv_index: at(sensors.uv_index, 'max'),
         condition: this._mapCondition({
-          precipitation,
-          lux: luxMean,
-          gust: gustMax,
+          temp_max: tempMax,
+          temp_min: tempMin,
+          humidity: humidityMean,
+          lux_max: luxMax,
+          precip_total: precipitation,
+          wind_mean: windMean,
+          gust_max: gustMax,
+          dew_point_mean: dewPointMean,
+          dayOfYear: dayOfYearFromDate(dayStart),
         }),
       });
     }
@@ -171,16 +187,11 @@ export class MeasuredDataSource {
     return today.max;
   }
 
-  _mapCondition({ precipitation, lux, gust }) {
-    const m = this.config.condition_mapping || {};
-    const rainyThresh = m.rainy_threshold_mm ?? 0.5;
-    const windyThresh = m.windy_threshold_ms ?? 14;
-    if (precipitation != null && precipitation >= rainyThresh) return 'rainy';
-    if (gust != null && gust >= windyThresh) return 'windy';
-    if (lux == null) return 'cloudy';
-    if (lux >= 32000) return 'sunny';
-    if (lux >= 10000) return 'partlycloudy';
-    if (lux >= 100) return 'cloudy';
-    return 'clear-night';
+  _mapCondition(day) {
+    const lat = this.hass && this.hass.config ? this.hass.config.latitude : null;
+    const clearsky_lux = lat != null
+      ? clearSkyNoonLux(lat, day.dayOfYear)
+      : 110000; // sea-level perpendicular-sun fallback (IES)
+    return classifyDay({ ...day, clearsky_lux }, this.config.condition_mapping || {});
   }
 }
