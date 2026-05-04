@@ -30,6 +30,19 @@ Conditions are derived by a deterministic, meteorologically-grounded
 classifier (see [How conditions are determined](#how-conditions-are-determined)
 below — every threshold is tied to a WMO / NWS / AMS / IES source).
 
+## Sibling card for forecasts
+
+The same chart layout for *future* weather is available as
+[`chriguschneider/weather-chart-card`](https://github.com/chriguschneider/weather-chart-card)
+— a fork of `mlamberts78/weather-chart-card` with the visuals from this
+card ported across, so a station chart and a forecast chart can sit next
+to each other panel-for-panel:
+
+![Station and forecast side by side](images/sibling-comparison.png)
+
+> Left: this card — past 7 days, driven by sensor history.
+> Right: [`weather-chart-card`](https://github.com/chriguschneider/weather-chart-card) — daily forecast, driven by a `weather.*` entity.
+
 ## Screenshots
 
 | Main panel + chart | Past 7 days standalone | Visual editor |
