@@ -664,8 +664,34 @@ drawChart({ config, language, weather, forecastItems } = this) {
     };
   }
 
+  // Plugin: draws a thicker vertical line at the left edge of today's
+  // (rightmost) column, so today is enclosed between that line and the
+  // chart's right border (which is drawn by PrecipAxis.border).
+  const todayLeftBorderPlugin = {
+    id: 'todayLeftBorder',
+    afterDraw(chart) {
+      const xScale = chart.scales.x;
+      if (!xScale || !xScale.ticks || xScale.ticks.length < 2) return;
+      const lastIdx = xScale.ticks.length - 1;
+      const lastX = xScale.getPixelForTick(lastIdx);
+      const secondLastX = xScale.getPixelForTick(lastIdx - 1);
+      const x = (lastX + secondLastX) / 2;
+      const { top, bottom } = chart.chartArea;
+      const c = chart.ctx;
+      c.save();
+      c.strokeStyle = style.getPropertyValue('--secondary-text-color') || dividerColor;
+      c.lineWidth = 2;
+      c.beginPath();
+      c.moveTo(x, top);
+      c.lineTo(x, bottom);
+      c.stroke();
+      c.restore();
+    },
+  };
+
   this.forecastChart = new Chart(ctx, {
     type: 'bar',
+    plugins: [todayLeftBorderPlugin],
     data: {
       labels: data.dateTime,
       datasets: datasets,
@@ -731,10 +757,6 @@ drawChart({ config, language, weather, forecastItems } = this) {
           beginAtZero: false,
           suggestedMin: Math.min(...data.tempHigh, ...data.tempLow) - 5,
           suggestedMax: Math.max(...data.tempHigh, ...data.tempLow) + 3,
-          border: {
-            width: 2,
-            color: style.getPropertyValue('--secondary-text-color') || dividerColor,
-          },
           grid: {
             display: false,
             drawTicks: false,
