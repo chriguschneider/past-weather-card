@@ -627,6 +627,19 @@ drawChart({ config, language, weather, forecastItems } = this) {
   const chart_text_color = (config.forecast.chart_text_color === 'auto') ? textColor : config.forecast.chart_text_color;
 
   if (config.forecast.style === 'style2') {
+    const todayBoldFont = (context) => {
+      const dt = data.dateTime[context.dataIndex];
+      const k = dt ? new Date(dt) : null;
+      if (k) k.setHours(0, 0, 0, 0);
+      const t = new Date(); t.setHours(0, 0, 0, 0);
+      const isToday = k && k.getTime() === t.getTime();
+      return {
+        size: parseInt(config.forecast.labels_font_size) + 1,
+        lineHeight: 0.7,
+        weight: isToday ? 'bold' : 'normal',
+      };
+    };
+
     datasets[0].datalabels = {
       display: function (context) {
         return 'true';
@@ -639,10 +652,7 @@ drawChart({ config, language, weather, forecastItems } = this) {
       backgroundColor: 'transparent',
       borderColor: 'transparent',
       color: chart_text_color || config.forecast.temperature1_color,
-      font: {
-        size: parseInt(config.forecast.labels_font_size) + 1,
-        lineHeight: 0.7,
-      },
+      font: todayBoldFont,
     };
 
     datasets[1].datalabels = {
@@ -657,10 +667,7 @@ drawChart({ config, language, weather, forecastItems } = this) {
       backgroundColor: 'transparent',
       borderColor: 'transparent',
       color: chart_text_color || config.forecast.temperature2_color,
-      font: {
-        size: parseInt(config.forecast.labels_font_size) + 1,
-        lineHeight: 0.7,
-      },
+      font: todayBoldFont,
     };
   }
 
