@@ -1809,7 +1809,8 @@ class MeasuredDataSource {
         templow: tempMin,
         precipitation,
         precipitation_probability: null,
-        wind_speed: gustMax ?? windMean ?? null,
+        wind_speed: windMean,
+        wind_gust_speed: gustMax,
         wind_bearing: at(sensors.wind_direction, 'mean'),
         pressure: at(sensors.pressure, 'mean'),
         humidity: at(sensors.humidity, 'mean'),
@@ -19485,38 +19486,15 @@ renderWind({ config, weather, windSpeed, windDirection, forecastItems } = this) 
     <div class="wind-details">
       ${showWindForecast ? x`
         ${forecast.map((item) => {
-          let dWindSpeed = item.wind_speed;
-
-          if (this.unitSpeed !== this.weather.attributes.wind_speed_unit) {
-            if (this.unitSpeed === 'm/s') {
-              if (this.weather.attributes.wind_speed_unit === 'km/h') {
-                dWindSpeed = Math.round(item.wind_speed * 1000 / 3600);
-              } else if (this.weather.attributes.wind_speed_unit === 'mph') {
-                dWindSpeed = Math.round(item.wind_speed * 0.44704);
-              }
-            } else if (this.unitSpeed === 'km/h') {
-              if (this.weather.attributes.wind_speed_unit === 'm/s') {
-                dWindSpeed = Math.round(item.wind_speed * 3.6);
-              } else if (this.weather.attributes.wind_speed_unit === 'mph') {
-                dWindSpeed = Math.round(item.wind_speed * 1.60934);
-              }
-            } else if (this.unitSpeed === 'mph') {
-              if (this.weather.attributes.wind_speed_unit === 'm/s') {
-                dWindSpeed = Math.round(item.wind_speed / 0.44704);
-              } else if (this.weather.attributes.wind_speed_unit === 'km/h') {
-                dWindSpeed = Math.round(item.wind_speed / 1.60934);
-              }
-            } else if (this.unitSpeed === 'Bft') {
-              dWindSpeed = this.calculateBeaufortScale(item.wind_speed);
-            }
-          } else {
-            dWindSpeed = Math.round(dWindSpeed);
-          }
+          const dWindSpeed = this._convertWindSpeed(item.wind_speed);
+          const dGustSpeed = this._convertWindSpeed(item.wind_gust_speed);
+          const parts = [dWindSpeed, dGustSpeed].filter((v) => v !== null && v !== undefined);
+          const display = parts.length === 0 ? '' : parts.join(' / ');
 
           return x`
             <div class="wind-detail">
               <ha-icon class="wind-icon" icon="hass:${this.getWindDirIcon(item.wind_bearing)}"></ha-icon>
-              <span class="wind-speed">${dWindSpeed}</span>
+              <span class="wind-speed">${display}</span>
               <span class="wind-unit">${this.ll('units')[this.unitSpeed]}</span>
             </div>
           `;
@@ -19524,6 +19502,25 @@ renderWind({ config, weather, windSpeed, windDirection, forecastItems } = this) 
       ` : ''}
     </div>
   `;
+}
+
+_convertWindSpeed(raw) {
+  if (raw === null || raw === undefined) return null;
+  const fromUnit = this.weather.attributes.wind_speed_unit;
+  if (this.unitSpeed === fromUnit) return Math.round(raw);
+  if (this.unitSpeed === 'm/s') {
+    if (fromUnit === 'km/h') return Math.round(raw * 1000 / 3600);
+    if (fromUnit === 'mph') return Math.round(raw * 0.44704);
+  } else if (this.unitSpeed === 'km/h') {
+    if (fromUnit === 'm/s') return Math.round(raw * 3.6);
+    if (fromUnit === 'mph') return Math.round(raw * 1.60934);
+  } else if (this.unitSpeed === 'mph') {
+    if (fromUnit === 'm/s') return Math.round(raw / 0.44704);
+    if (fromUnit === 'km/h') return Math.round(raw / 1.60934);
+  } else if (this.unitSpeed === 'Bft') {
+    return this.calculateBeaufortScale(raw);
+  }
+  return Math.round(raw);
 }
 
 renderLastUpdated() {
