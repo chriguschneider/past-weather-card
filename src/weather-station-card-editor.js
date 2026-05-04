@@ -20,17 +20,17 @@ const SENSORS_SCHEMA = [
   { name: "precipitation",  label: "Precipitation",
     selector: { entity: { domain: 'sensor', device_class: 'precipitation' } } },
   { name: "pressure",       label: "Pressure",
-    selector: { entity: { domain: 'sensor' } } },
+    selector: { entity: { domain: 'sensor', device_class: ['atmospheric_pressure', 'pressure'] } } },
   { name: "wind_speed",     label: "Wind speed",
-    selector: { entity: { domain: 'sensor' } } },
+    selector: { entity: { domain: 'sensor', device_class: 'wind_speed' } } },
   { name: "gust_speed",     label: "Gust speed",
-    selector: { entity: { domain: 'sensor' } } },
+    selector: { entity: { domain: 'sensor', device_class: 'wind_speed' } } },
   { name: "wind_direction", label: "Wind direction",
     selector: { entity: { domain: 'sensor' } } },
   { name: "uv_index",       label: "UV index",
     selector: { entity: { domain: 'sensor' } } },
   { name: "dew_point",      label: "Dew point",
-    selector: { entity: { domain: 'sensor' } } },
+    selector: { entity: { domain: 'sensor', device_class: 'temperature' } } },
 ];
 
 // Resolve a localized editor string. Falls back along
