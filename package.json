@@ -1,6 +1,6 @@
 {
   "name": "weather-station-card",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Lovelace card showing past weather-station measurements with the weather-chart-card layout, plus live current-condition rendering driven by sensor history.",
   "keywords": [
     "home-assistant",
@@ -37,16 +37,21 @@
     "relative-time": "^1.0.0"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.5",
     "eslint": "^8.56.0",
     "rollup": "^4.9.6",
     "rollup-plugin-copy": "^3.5.0",
     "rollup-plugin-node-resolve": "^5.2.0",
-    "rollup-plugin-serve": "^2.0.3"
+    "rollup-plugin-serve": "^2.0.3",
+    "vitest": "^4.1.5"
   },
   "scripts": {
     "start": "rollup -c rollup.config.dev.js --watch",
-    "build": "npm run lint && npm run rollup",
+    "build": "npm run lint && npm run test && npm run rollup",
     "lint": "eslint src",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
     "rollup": "rollup -c"
   }
 }

@@ -6,11 +6,13 @@
 // `humidity`, `uv_index`, `condition`. Anything that produces this shape
 // can drive the chart.
 //
-// v1 ships MeasuredDataSource (past data via recorder/statistics_during_period).
-// v2 will add a ForecastDataSource (wrapping weather/subscribe_forecast)
-// for forecast-vs-actual overlays — same surface, no render-layer change.
+// MeasuredDataSource: past data via recorder/statistics_during_period.
+// ForecastDataSource: future data via weather/subscribe_forecast.
+// Both expose subscribe(callback) → unsubscribe and emit
+// { forecast, error? } events.
 
 import { classifyDay, clearSkyNoonLux } from './condition-classifier.js';
+import { WeatherEntityFeature } from './const.js';
 
 const POLL_INTERVAL_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -18,6 +20,35 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 function dayOfYearFromDate(date) {
   const start = new Date(date.getFullYear(), 0, 0);
   return Math.floor((date - start) / DAY_MS);
+}
+
+// Daily-rainfall extraction that adapts to the sensor's `state_class`:
+//   total_increasing → API returns `change`     (use as-is)
+//   total            → API returns `sum`        (use as-is)
+//   measurement      → API returns `max` only   (diff today.max − previous.max)
+//
+// For the diff path a non-positive delta means the lifetime counter
+// reset between buckets (battery swap, device reinstall, integration
+// restart); fall back to today's max as the day's total in that case.
+//
+// Exported as a free function so the unit tests don't need to instantiate
+// MeasuredDataSource. The MeasuredDataSource method below stays as a
+// thin wrapper for callers that already use it.
+export function dailyPrecipitation(byDate, dayKey, prevKey) {
+  if (!byDate) return null;
+  const today = byDate.get(dayKey);
+  if (!today) return null;
+
+  if (today.change != null) return today.change;
+  if (today.sum != null) return today.sum;
+  if (today.max == null) return null;
+
+  const yesterday = byDate.get(prevKey);
+  if (yesterday && yesterday.max != null) {
+    const delta = today.max - yesterday.max;
+    return delta >= 0 ? delta : today.max;
+  }
+  return today.max;
 }
 
 export class MeasuredDataSource {
@@ -139,7 +170,7 @@ export class MeasuredDataSource {
       const luxMax = at(sensors.illuminance, 'max');
       const dewPointMean = at(sensors.dew_point, 'mean');
 
-      const precipitation = this._dailyPrecipitation(byDate[sensors.precipitation], dayKey, prevKey);
+      const precipitation = dailyPrecipitation(byDate[sensors.precipitation], dayKey, prevKey);
 
       out.push({
         datetime: dayStart.toISOString(),
@@ -169,37 +200,92 @@ export class MeasuredDataSource {
     return out;
   }
 
-  // Daily-rainfall extraction that adapts to the sensor's state_class:
-  //
-  //   total_increasing → API returns `change`     (use as-is)
-  //   total            → API returns `sum`        (use as-is)
-  //   measurement      → API returns max only     (diff max - prevMax)
-  //
-  // For the diff path a non-positive delta means the lifetime counter
-  // reset between buckets (battery swap, device reinstall, integration
-  // restart); fall back to today's max as the day's total in that case.
-  _dailyPrecipitation(byDate, dayKey, prevKey) {
-    if (!byDate) return null;
-    const today = byDate.get(dayKey);
-    if (!today) return null;
-
-    if (today.change != null) return today.change;
-    if (today.sum != null) return today.sum;
-    if (today.max == null) return null;
-
-    const yesterday = byDate.get(prevKey);
-    if (yesterday && yesterday.max != null) {
-      const delta = today.max - yesterday.max;
-      return delta >= 0 ? delta : today.max;
-    }
-    return today.max;
-  }
-
   _mapCondition(day) {
     const lat = this.hass && this.hass.config ? this.hass.config.latitude : null;
     const clearsky_lux = lat != null
       ? clearSkyNoonLux(lat, day.dayOfYear)
       : 110000; // sea-level perpendicular-sun fallback (IES)
     return classifyDay({ ...day, clearsky_lux }, this.config.condition_mapping || {});
+  }
+}
+
+export class ForecastDataSource {
+  constructor(hass, config) {
+    this.hass = hass;
+    this.config = config;
+    this._listener = null;
+    this._unsubPromise = null;
+    this._lastEntity = null;
+    this._lastType = null;
+  }
+
+  setHass(hass) {
+    this.hass = hass;
+    // Resubscribe if entity or forecast type changed via config edit.
+    const entity = this.config.weather_entity;
+    const type = (this.config.forecast && this.config.forecast.type) || 'daily';
+    if (this._listener && (entity !== this._lastEntity || type !== this._lastType)) {
+      this._resubscribe();
+    }
+  }
+
+  subscribe(callback) {
+    this._listener = callback;
+    this._resubscribe();
+    return () => this.unsubscribe();
+  }
+
+  async unsubscribe() {
+    this._listener = null;
+    if (this._unsubPromise) {
+      try {
+        const unsub = await this._unsubPromise;
+        if (typeof unsub === 'function') unsub();
+      } catch (_) { /* already gone */ }
+      this._unsubPromise = null;
+    }
+  }
+
+  _resubscribe() {
+    if (this._unsubPromise) {
+      this._unsubPromise.then((unsub) => { try { if (typeof unsub === 'function') unsub(); } catch (_) {} });
+      this._unsubPromise = null;
+    }
+    const entity = this.config.weather_entity;
+    if (!entity) {
+      this._emit({ forecast: [], error: 'weather_entity not configured' });
+      return;
+    }
+    const state = this.hass && this.hass.states && this.hass.states[entity];
+    if (!state) {
+      this._emit({ forecast: [], error: `weather entity "${entity}" not found` });
+      return;
+    }
+    const type = (this.config.forecast && this.config.forecast.type) || 'daily';
+    const isHourly = type === 'hourly';
+    const feature = isHourly ? WeatherEntityFeature.FORECAST_HOURLY : WeatherEntityFeature.FORECAST_DAILY;
+    const supported = state.attributes && state.attributes.supported_features;
+    if (!supported || (supported & feature) === 0) {
+      this._emit({ forecast: [], error: `entity "${entity}" does not support ${isHourly ? 'hourly' : 'daily'} forecasts` });
+      return;
+    }
+    this._lastEntity = entity;
+    this._lastType = type;
+    try {
+      this._unsubPromise = this.hass.connection.subscribeMessage(
+        (event) => this._emit({ forecast: event.forecast || [] }),
+        {
+          type: 'weather/subscribe_forecast',
+          forecast_type: isHourly ? 'hourly' : 'daily',
+          entity_id: entity,
+        },
+      );
+    } catch (err) {
+      this._emit({ forecast: [], error: String(err && err.message ? err.message : err) });
+    }
+  }
+
+  _emit(event) {
+    if (this._listener) this._listener(event);
   }
 }

@@ -312,6 +312,46 @@ class WeatherStationCardEditor extends LitElement {
           ></ha-textfield>
         </div>
 
+        <h3 class="section">Forecast block</h3>
+        <div>
+          <div class="switch-container">
+            <ha-switch
+              @change="${(e) => this._valueChanged(e, 'show_station')}"
+              .checked="${this._config.show_station !== false}"
+            ></ha-switch>
+            <label class="switch-label">
+              Show station history (left block)
+            </label>
+          </div>
+          <div class="switch-container">
+            <ha-switch
+              @change="${(e) => this._valueChanged(e, 'show_forecast')}"
+              .checked="${this._config.show_forecast === true}"
+            ></ha-switch>
+            <label class="switch-label">
+              Show forecast (right block)
+            </label>
+          </div>
+          <div class="textfield-container">
+            <ha-entity-picker
+              .hass=${this.hass}
+              .value=${this._config.weather_entity || ''}
+              .includeDomains=${['weather']}
+              label="Weather entity (forecast)"
+              allow-custom-entity
+              @value-changed=${(e) => this._valueChanged({ target: { value: e.detail.value } }, 'weather_entity')}
+            ></ha-entity-picker>
+            <ha-textfield
+              label="Forecast days"
+              type="number"
+              min="1"
+              max="14"
+              .value="${this._config.forecast_days != null ? this._config.forecast_days : (this._config.days || 7)}"
+              @change="${(e) => this._valueChanged(e, 'forecast_days')}"
+            ></ha-textfield>
+          </div>
+        </div>
+
         <h3 class="section">${tEditor(this.hass, 'display_heading')}</h3>
         <div>
           <div class="switch-container">
@@ -604,6 +644,15 @@ class WeatherStationCardEditor extends LitElement {
             ></ha-switch>
             <label class="switch-label">
               Show Condition Icons
+            </label>
+          </div>
+          <div class="switch-container">
+            <ha-switch
+              @change="${(e) => this._valueChanged(e, 'forecast.show_date')}"
+              .checked="${forecastConfig.show_date !== false}"
+            ></ha-switch>
+            <label class="switch-label">
+              Show date row in chart
             </label>
           </div>
           <div class="switch-container">

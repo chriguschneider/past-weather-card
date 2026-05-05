@@ -875,6 +875,10 @@ const weatherIconsNight = {
   'partlycloudy': 'partlycloudy-night',
 };
 
+const WeatherEntityFeature = {
+  FORECAST_DAILY: 1,
+  FORECAST_HOURLY: 2};
+
 /**
  * @license
  * Copyright 2019 Google LLC
@@ -1212,6 +1216,46 @@ class WeatherStationCardEditor extends s {
           ></ha-textfield>
         </div>
 
+        <h3 class="section">Forecast block</h3>
+        <div>
+          <div class="switch-container">
+            <ha-switch
+              @change="${(e) => this._valueChanged(e, 'show_station')}"
+              .checked="${this._config.show_station !== false}"
+            ></ha-switch>
+            <label class="switch-label">
+              Show station history (left block)
+            </label>
+          </div>
+          <div class="switch-container">
+            <ha-switch
+              @change="${(e) => this._valueChanged(e, 'show_forecast')}"
+              .checked="${this._config.show_forecast === true}"
+            ></ha-switch>
+            <label class="switch-label">
+              Show forecast (right block)
+            </label>
+          </div>
+          <div class="textfield-container">
+            <ha-entity-picker
+              .hass=${this.hass}
+              .value=${this._config.weather_entity || ''}
+              .includeDomains=${['weather']}
+              label="Weather entity (forecast)"
+              allow-custom-entity
+              @value-changed=${(e) => this._valueChanged({ target: { value: e.detail.value } }, 'weather_entity')}
+            ></ha-entity-picker>
+            <ha-textfield
+              label="Forecast days"
+              type="number"
+              min="1"
+              max="14"
+              .value="${this._config.forecast_days != null ? this._config.forecast_days : (this._config.days || 7)}"
+              @change="${(e) => this._valueChanged(e, 'forecast_days')}"
+            ></ha-textfield>
+          </div>
+        </div>
+
         <h3 class="section">${tEditor(this.hass, 'display_heading')}</h3>
         <div>
           <div class="switch-container">
@@ -1508,6 +1552,15 @@ class WeatherStationCardEditor extends s {
           </div>
           <div class="switch-container">
             <ha-switch
+              @change="${(e) => this._valueChanged(e, 'forecast.show_date')}"
+              .checked="${forecastConfig.show_date !== false}"
+            ></ha-switch>
+            <label class="switch-label">
+              Show date row in chart
+            </label>
+          </div>
+          <div class="switch-container">
+            <ha-switch
               @change="${(e) => this._valueChanged(e, 'forecast.show_wind_forecast')}"
               .checked="${forecastConfig.show_wind_forecast !== false}"
             ></ha-switch>
@@ -1777,9 +1830,10 @@ function classifyDay(day, overrides = {}) {
 // `humidity`, `uv_index`, `condition`. Anything that produces this shape
 // can drive the chart.
 //
-// v1 ships MeasuredDataSource (past data via recorder/statistics_during_period).
-// v2 will add a ForecastDataSource (wrapping weather/subscribe_forecast)
-// for forecast-vs-actual overlays — same surface, no render-layer change.
+// MeasuredDataSource: past data via recorder/statistics_during_period.
+// ForecastDataSource: future data via weather/subscribe_forecast.
+// Both expose subscribe(callback) → unsubscribe and emit
+// { forecast, error? } events.
 
 
 const POLL_INTERVAL_MS = 60 * 60 * 1000;
@@ -1788,6 +1842,35 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 function dayOfYearFromDate(date) {
   const start = new Date(date.getFullYear(), 0, 0);
   return Math.floor((date - start) / DAY_MS);
+}
+
+// Daily-rainfall extraction that adapts to the sensor's `state_class`:
+//   total_increasing → API returns `change`     (use as-is)
+//   total            → API returns `sum`        (use as-is)
+//   measurement      → API returns `max` only   (diff today.max − previous.max)
+//
+// For the diff path a non-positive delta means the lifetime counter
+// reset between buckets (battery swap, device reinstall, integration
+// restart); fall back to today's max as the day's total in that case.
+//
+// Exported as a free function so the unit tests don't need to instantiate
+// MeasuredDataSource. The MeasuredDataSource method below stays as a
+// thin wrapper for callers that already use it.
+function dailyPrecipitation(byDate, dayKey, prevKey) {
+  if (!byDate) return null;
+  const today = byDate.get(dayKey);
+  if (!today) return null;
+
+  if (today.change != null) return today.change;
+  if (today.sum != null) return today.sum;
+  if (today.max == null) return null;
+
+  const yesterday = byDate.get(prevKey);
+  if (yesterday && yesterday.max != null) {
+    const delta = today.max - yesterday.max;
+    return delta >= 0 ? delta : today.max;
+  }
+  return today.max;
 }
 
 class MeasuredDataSource {
@@ -1909,7 +1992,7 @@ class MeasuredDataSource {
       const luxMax = at(sensors.illuminance, 'max');
       const dewPointMean = at(sensors.dew_point, 'mean');
 
-      const precipitation = this._dailyPrecipitation(byDate[sensors.precipitation], dayKey, prevKey);
+      const precipitation = dailyPrecipitation(byDate[sensors.precipitation], dayKey, prevKey);
 
       out.push({
         datetime: dayStart.toISOString(),
@@ -1939,32 +2022,6 @@ class MeasuredDataSource {
     return out;
   }
 
-  // Daily-rainfall extraction that adapts to the sensor's state_class:
-  //
-  //   total_increasing → API returns `change`     (use as-is)
-  //   total            → API returns `sum`        (use as-is)
-  //   measurement      → API returns max only     (diff max - prevMax)
-  //
-  // For the diff path a non-positive delta means the lifetime counter
-  // reset between buckets (battery swap, device reinstall, integration
-  // restart); fall back to today's max as the day's total in that case.
-  _dailyPrecipitation(byDate, dayKey, prevKey) {
-    if (!byDate) return null;
-    const today = byDate.get(dayKey);
-    if (!today) return null;
-
-    if (today.change != null) return today.change;
-    if (today.sum != null) return today.sum;
-    if (today.max == null) return null;
-
-    const yesterday = byDate.get(prevKey);
-    if (yesterday && yesterday.max != null) {
-      const delta = today.max - yesterday.max;
-      return delta >= 0 ? delta : today.max;
-    }
-    return today.max;
-  }
-
   _mapCondition(day) {
     const lat = this.hass && this.hass.config ? this.hass.config.latitude : null;
     const clearsky_lux = lat != null
@@ -1972,6 +2029,132 @@ class MeasuredDataSource {
       : 110000; // sea-level perpendicular-sun fallback (IES)
     return classifyDay({ ...day, clearsky_lux }, this.config.condition_mapping || {});
   }
+}
+
+class ForecastDataSource {
+  constructor(hass, config) {
+    this.hass = hass;
+    this.config = config;
+    this._listener = null;
+    this._unsubPromise = null;
+    this._lastEntity = null;
+    this._lastType = null;
+  }
+
+  setHass(hass) {
+    this.hass = hass;
+    // Resubscribe if entity or forecast type changed via config edit.
+    const entity = this.config.weather_entity;
+    const type = (this.config.forecast && this.config.forecast.type) || 'daily';
+    if (this._listener && (entity !== this._lastEntity || type !== this._lastType)) {
+      this._resubscribe();
+    }
+  }
+
+  subscribe(callback) {
+    this._listener = callback;
+    this._resubscribe();
+    return () => this.unsubscribe();
+  }
+
+  async unsubscribe() {
+    this._listener = null;
+    if (this._unsubPromise) {
+      try {
+        const unsub = await this._unsubPromise;
+        if (typeof unsub === 'function') unsub();
+      } catch (_) { /* already gone */ }
+      this._unsubPromise = null;
+    }
+  }
+
+  _resubscribe() {
+    if (this._unsubPromise) {
+      this._unsubPromise.then((unsub) => { try { if (typeof unsub === 'function') unsub(); } catch (_) {} });
+      this._unsubPromise = null;
+    }
+    const entity = this.config.weather_entity;
+    if (!entity) {
+      this._emit({ forecast: [], error: 'weather_entity not configured' });
+      return;
+    }
+    const state = this.hass && this.hass.states && this.hass.states[entity];
+    if (!state) {
+      this._emit({ forecast: [], error: `weather entity "${entity}" not found` });
+      return;
+    }
+    const type = (this.config.forecast && this.config.forecast.type) || 'daily';
+    const isHourly = type === 'hourly';
+    const feature = isHourly ? WeatherEntityFeature.FORECAST_HOURLY : WeatherEntityFeature.FORECAST_DAILY;
+    const supported = state.attributes && state.attributes.supported_features;
+    if (!supported || (supported & feature) === 0) {
+      this._emit({ forecast: [], error: `entity "${entity}" does not support ${isHourly ? 'hourly' : 'daily'} forecasts` });
+      return;
+    }
+    this._lastEntity = entity;
+    this._lastType = type;
+    try {
+      this._unsubPromise = this.hass.connection.subscribeMessage(
+        (event) => this._emit({ forecast: event.forecast || [] }),
+        {
+          type: 'weather/subscribe_forecast',
+          forecast_type: isHourly ? 'hourly' : 'daily',
+          entity_id: entity,
+        },
+      );
+    } catch (err) {
+      this._emit({ forecast: [], error: String(err && err.message ? err.message : err) });
+    }
+  }
+
+  _emit(event) {
+    if (this._listener) this._listener(event);
+  }
+}
+
+// Pure formatting / layout helpers used by the chart. Kept in their own
+// module so they can be unit-tested without pulling in Lit, Chart.js, or HA.
+
+// Reduce a CSS colour to ~`factor` of its original alpha. Used to render
+// forecast precipitation bars at lower opacity than the measured station
+// bars next to them. Handles the rgb/rgba/hex shapes the editor produces;
+// other formats (named colours, hsl, oklch, …) pass through unchanged so
+// no exception escapes into the render path.
+function lightenColor(color, factor = 0.45) {
+  if (!color || typeof color !== 'string') return color;
+  let m = /^rgba?\s*\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)\s*$/i.exec(color);
+  if (m) {
+    const a = m[4] !== undefined ? parseFloat(m[4]) : 1;
+    return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${(a * factor).toFixed(3)})`;
+  }
+  m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color);
+  if (m) {
+    const h = m[1].length === 3 ? m[1].split('').map(c => c + c).join('') : m[1];
+    return `rgba(${parseInt(h.slice(0, 2), 16)}, ${parseInt(h.slice(2, 4), 16)}, ${parseInt(h.slice(4, 6), 16)}, ${factor.toFixed(3)})`;
+  }
+  return color;
+}
+
+// Compute the tick-index pairs at which the chart's "today" framing lines
+// should be drawn. Returns an array of `[leftIdx, rightIdx]` pairs; the
+// caller draws a vertical line at the midpoint between those two ticks.
+//
+// - Both blocks active: line before station-today + line after forecast-today.
+// - Station-only:       line before today (rightmost column).
+// - Forecast-only:      line after today (leftmost column).
+// - Empty / single-tick chart: no lines.
+function computeBlockSeparatorPositions(stationCount, forecastCount, ticksLength) {
+  if (!Number.isFinite(ticksLength) || ticksLength < 2) return [];
+  const out = [];
+  if (stationCount > 0 && forecastCount > 0) {
+    if (stationCount >= 2) out.push([stationCount - 2, stationCount - 1]);
+    if (stationCount + 1 < ticksLength) out.push([stationCount, stationCount + 1]);
+  } else if (stationCount > 0) {
+    out.push([ticksLength - 2, ticksLength - 1]);
+  } else if (forecastCount > 0) {
+    out.push([0, 1]);
+  }
+  return out;
 }
 
 /**
@@ -18311,6 +18494,10 @@ static getStubConfig(hass, unusedEntities, allEntities) {
       dew_point: findByPattern(/dew/) || '',
     },
     days: 7,
+    show_station: true,
+    show_forecast: false,
+    weather_entity: '',
+    forecast_days: 7,
     show_main: false,
     show_temperature: true,
     show_current_condition: false,
@@ -18339,6 +18526,7 @@ static getStubConfig(hass, unusedEntities, allEntities) {
       style: 'style1',
       show_wind_forecast: true,
       condition_icons: true,
+      show_date: true,
       round_temp: false,
       type: 'daily',
       number_of_forecasts: '0',
@@ -18391,6 +18579,7 @@ setConfig(config) {
       precipitation_color: 'rgba(132, 209, 253, 1.0)',
       condition_icons: true,
       show_wind_forecast: true,
+      show_date: true,
       round_temp: false,
       type: 'daily',
       number_of_forecasts: '0',
@@ -18505,17 +18694,52 @@ set hass(hass) {
     },
   };
 
-  if (!this._dataSource) {
-    this._dataSource = new MeasuredDataSource(hass, this.config);
-    this._dataUnsubscribe = this._dataSource.subscribe((event) => {
-      this.forecasts = event.forecast;
-      this._dataError = event.error || null;
-      this.requestUpdate();
-      this.drawChart();
-    });
-  } else {
-    this._dataSource.setHass(hass);
+  this._stationData = this._stationData || [];
+  this._forecastData = this._forecastData || [];
+
+  const wantStation = this.config.show_station !== false;
+  const wantForecast = this.config.show_forecast === true && !!this.config.weather_entity;
+
+  if (wantStation) {
+    if (!this._dataSource) {
+      this._dataSource = new MeasuredDataSource(hass, this.config);
+      this._dataUnsubscribe = this._dataSource.subscribe((event) => {
+        this._stationData = event.forecast || [];
+        this._stationError = event.error || null;
+        this._refreshForecasts();
+      });
+    } else {
+      this._dataSource.setHass(hass);
+    }
+  } else if (this._dataSource) {
+    if (this._dataUnsubscribe) this._dataUnsubscribe();
+    this._dataUnsubscribe = null;
+    this._dataSource = null;
+    this._stationData = [];
+    this._stationError = null;
   }
+
+  if (wantForecast) {
+    if (!this._forecastSource) {
+      this._forecastSource = new ForecastDataSource(hass, this.config);
+      this._forecastUnsubscribe = this._forecastSource.subscribe((event) => {
+        this._forecastData = event.forecast || [];
+        this._forecastError = event.error || null;
+        this._refreshForecasts();
+      });
+    } else {
+      this._forecastSource.setHass(hass);
+    }
+  } else if (this._forecastSource) {
+    if (this._forecastUnsubscribe) this._forecastUnsubscribe();
+    this._forecastUnsubscribe = null;
+    this._forecastSource = null;
+    this._forecastData = [];
+    this._forecastError = null;
+  }
+
+  // Initial merge so forecasts is at least an empty array (not undefined).
+  if (!this.forecasts) this._refreshForecasts();
 
   // Detect missing/unavailable sensor entities for the render-time banner.
   this._missingSensors = [];
@@ -18556,6 +18780,11 @@ set hass(hass) {
       this._dataUnsubscribe = null;
     }
     this._dataSource = null;
+    if (this._forecastUnsubscribe) {
+      this._forecastUnsubscribe();
+      this._forecastUnsubscribe = null;
+    }
+    this._forecastSource = null;
     if (this._clockTimer) {
       clearInterval(this._clockTimer);
       this._clockTimer = null;
@@ -18566,9 +18795,39 @@ set hass(hass) {
     }
   }
 
+  _refreshForecasts() {
+    const station = this.config.show_station !== false ? (this._stationData || []) : [];
+    let forecast = [];
+    if (this.config.show_forecast === true && this.config.weather_entity) {
+      const cap = parseInt(this.config.forecast_days, 10);
+      const limit = cap > 0
+        ? cap
+        : (parseInt(this.config.days, 10) || 7);
+      forecast = (this._forecastData || []).slice(0, limit);
+    }
+    this._stationCount = station.length;
+    this._forecastCount = forecast.length;
+    this.forecasts = [...station, ...forecast];
+    this.requestUpdate();
+    // measureCard() recomputes forecastItems from the new this.forecasts
+    // length and then redraws. Going through it (instead of calling
+    // drawChart() directly) prevents a stale forecastItems set by an
+    // earlier ResizeObserver tick from cropping the merged array.
+    this.measureCard();
+  }
+
   attachResizeObserver() {
+    // Section-grid resizes fire many ResizeObserver ticks per frame.
+    // measureCard → drawChart destroys + recreates the Chart.js instance,
+    // and doing that synchronously dozens of times confuses both Chart.js
+    // and HA's grid layout — the card briefly drops out of the render tree
+    // and only reappears after a hard reload. Coalesce into one rAF tick.
     this.resizeObserver = new ResizeObserver(() => {
-      this.measureCard();
+      if (this._resizeRaf) return;
+      this._resizeRaf = requestAnimationFrame(() => {
+        this._resizeRaf = null;
+        this.measureCard();
+      });
     });
     const card = this.shadowRoot.querySelector('ha-card');
     if (card) {
@@ -18581,9 +18840,19 @@ set hass(hass) {
       this.resizeObserver.disconnect();
       this.resizeObserver = null;
     }
+    if (this._resizeRaf) {
+      cancelAnimationFrame(this._resizeRaf);
+      this._resizeRaf = null;
+    }
   }
 
 measureCard() {
+  // Data callbacks can call _refreshForecasts → measureCard before Lit's
+  // first render has created the shadow root. Bail out cleanly; the next
+  // firstUpdated tick (or a later data arrival) will redraw.
+  if (!this.shadowRoot) {
+    return;
+  }
   const card = this.shadowRoot.querySelector('ha-card');
   let fontSize = this.config.forecast.labels_font_size;
   const numberOfForecasts = this.config.forecast.number_of_forecasts || 0;
@@ -18592,7 +18861,16 @@ measureCard() {
     return;
   }
 
-  this.forecastItems = numberOfForecasts > 0 ? numberOfForecasts : Math.round(card.offsetWidth / (fontSize * 6));
+  if (numberOfForecasts > 0) {
+    this.forecastItems = numberOfForecasts;
+  } else if (this.forecasts && this.forecasts.length) {
+    // With station + forecast merged, "today" appears twice on purpose.
+    // Width-based auto-fit would risk cropping that — show every column the
+    // user explicitly configured via days + forecast_days instead.
+    this.forecastItems = this.forecasts.length;
+  } else {
+    this.forecastItems = Math.round(card.offsetWidth / (fontSize * 6));
+  }
   this.drawChart();
 }
 
@@ -18729,25 +19007,35 @@ async updated(changedProperties) {
 
     const sensorsChanged = oldConfig && JSON.stringify(this.config.sensors) !== JSON.stringify(oldConfig.sensors);
     const daysChanged = oldConfig && this.config.days !== oldConfig.days;
+    const stationToggled = oldConfig && (this.config.show_station !== false) !== (oldConfig.show_station !== false);
+    const forecastToggled = oldConfig && (this.config.show_forecast === true) !== (oldConfig.show_forecast === true);
+    const weatherEntityChanged = oldConfig && this.config.weather_entity !== oldConfig.weather_entity;
+    const forecastTypeChanged = oldConfig && (this.config.forecast || {}).type !== (oldConfig.forecast || {}).type;
+    const forecastDaysChanged = oldConfig && this.config.forecast_days !== oldConfig.forecast_days;
     const autoscrollChanged = oldConfig && this.config.autoscroll !== oldConfig.autoscroll;
 
-    if (sensorsChanged || daysChanged) {
-      if (this._dataUnsubscribe) {
-        this._dataUnsubscribe();
-        this._dataUnsubscribe = null;
-      }
-      if (this._hass) {
-        this._dataSource = new MeasuredDataSource(this._hass, this.config);
-        this._dataUnsubscribe = this._dataSource.subscribe((event) => {
-          this.forecasts = event.forecast;
-          this.requestUpdate();
-          this.drawChart();
-        });
-      }
+    // Tear down sources whose driving config changed; the next `set hass`
+    // tick re-creates them with the new config, then _refreshForecasts
+    // re-merges. This avoids the old direct `this.forecasts = …` write
+    // that would clobber the station+forecast merge.
+    if (sensorsChanged || daysChanged || stationToggled) {
+      if (this._dataUnsubscribe) { this._dataUnsubscribe(); this._dataUnsubscribe = null; }
+      this._dataSource = null;
+      this._stationData = [];
+    }
+    if (forecastToggled || weatherEntityChanged || forecastTypeChanged) {
+      if (this._forecastUnsubscribe) { this._forecastUnsubscribe(); this._forecastUnsubscribe = null; }
+      this._forecastSource = null;
+      this._forecastData = [];
     }
 
+    // Pure render-only config changes (round_temp, colours, labels, …)
+    // just need a chart redraw against the existing merged forecasts.
     if (this.forecasts && this.forecasts.length) {
-      this.drawChart();
+      try { this._refreshForecasts(); } catch (e) { console.error('[weather-station-card] redraw failed', e); }
+    } else if (forecastDaysChanged) {
+      // forecast_days only crops what we already have; no resubscribe needed.
+      try { this._refreshForecasts(); } catch (e) { console.error('[weather-station-card] redraw failed', e); }
     }
 
     if (autoscrollChanged) {
@@ -18794,7 +19082,19 @@ cancelAutoscroll() {
   }
 }
 
-drawChart({ config, language, weather, forecastItems } = this) {
+drawChart(args) {
+  try {
+    return this._drawChartUnsafe(args);
+  } catch (e) {
+    console.error('[weather-station-card] drawChart failed', e);
+    if (this.forecastChart) {
+      try { this.forecastChart.destroy(); } catch (_) { /* already gone */ }
+      this.forecastChart = null;
+    }
+  }
+}
+
+_drawChartUnsafe({ config, language, weather, forecastItems } = this) {
   if (!this.forecasts || !this.forecasts.length) {
     return [];
   }
@@ -18849,6 +19149,41 @@ drawChart({ config, language, weather, forecastItems } = this) {
   Chart.defaults.elements.point.radius = 2;
   Chart.defaults.elements.point.hitRadius = 10;
 
+  // Suppress the line segment that would otherwise connect station-today
+  // (rightmost station column) to forecast-today (leftmost forecast column).
+  // Conceptually: measured value vs. predicted value — different sources,
+  // shouldn't visually flow into each other. Markers (dots) stay visible.
+  const stationCountForGap = this._stationCount || 0;
+  const forecastCountForGap = this._forecastCount || 0;
+  const hasBothBlocks = stationCountForGap > 0 && forecastCountForGap > 0;
+  const gapStartIdx = stationCountForGap - 1;
+  const segmentSkip = (ctx) => {
+    if (!hasBothBlocks) return undefined;
+    if (ctx.p0DataIndex === gapStartIdx && ctx.p1DataIndex === gapStartIdx + 1) {
+      return 'transparent';
+    }
+    return undefined;
+  };
+  // Dash forecast segments to mark "predicted, not measured". A segment is
+  // entirely in the forecast block when its left endpoint is at or past
+  // the first forecast index (stationCount). The boundary segment is
+  // already hidden by segmentSkip, so it doesn't matter whether it's dashed.
+  const segmentDash = (ctx) => {
+    if (ctx.p0DataIndex >= stationCountForGap && forecastCountForGap > 0) {
+      return [6, 4];
+    }
+    return undefined;
+  };
+  const tempSegmentOpts = { borderColor: segmentSkip, borderDash: segmentDash };
+
+  const precipColor = config.forecast.precipitation_color;
+  const precipColorLight = lightenColor(precipColor);
+  const precipPerBarColor = (data.precip || []).map(
+    (_, i) => (hasBothBlocks && i >= stationCountForGap) ? precipColorLight
+            : (!hasBothBlocks && stationCountForGap === 0) ? precipColorLight
+            : precipColor,
+  );
+
   var datasets = [
     {
       label: this.ll('tempHi'),
@@ -18857,6 +19192,7 @@ drawChart({ config, language, weather, forecastItems } = this) {
       yAxisID: 'TempAxis',
       borderColor: config.forecast.temperature1_color,
       backgroundColor: config.forecast.temperature1_color,
+      segment: tempSegmentOpts,
     },
     {
       label: this.ll('tempLo'),
@@ -18865,19 +19201,26 @@ drawChart({ config, language, weather, forecastItems } = this) {
       yAxisID: 'TempAxis',
       borderColor: config.forecast.temperature2_color,
       backgroundColor: config.forecast.temperature2_color,
+      segment: tempSegmentOpts,
     },
     {
       label: this.ll('precip'),
       type: 'bar',
       data: data.precip,
       yAxisID: 'PrecipAxis',
-      borderColor: config.forecast.precipitation_color,
-      backgroundColor: config.forecast.precipitation_color,
+      borderColor: precipPerBarColor,
+      backgroundColor: precipPerBarColor,
       barPercentage: config.forecast.precip_bar_size / 100,
       categoryPercentage: 1.0,
+      // datalabels handled by precipLabelPlugin so the unit can render at
+      // a smaller font next to the number. Keep formatter+display defined
+      // so `forecast.show_probability` overlay still works through the
+      // same pipeline when needed (the plugin reads them).
       datalabels: {
         display: function (context) {
-          return context.dataset.data[context.dataIndex] > 0 ? 'true' : false;
+          // Suppress the default chartjs-datalabels render — our plugin
+          // draws number + unit with mixed font sizes instead.
+          return false;
         },
       formatter: function (value, context) {
         const precipitationType = config.forecast.precipitation_type;
@@ -18956,27 +19299,41 @@ drawChart({ config, language, weather, forecastItems } = this) {
     };
   }
 
-  // Plugin: draws a thicker vertical line at the left edge of today's
-  // (rightmost) column, so today is enclosed between that line and the
-  // chart's right border (which is drawn by PrecipAxis.border).
-  const todayLeftBorderPlugin = {
-    id: 'todayLeftBorder',
+  // Plugin: frames "today" with vertical separators.
+  //
+  // Both blocks active: today appears as a doubled column (station-today |
+  // forecast-today). Draw a line on the LEFT of station-today and on the
+  // RIGHT of forecast-today, but NOT between them — keeps Soll/Ist visually
+  // grouped as one "today" block.
+  //
+  // Station-only: line at the left edge of today (rightmost column), so
+  // today stays enclosed between the line and the chart's right border.
+  //
+  // Forecast-only: today is leftmost; the chart's left border already
+  // encloses it, so a line on the right of today is enough.
+  const stationCount = this._stationCount || 0;
+  const forecastCount = this._forecastCount || 0;
+  const separatorPlugin = {
+    id: 'blockSeparator',
     afterDraw(chart) {
       const xScale = chart.scales.x;
-      if (!xScale || !xScale.ticks || xScale.ticks.length < 2) return;
-      const lastIdx = xScale.ticks.length - 1;
-      const lastX = xScale.getPixelForTick(lastIdx);
-      const secondLastX = xScale.getPixelForTick(lastIdx - 1);
-      const x = (lastX + secondLastX) / 2;
-      const { top, bottom } = chart.chartArea;
+      if (!xScale || !xScale.ticks) return;
+      const ticks = xScale.ticks.length;
+      const positions = computeBlockSeparatorPositions(stationCount, forecastCount, ticks);
+      if (!positions.length) return;
       const c = chart.ctx;
+      const { top, bottom } = chart.chartArea;
+      const strokeColor = style.getPropertyValue('--secondary-text-color') || dividerColor;
       c.save();
-      c.strokeStyle = style.getPropertyValue('--secondary-text-color') || dividerColor;
+      c.strokeStyle = strokeColor;
       c.lineWidth = 2;
-      c.beginPath();
-      c.moveTo(x, top);
-      c.lineTo(x, bottom);
-      c.stroke();
+      for (const [leftIdx, rightIdx] of positions) {
+        const x = (xScale.getPixelForTick(leftIdx) + xScale.getPixelForTick(rightIdx)) / 2;
+        c.beginPath();
+        c.moveTo(x, top);
+        c.lineTo(x, bottom);
+        c.stroke();
+      }
       c.restore();
     },
   };
@@ -18987,6 +19344,8 @@ drawChart({ config, language, weather, forecastItems } = this) {
   // The plugin then masks the whole label area for each tick and
   // repaints weekday on top in the primary text colour, date below in
   // --secondary-text-color.
+  const showDateRow = config.forecast.show_date !== false;
+  const doubledToday = stationCount > 0 && forecastCount > 0;
   const dailyTickLabelsPlugin = {
     id: 'dailyTickLabels',
     afterDraw(chart) {
@@ -19010,27 +19369,125 @@ drawChart({ config, language, weather, forecastItems } = this) {
         const dKey = (() => { const k = new Date(d); k.setHours(0,0,0,0); return k.getTime(); })();
         const isToday = dKey === todayMs;
         const weekday = d.toLocaleString(language, { weekday: 'short' }).toUpperCase();
-        const dateLabel = d.toLocaleDateString(language, {
-          day: '2-digit',
-          month: '2-digit',
-        });
         const colW = (xScale.width / xScale.ticks.length);
         c.fillStyle = backgroundColor;
         c.fillRect(x - colW / 2, xScale.top, colW, xScale.bottom - xScale.top);
+
+        // Today is a doubled column when both blocks are active. Skip the
+        // station-today label (i = stationCount - 1) and draw a single
+        // centered label at the boundary in the forecast-today pass.
+        if (doubledToday && i === stationCount - 1) continue;
+        const labelX = (doubledToday && i === stationCount)
+          ? (xScale.getPixelForTick(i - 1) + x) / 2
+          : x;
+
         c.font = `${fontSize}px Helvetica, Arial, sans-serif`;
-        c.fillStyle = dateColor;
-        c.fillText(dateLabel, x, xScale.bottom - 2);
+        if (showDateRow) {
+          const dateLabel = d.toLocaleDateString(language, {
+            day: '2-digit',
+            month: '2-digit',
+          });
+          c.fillStyle = dateColor;
+          c.fillText(dateLabel, labelX, xScale.bottom - 2);
+        }
         c.font = `${isToday ? 'bold ' : ''}${fontSize}px Helvetica, Arial, sans-serif`;
         c.fillStyle = weekdayColor;
-        c.fillText(weekday, x, xScale.bottom - 2 - lineH);
+        const weekdayY = showDateRow ? xScale.bottom - 2 - lineH : xScale.bottom - 2;
+        c.fillText(weekday, labelX, weekdayY);
       }
+      c.restore();
+    },
+  };
+
+  // Plugin: renders precipitation labels with the value at the regular
+  // labels_font_size and the unit at ~65 % so "mm" / "in" doesn't dominate
+  // narrow bars. Replaces the chart's own datalabel for the precip dataset
+  // (display:false above), and reproduces the boxed look (chart-bg fill,
+  // bar-coloured 1.5 px border).
+  const precipLabelPlugin = {
+    id: 'precipLabel',
+    afterDatasetsDraw(chart) {
+      const meta = chart.getDatasetMeta(2); // tempHigh, tempLow, precip
+      if (!meta || !meta.data) return;
+      const c = chart.ctx;
+      const baseSize = parseInt(config.forecast.labels_font_size) || 11;
+      const smallSize = Math.max(6, Math.round(baseSize * 0.5));
+      const padX = 3;
+      const padY = 2;
+      const gap = 2;
+      const fontFamily = 'Helvetica, Arial, sans-serif';
+      const showProb = config.forecast.precipitation_type === 'rainfall'
+        && config.forecast.show_probability;
+      // All labels share a fixed Y line just above the precipitation
+      // axis baseline, so they sit in a row at the chart bottom regardless
+      // of bar height (matches the original datalabels look).
+      const precipAxis = chart.scales.PrecipAxis;
+      const baselineY = precipAxis ? precipAxis.getPixelForValue(0) : chart.chartArea.bottom;
+      c.save();
+      c.textBaseline = 'middle';
+      meta.data.forEach((bar, i) => {
+        const value = data.precip[i];
+        if (value == null || value <= 0) return;
+        const number = value > 9 ? `${Math.round(value)}` : value.toFixed(1);
+        const probability = data.forecast[i] && data.forecast[i].precipitation_probability;
+        const showThisProb = showProb && probability !== undefined && probability !== null;
+
+        c.font = `${baseSize}px ${fontFamily}`;
+        const numberW = c.measureText(number).width;
+        c.font = `${smallSize}px ${fontFamily}`;
+        const unitW = c.measureText(precipUnit).width;
+        const lineW = numberW + gap + unitW;
+
+        let probLine = '';
+        let probW = 0;
+        if (showThisProb) {
+          probLine = `${Math.round(probability)} %`;
+          c.font = `${smallSize}px ${fontFamily}`;
+          probW = c.measureText(probLine).width;
+        }
+
+        const contentW = Math.max(lineW, probW);
+        const lineH = baseSize;
+        const linesGap = showThisProb ? 2 : 0;
+        const contentH = lineH + (showThisProb ? smallSize + linesGap : 0);
+
+        const boxW = contentW + 2 * padX;
+        const boxH = contentH + 2 * padY;
+        const cx = bar.x;
+        const boxLeft = cx - boxW / 2;
+        // Centre the box on the precip-axis baseline so the zero-line
+        // runs through the middle of every label.
+        const boxTop = baselineY - boxH / 2;
+
+        c.fillStyle = backgroundColor;
+        c.strokeStyle = bar.options && bar.options.borderColor
+          ? bar.options.borderColor
+          : (precipPerBarColor[i] || precipColor);
+        c.lineWidth = 1.5;
+        c.fillRect(boxLeft, boxTop, boxW, boxH);
+        c.strokeRect(boxLeft, boxTop, boxW, boxH);
+
+        c.fillStyle = chart_text_color || textColor;
+        c.textAlign = 'left';
+        const lineCenterY = boxTop + padY + lineH / 2;
+        const numberX = cx - lineW / 2;
+        c.font = `${baseSize}px ${fontFamily}`;
+        c.fillText(number, numberX, lineCenterY);
+        c.font = `${smallSize}px ${fontFamily}`;
+        c.fillText(precipUnit, numberX + numberW + gap, lineCenterY);
+
+        if (showThisProb) {
+          c.textAlign = 'center';
+          c.fillText(probLine, cx, lineCenterY + lineH / 2 + linesGap + smallSize / 2);
+        }
+      });
       c.restore();
     },
   };
 
   this.forecastChart = new Chart(ctx, {
     type: 'bar',
-    plugins: [todayLeftBorderPlugin, dailyTickLabelsPlugin],
+    plugins: [separatorPlugin, dailyTickLabelsPlugin, precipLabelPlugin],
     data: {
       labels: data.dateTime,
       datasets: datasets,
@@ -19051,7 +19508,12 @@ drawChart({ config, language, weather, forecastItems } = this) {
           },
           grid: {
             drawTicks: false,
-            color: dividerColor,
+            // Suppress only the gridline between station-today and
+            // forecast-today (it sits inside the doubled-today framing);
+            // keep the others as visual day separators.
+            color: (ctx) => (doubledToday && ctx.index === stationCount)
+              ? 'transparent'
+              : dividerColor,
           },
           ticks: {
               maxRotation: 0,
@@ -19081,6 +19543,12 @@ drawChart({ config, language, weather, forecastItems } = this) {
 
                   if (config.forecast.type !== 'hourly') {
                       var weekday = dateObj.toLocaleString(language, { weekday: 'short' }).toUpperCase();
+                      // When the date row is hidden, return a single
+                      // string so Chart.js only reserves one line of
+                      // tick height and the chart reclaims the gap.
+                      if (config.forecast.show_date === false) {
+                          return weekday;
+                      }
                       var dateLabel = dateObj.toLocaleDateString(language, { day: '2-digit', month: '2-digit' });
                       return [weekday, dateLabel];
                   }
@@ -19096,6 +19564,9 @@ drawChart({ config, language, weather, forecastItems } = this) {
           beginAtZero: false,
           suggestedMin: Math.min(...data.tempHigh, ...data.tempLow) - 5,
           suggestedMax: Math.max(...data.tempHigh, ...data.tempLow) + 6,
+          border: {
+            width: 0,
+          },
           grid: {
             display: false,
             drawTicks: false,
@@ -19108,7 +19579,9 @@ drawChart({ config, language, weather, forecastItems } = this) {
           position: 'right',
           suggestedMax: precipMax,
           border: {
-            width: 2,
+            // No outer chart border on either side — today's framing is
+            // carried by blockSeparatorPlugin alone.
+            width: 0,
             color: style.getPropertyValue('--secondary-text-color') || dividerColor,
           },
           grid: {
@@ -19397,8 +19870,11 @@ updateChart({ forecasts, forecastChart } = this) {
 
 renderErrorBanner() {
   const errors = [];
-  if (this._dataError) {
-    errors.push(`Statistics fetch failed: ${this._dataError}`);
+  if (this._stationError) {
+    errors.push(`Statistics fetch failed: ${this._stationError}`);
+  }
+  if (this._forecastError) {
+    errors.push(`Forecast unavailable: ${this._forecastError}`);
   }
   if (this._missingSensors && this._missingSensors.length) {
     errors.push(`Sensors unavailable: ${this._missingSensors.join(', ')}`);
