@@ -35,7 +35,14 @@ export function buildChart(ctx, {
     },
     options: {
       maintainAspectRatio: false,
-      animation: config.forecast.disable_animation === true ? { duration: 0 } : {},
+      // Default Chart.js animation is 1000 ms easeOutQuart. With the
+      // post-v0.9 dataset density (precip + sunshine = up to 336 bars
+      // animating in hourly mode), 1 s feels laggy. 500 ms still reads
+      // as a transition without dragging. Users who want it fully off
+      // continue to set `forecast.disable_animation: true`.
+      animation: config.forecast.disable_animation === true
+        ? { duration: 0 }
+        : { duration: 500 },
       layout: { padding: { bottom: 10 } },
       scales: {
         x: {

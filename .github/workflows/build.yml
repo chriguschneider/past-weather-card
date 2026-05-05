@@ -34,8 +34,28 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Coverage gate
+        # Fails the build if any of statements / branches / functions /
+        # lines drops below the threshold configured in vitest.config.js.
+        # Scope is the modules listed there — main.js / editor / chart
+        # orchestration are deferred to v1.3 (Playwright E2E).
+        run: npm run coverage
+
       - name: Build
         run: npm run rollup
+
+      - name: Bundle budget
+        # Hard cap at 800 KB (current ~355 KB minified). Tripping this
+        # signals a regression in tree-shaking or an accidental large
+        # dep — investigate before merging.
+        run: |
+          size=$(wc -c < dist/weather-station-card.js)
+          limit=$((800 * 1024))
+          echo "dist/weather-station-card.js: $size bytes (limit: $limit)"
+          if [ "$size" -gt "$limit" ]; then
+            echo "::error::Bundle exceeds 800 KB budget."
+            exit 1
+          fi
 
       - name: Verify committed bundle matches source
         run: |

@@ -1,19 +1,33 @@
-// Pure-JS unit tests for the data layer and formatting helpers. Lit / DOM /
-// Chart.js paths are out of scope (see TESTING.md). Node environment is
-// enough for the modules we cover.
+// Pure-JS unit tests for the data / format / classifier / chart-plugin
+// layers. Lit DOM / Chart.js orchestration / editor paths are out of
+// scope until v1.3 (Playwright E2E + visual regression — issue #14);
+// see TESTING.md.
+//
+// Coverage thresholds are gated in CI (npm run coverage in build.yml).
+// Failing any threshold fails the build — we don't want silent
+// regressions in the modules we DO claim test coverage for.
 export default {
   test: {
     environment: 'node',
     include: ['tests/**/*.test.js'],
     coverage: {
       provider: 'v8',
-      reporter: ['text-summary'],
+      reporter: ['text-summary', 'text'],
       include: [
         'src/condition-classifier.js',
         'src/data-source.js',
         'src/format-utils.js',
         'src/forecast-utils.js',
+        'src/sunshine-source.js',
+        'src/openmeteo-source.js',
+        'src/chart/plugins.js',
       ],
+      thresholds: {
+        statements: 80,
+        branches: 80,
+        functions: 80,
+        lines: 80,
+      },
     },
   },
 };

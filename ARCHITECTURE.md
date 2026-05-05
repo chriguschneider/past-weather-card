@@ -162,7 +162,7 @@ the plugin can't render a single label with two different font sizes
 
 ```
 npm run lint    →  eslint src        (style)
-npm run test    →  vitest run        (61 tests on the 3 pure modules)
+npm run test    →  vitest run        (236 tests across 7 modules)
 npm run rollup  →  rollup -c         (single dist/weather-station-card.js)
 npm run build   =  lint + test + rollup
 ```
@@ -191,26 +191,40 @@ to re-fetch.
 
 ## Testing scope
 
-What's tested (Vitest, `tests/*.test.js`):
+What's tested (Vitest, `tests/*.test.js`, 236 tests as of v1.0):
 
 - `condition-classifier.js` — every decision-tree branch, threshold
-  edges, override merging.
-- `data-source.js` — `dailyPrecipitation` for all three state-class
-  paths, `_buildForecast` chronology, `ForecastDataSource` subscribe /
-  error / dispose.
+  edges, override merging, per-period (daily / hourly) thresholds.
+- `data-source.js` — `bucketPrecipitation` for all three state-class
+  paths (daily + hourly buckets), `_buildForecast` and
+  `_buildHourlyForecast` chronology / shape / live-fallback,
+  `ForecastDataSource` subscribe / error / dispose for both modes.
 - `format-utils.js` — colour parsers (rgba/hex/hsl), separator-position
-  algebra.
+  algebra (incl. hourly mode), `computeInitialScrollLeft` positioning.
+- `forecast-utils.js` — `pickHourlyTickIndices`, `hourlyTempSeries`,
+  `normalizeForecastMode`.
+- `sunshine-source.js`, `openmeteo-source.js` — sunshine derivation
+  paths (v0.9).
+- `chart/plugins.js` — plugin factories: `createSeparatorPlugin` (daily
+  + hourly), `createDailyTickLabelsPlugin` (hourly early-return,
+  doubled-today seam), `createSunshineLabelPlugin`.
 
-What's intentionally **not** tested:
+CI gates branch + line coverage at **80 %** (vitest v8 provider).
+
+What's intentionally **not** unit-tested (planned for v1.3 via
+Playwright E2E + visual regression — issue #14):
 
 - `main.js` Lit lifecycle — that's framework contract (LitElement spec).
   Tests would mostly assert "Lit calls our methods" — the framework has
   its own test suite for that.
-- Chart.js render output — it's a canvas, asserting pixels is brittle and
-  Chart.js is itself well-tested. We rely on visual review and the
-  per-phase error tagging described above to catch regressions.
+- Chart.js render output — it's a canvas, asserting pixels is brittle in
+  unit tests. v1.3 closes this via Playwright visual regression.
 - Editor DOM — `ha-form` is an HA-supplied component. We test the schema
-  shape via lint + visual review, not rendered DOM.
+  shape via lint + visual review, not rendered DOM. v1.3 will add E2E
+  click-path coverage.
+- Pointer / touch gesture sequences (drag-vs-tap, pointercancel) —
+  unit tests can mock pointer events, but the macrotask vs. microtask
+  ordering only manifests in a real browser. Covered by v1.3.
 
 If you're adding logic that crosses these boundaries (e.g. "does setting
 config X cause data source Y to re-subscribe?"), prefer extracting the
@@ -238,6 +252,31 @@ Things that would require structural work:
   category scale doesn't support per-bar widths; linear-scale workarounds
   redistribute *all* spacing, which contradicted user intent. If revived,
   it needs a clear UX contract first.
-- **Hourly forecast.** The `forecast.type: 'hourly'` config key exists
-  upstream but the X-axis tick rendering and condition classification are
-  daily-only here.
+- **Sub-hour granularity.** Daily and hourly are both supported as of
+  v0.8 (`forecast.type: 'daily' | 'hourly'`), with viewport scrolling
+  via `forecast.number_of_forecasts` for the dense hourly case. Going
+  finer (15-min, 5-min) would need a new bucket-size primitive in
+  `bucketPrecipitation` and likely a different chart layout — Chart.js
+  category-scale runs out of horizontal pixels around ~200 columns
+  even with scrolling.
+
+## v1.1+ planned work
+
+Tracked as a sequence of release-tracking issues so each step ships
+independently:
+
+- [#12](https://github.com/chriguschneider/weather-station-card/issues/12) **v1.1 — Architecture refactor**: split `main.js` (currently
+  ~2.2k LOC) into `scroll-ux.js`, `action-handler.js`,
+  `chart/orchestrator.js`; split the monolithic editor into 5 render
+  partials; introduce a `TeardownRegistry` pattern.
+- [#13](https://github.com/chriguschneider/weather-station-card/issues/13) **v1.2 — TypeScript migration**: full `.ts` migration in
+  dependency order, Lit `@property` decorators.
+- [#14](https://github.com/chriguschneider/weather-station-card/issues/14) **v1.3 — Playwright E2E + visual regression**: closes the
+  test-coverage gap for `main.js`, editor click-paths, and Chart.js
+  rendering — the surfaces excluded from the v1.0 80 % unit-test gate.
+- [#15](https://github.com/chriguschneider/weather-station-card/issues/15) **v1.4 — Mode-toggle perf** (closes [#10](https://github.com/chriguschneider/weather-station-card/issues/10)):
+  parallel data-sources or lazy cache so the daily ↔ hourly toggle
+  is instant instead of a 1–3 s teardown + re-subscribe.
+
+Each release is independently shippable; the maintainer can pause
+between any two without leaving the codebase in a half-state.

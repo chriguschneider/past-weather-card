@@ -111,6 +111,39 @@ export function clearSkyLuxAt(latDeg, lonDeg, date) {
   return 110000 * cosZ;
 }
 
+// Same math as clearSkyLuxAt, but returns a closure that caches lat-trig
+// (sinφ, cosφ) and the per-day declination (sinδ, cosδ) so repeated calls
+// for many timestamps in the same lat/lon don't redo trig that doesn't
+// change. Used by MeasuredDataSource._buildHourlyForecast to compute
+// clearsky lux for ~168 hourly rows in one fetch — the cache reduces
+// trig per row from ~5 calls to ~1 (just cos(hourAngle)).
+export function clearSkyLuxFactory(latDeg, lonDeg) {
+  if (!Number.isFinite(latDeg) || !Number.isFinite(lonDeg)) {
+    return () => 110000;
+  }
+  const lat = latDeg * Math.PI / 180;
+  const sinLat = Math.sin(lat);
+  const cosLat = Math.cos(lat);
+  let cachedDayOfYear = -1;
+  let sinDecl = 0;
+  let cosDecl = 0;
+  return (date) => {
+    const d = date instanceof Date ? date : new Date();
+    const yearStart = new Date(d.getFullYear(), 0, 0);
+    const dayOfYear = Math.floor((d - yearStart) / (24 * 60 * 60 * 1000));
+    if (dayOfYear !== cachedDayOfYear) {
+      cachedDayOfYear = dayOfYear;
+      const decl = declinationDeg(dayOfYear) * Math.PI / 180;
+      sinDecl = Math.sin(decl);
+      cosDecl = Math.cos(decl);
+    }
+    const utcHours = d.getUTCHours() + d.getUTCMinutes() / 60 + d.getUTCSeconds() / 3600;
+    const hourAngle = (utcHours + lonDeg / 15 - 12) * 15 * Math.PI / 180;
+    const cosZ = sinLat * sinDecl + cosLat * cosDecl * Math.cos(hourAngle);
+    return cosZ <= 0 ? 0 : 110000 * cosZ;
+  };
+}
+
 // Map a per-period record to an HA condition ID. Worst-of-period priority:
 // extreme weather > precipitation > fog > wind > cloud cover.
 //

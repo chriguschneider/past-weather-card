@@ -187,6 +187,12 @@ setConfig(config) {
 
   cardConfig.units.speed = config.speed ? config.speed : cardConfig.units.speed;
 
+  // Live-condition memoization (set hass) keys partly off `condition_mapping`;
+  // wipe the cached entry so the next hass tick reclassifies with the new
+  // mapping instead of returning a stale label.
+  this._liveConditionKey = null;
+  this._liveCondition = null;
+
   this.baseIconPath = cardConfig.icon_style === 'style2' ?
     'https://cdn.jsdelivr.net/gh/chriguschneider/weather-station-card/dist/icons2/':
     'https://cdn.jsdelivr.net/gh/chriguschneider/weather-station-card/dist/icons/' ;
@@ -250,23 +256,44 @@ set hass(hass) {
   const precipRateNow = precipIsRate ? numOrNull(valueOf(sensors.precipitation)) : null;
   const lat = hass.config && hass.config.latitude;
   const lon = hass.config && hass.config.longitude;
-  const clearskyNow = lat != null && lon != null
-    ? clearSkyLuxAt(lat, lon, new Date())
-    : 110000;
-  // precip_total here is precipRateNow — an instantaneous rate (mm/h)
-  // when the sensor reports a /h unit. Use period: 'hour' so the
-  // precipitation thresholds match the rate semantics, not 24 h totals.
-  const currentCondition = classifyDay({
-    temp_max: nowTemp,
-    temp_min: nowTemp,
-    humidity: numOrNull(this.humidity),
-    lux_max: luxNow,
-    precip_total: precipRateNow,
-    wind_mean: numOrNull(this.windSpeed),
-    gust_max: numOrNull(this.wind_gust_speed),
-    dew_point_mean: numOrNull(this.dew_point),
-    clearsky_lux: clearskyNow,
-  }, this.config.condition_mapping || {}, 'hour');
+
+  // Memoize: classifyDay walks an ~80-line decision tree and clearSkyLuxAt
+  // does ~4 trig ops + cos. Across the 2–5 hass ticks per second that
+  // arrive when many entities update at once, the inputs rarely change
+  // — sensors update at a far slower cadence than HA's WebSocket fan-out.
+  // Cache key buckets the time at minute precision so clearskyNow drift
+  // doesn't break the cache (lux moves ~50 lx/minute under a clear sky,
+  // immaterial to the cloud-ratio threshold). Cache invalidates on
+  // setConfig (condition_mapping changes) — see setConfig.
+  const minuteKey = Math.floor(Date.now() / 60_000);
+  const conditionKey =
+    nowTemp + '|' + luxNow + '|' + precipRateNow + '|' +
+    this.humidity + '|' + this.windSpeed + '|' + this.wind_gust_speed + '|' +
+    this.dew_point + '|' + minuteKey;
+  let currentCondition;
+  if (this._liveConditionKey === conditionKey) {
+    currentCondition = this._liveCondition;
+  } else {
+    const clearskyNow = lat != null && lon != null
+      ? clearSkyLuxAt(lat, lon, new Date())
+      : 110000;
+    // precip_total here is precipRateNow — an instantaneous rate (mm/h)
+    // when the sensor reports a /h unit. Use period: 'hour' so the
+    // precipitation thresholds match the rate semantics, not 24 h totals.
+    currentCondition = classifyDay({
+      temp_max: nowTemp,
+      temp_min: nowTemp,
+      humidity: numOrNull(this.humidity),
+      lux_max: luxNow,
+      precip_total: precipRateNow,
+      wind_mean: numOrNull(this.windSpeed),
+      gust_max: numOrNull(this.wind_gust_speed),
+      dew_point_mean: numOrNull(this.dew_point),
+      clearsky_lux: clearskyNow,
+    }, this.config.condition_mapping || {}, 'hour');
+    this._liveConditionKey = conditionKey;
+    this._liveCondition = currentCondition;
+  }
 
   // Synthesized stand-in for the original weather entity. The *_unit fields
   // here represent the SOURCE units (what the data layer actually emits);
@@ -574,7 +601,7 @@ getWindDirIcon(deg) {
   if (typeof deg === 'number') {
     return cardinalDirectionsIcon[parseInt((deg + 22.5) / 45.0)];
   } else {
-    var i = 9;
+    let i = 9;
     switch (deg) {
       case "N":
         i = 0;
@@ -883,15 +910,15 @@ _drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this)
     this.forecastChart.destroy();
   }
   this._chartPhase = 'compute';
-  var tempUnit = this._hass.config.unit_system.temperature;
-  var lengthUnit = this._hass.config.unit_system.length;
-  var precipUnit = lengthUnit === 'km' ? this.ll('units')['mm'] : this.ll('units')['in'];
+  const tempUnit = this._hass.config.unit_system.temperature;
+  const lengthUnit = this._hass.config.unit_system.length;
+  const precipUnit = lengthUnit === 'km' ? this.ll('units')['mm'] : this.ll('units')['in'];
   const data = this.computeForecastData();
 
-  var style = getComputedStyle(document.body);
-  var backgroundColor = style.getPropertyValue('--card-background-color');
-  var textColor = style.getPropertyValue('--primary-text-color');
-  var dividerColor = style.getPropertyValue('--divider-color');
+  const style = getComputedStyle(document.body);
+  const backgroundColor = style.getPropertyValue('--card-background-color');
+  const textColor = style.getPropertyValue('--primary-text-color');
+  const dividerColor = style.getPropertyValue('--divider-color');
   const canvas = this.renderRoot.querySelector('#forecastChart');
   if (!canvas) {
     requestAnimationFrame(() => this.drawChart());
@@ -987,7 +1014,7 @@ _drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this)
   // pass through so the bar slot stays empty for missing data.
   const sunshineFractionData = sunshineFractions(data.sunshine, data.dayLength);
 
-  var datasets = [
+  const datasets = [
     {
       label: this.ll('tempHi'),
       type: 'line',
@@ -1276,15 +1303,15 @@ updateChart({ forecasts, forecastChart } = this) {
             </div>
             ${this.renderModeToggle()}
             ${scrolling ? html`
-              <button class="scroll-indicator scroll-indicator-left" aria-label="Scroll left" hidden>
-                <ha-icon icon="mdi:chevron-left"></ha-icon>
+              <button type="button" class="scroll-indicator scroll-indicator-left" aria-label="Scroll left" hidden>
+                <ha-icon icon="mdi:chevron-left" aria-hidden="true"></ha-icon>
               </button>
-              <button class="scroll-indicator scroll-indicator-right" aria-label="Scroll right" hidden>
-                <ha-icon icon="mdi:chevron-right"></ha-icon>
+              <button type="button" class="scroll-indicator scroll-indicator-right" aria-label="Scroll right" hidden>
+                <ha-icon icon="mdi:chevron-right" aria-hidden="true"></ha-icon>
               </button>
-              <button class="jump-to-now" aria-label="Jump to now" title="Jump to now" hidden
+              <button type="button" class="jump-to-now" aria-label="Jump to now" title="Jump to now" hidden
                 @click=${this._onJumpToNowClick}>
-                <ha-icon icon="mdi:crosshairs-gps"></ha-icon>
+                <ha-icon icon="mdi:crosshairs-gps" aria-hidden="true"></ha-icon>
               </button>
             ` : ''}
             ${scrolling && config.forecast.type === 'hourly' ? html`
@@ -1892,9 +1919,10 @@ _convertWindSpeed(raw) {
     const icon = isHourly ? 'mdi:calendar-month-outline' : 'mdi:clock-time-eight-outline';
     const label = isHourly ? 'Switch to daily forecast' : 'Switch to hourly forecast';
     return html`
-      <button class="mode-toggle" aria-label="${label}" title="${label}"
+      <button type="button" class="mode-toggle" aria-label="${label}"
+              aria-pressed="${isHourly ? 'true' : 'false'}" title="${label}"
               @click=${this._onModeToggleClick}>
-        <ha-icon icon=${icon}></ha-icon>
+        <ha-icon icon=${icon} aria-hidden="true"></ha-icon>
       </button>
     `;
   }
@@ -1958,8 +1986,17 @@ _convertWindSpeed(raw) {
     // map to viewport-pixel coordinates.
     const leftIdx = Math.max(0, Math.min(total - 1, Math.floor(wrapper.scrollLeft / barWidth)));
     const rightIdx = Math.max(0, Math.min(total - 1, Math.floor((wrapper.scrollLeft + wrapper.clientWidth - 1) / barWidth)));
-    const leftCenterX = (leftIdx + 0.5) * barWidth - wrapper.scrollLeft;
-    const rightCenterX = (rightIdx + 0.5) * barWidth - wrapper.scrollLeft;
+    const rawLeftCenterX = (leftIdx + 0.5) * barWidth - wrapper.scrollLeft;
+    const rawRightCenterX = (rightIdx + 0.5) * barWidth - wrapper.scrollLeft;
+    // Clamp the centre so translateX(-50%) doesn't push half the text
+    // outside the card. Reserved half-text-width is conservative (handles
+    // "Sep 12" at ~30 px half-width across the locales we ship). Without
+    // clamping, a leftmost bar that's 60-90 % scrolled past the viewport
+    // gives a small positive centre (e.g. 15 px) and the label still
+    // pokes off the left card edge.
+    const TEXT_HALF = 30;
+    const leftCenterX = Math.max(TEXT_HALF, rawLeftCenterX);
+    const rightCenterX = Math.min(wrapper.clientWidth - TEXT_HALF, rawRightCenterX);
 
     const lang = this.config.locale || this.language || 'en';
     const fmt = (idx) => {

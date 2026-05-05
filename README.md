@@ -2,6 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 [![hacs](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
+[![coverage ≥ 80%](https://img.shields.io/badge/coverage-%E2%89%A580%25-brightgreen.svg)](TESTING.md)
 
 A Lovelace card that shows **past weather-station measurements** in the same
 per-day layout as [`weather-chart-card`](https://github.com/mlamberts78/weather-chart-card),
@@ -221,6 +222,7 @@ classifier, and (where relevant) the attribute readouts. Only
 | `sensors.wind_direction` | Wind direction attribute & arrow |
 | `sensors.uv_index` | UV attribute |
 | `sensors.dew_point` | Fog detection (combined with humidity) |
+| `sensors.sunshine_duration` | Today's live sunshine value (scalar, seconds or hours auto-detected at the `≥ 30` threshold). Past columns fall back to the recorder's daily-max for this same sensor. Only used when `forecast.show_sunshine: true`. |
 
 </details>
 
