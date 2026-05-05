@@ -71,7 +71,7 @@ default) for the original station-only experience, or set
 
 ## Screenshots
 
-| Main panel + chart | Past 7 days standalone | Visual editor |
+| Main panel + chart | Standalone chart | Visual editor |
 | --- | --- | --- |
 | ![Main](images/main.png) | ![Chart](images/chart.png) | ![Editor](images/editor.png) |
 
