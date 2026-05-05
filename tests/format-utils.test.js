@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { lightenColor, computeBlockSeparatorPositions } from '../src/format-utils.js';
+import {
+  lightenColor,
+  computeBlockSeparatorPositions,
+  computeInitialScrollLeft,
+} from '../src/format-utils.js';
 
 describe('lightenColor', () => {
   it('reduces alpha of an rgba colour', () => {
@@ -98,5 +102,77 @@ describe('computeBlockSeparatorPositions', () => {
   it('handles non-finite ticksLength defensively', () => {
     expect(computeBlockSeparatorPositions(7, 7, NaN)).toEqual([]);
     expect(computeBlockSeparatorPositions(7, 7, undefined)).toEqual([]);
+  });
+
+  it('hourly mode: single "now" line between last station hour and first forecast hour', () => {
+    // 24 station hours + 24 forecast hours. "Now" sits between idx 23 and 24.
+    expect(computeBlockSeparatorPositions(24, 24, 48, 'hourly')).toEqual([
+      [23, 24],
+    ]);
+  });
+
+  it('hourly mode: forecast-only falls back to a single leading edge line', () => {
+    expect(computeBlockSeparatorPositions(0, 24, 24, 'hourly')).toEqual([
+      [0, 1],
+    ]);
+  });
+
+  it('hourly mode: station-only falls back to a single trailing edge line', () => {
+    expect(computeBlockSeparatorPositions(24, 0, 24, 'hourly')).toEqual([
+      [22, 23],
+    ]);
+  });
+
+  it('default mode is daily (back-compat for callers that omit the parameter)', () => {
+    expect(computeBlockSeparatorPositions(7, 7, 14)).toEqual(
+      computeBlockSeparatorPositions(7, 7, 14, 'daily'),
+    );
+  });
+});
+
+describe('computeInitialScrollLeft', () => {
+  it('returns 0 when nothing is loaded yet', () => {
+    expect(computeInitialScrollLeft({
+      stationCount: 0, forecastCount: 0, contentWidth: 1000, viewportWidth: 500,
+    })).toBe(0);
+  });
+
+  it('returns 0 when viewport is wider than content (no scroll possible)', () => {
+    expect(computeInitialScrollLeft({
+      stationCount: 24, forecastCount: 0, contentWidth: 400, viewportWidth: 600,
+    })).toBe(0);
+  });
+
+  it('combination: centres boundary in viewport', () => {
+    // 24+24, content 4800, viewport 600 → boundary at 50% = 2400, target = 2100.
+    expect(computeInitialScrollLeft({
+      stationCount: 24, forecastCount: 24, contentWidth: 4800, viewportWidth: 600,
+    })).toBe(2100);
+  });
+
+  it('combination clamps when boundary is near the edge', () => {
+    // 1 station + 23 forecast → boundary at 1/24 ≈ 4.2 % of contentWidth.
+    // Target is negative; clamp to 0.
+    expect(computeInitialScrollLeft({
+      stationCount: 1, forecastCount: 23, contentWidth: 4800, viewportWidth: 600,
+    })).toBe(0);
+  });
+
+  it('station-only: scrolls to right edge (most recent visible)', () => {
+    expect(computeInitialScrollLeft({
+      stationCount: 24, forecastCount: 0, contentWidth: 2400, viewportWidth: 600,
+    })).toBe(1800);
+  });
+
+  it('forecast-only: scrolls to left edge', () => {
+    expect(computeInitialScrollLeft({
+      stationCount: 0, forecastCount: 24, contentWidth: 2400, viewportWidth: 600,
+    })).toBe(0);
+  });
+
+  it('handles non-finite dimensions defensively', () => {
+    expect(computeInitialScrollLeft({
+      stationCount: 24, forecastCount: 24, contentWidth: NaN, viewportWidth: 600,
+    })).toBe(0);
   });
 });

@@ -19,9 +19,15 @@ BTHome, ESPHome, Pirateweather receiver, …), the more interesting view is
 *what happened over the past N days* — and the most useful "now" panel
 reflects the live readings of those same sensors. This card does both:
 
-- A **7-day past chart** with high / low temperature curves and daily
+- A **past chart** with high / low temperature curves and daily
   precipitation bars, plus an icon row of the worst-of-day weather
-  condition for each column. Today's column is highlighted.
+  condition for each column. Today's column is highlighted. The number
+  of days is configurable (`days:`, 1–14).
+- An optional **forecast block** driven by a `weather.*` entity, drawn
+  in the same per-day layout next to the past chart. Forecast
+  temperature lines are dashed and forecast precipitation bars render
+  semi-transparent so predicted values read distinctly from measured
+  ones. Span is configurable separately (`forecast_days:`).
 - A **live main panel** showing the current temperature, condition icon,
   and (optionally) clock and weather attributes — all derived from current
   sensor states, not from a forecast.
@@ -30,12 +36,12 @@ Conditions are derived by a deterministic, meteorologically-grounded
 classifier (see [How conditions are determined](#how-conditions-are-determined)
 below — every threshold is tied to a WMO / NWS / AMS / IES source).
 
-## Three modes (v0.5+)
+## Three modes
 
 The same card renders three distinct layouts depending on which blocks
 are enabled. Each mode pairs with two `forecast.style` variants ("with
 boxes" / "without boxes"), giving the six layouts shown below — top row
-is the v0.6 default style (`style2`, without boxes), bottom row is
+is the default style (`style2`, without boxes), bottom row is
 `style1` (with boxes).
 
 ![All three modes in both chart-style variants](images/styles-grid.png)
@@ -57,8 +63,8 @@ is the v0.6 default style (`style2`, without boxes), bottom row is
 type: custom:weather-station-card
 days: 7
 sensors:
-  temperature: sensor.pool_weather_station_temperature
-  # … (rest as in the minimal config below)
+  temperature: sensor.YOUR_TEMPERATURE_SENSOR
+  # … (rest as in the example config below)
 weather_entity: weather.home   # any weather.* entity that supports daily forecast
 forecast_days: 7
 show_forecast: true            # turn the forecast block on
@@ -68,6 +74,23 @@ show_station: true             # default; flip to false for forecast-only
 Both blocks toggle independently — leave `show_forecast: false` (the
 default) for the original station-only experience, or set
 `show_station: false` to hide the historical block.
+
+### Daily vs. hourly resolution
+
+`forecast.type` (added in v0.8) flips both blocks to hour resolution:
+station data is aggregated per hour from the recorder (`period: 'hour'`,
+mean per slot, single temperature line), and the forecast subscribes
+with `forecast_type: 'hourly'`. Combination mode renders past hours +
+future hours joined at a "now" line — no doubled-today column.
+
+`days` and `forecast_days` keep their meaning at hourly: they're
+the **data window in days**, so `days: 7` at hourly loads `7 × 24 =
+168` hours of station history. `forecast.number_of_forecasts`
+controls how many of those bars are visible at once — the chart
+row, conditions row, and wind row all scroll horizontally in
+lockstep. Default `8` works for both modes (fits 7-day daily without
+scrolling and caps the hourly viewport at ~8 hours); set `0` to
+disable the viewport and show everything.
 
 ## Screenshots
 
@@ -98,7 +121,7 @@ default) for the original station-only experience, or set
    JavaScript module.
 4. Hard-refresh and add the card.
 
-## Minimal working config
+## Example config
 
 ```yaml
 type: custom:weather-station-card
@@ -106,16 +129,16 @@ title: Weather Station
 days: 7
 show_main: true
 sensors:
-  temperature: sensor.pool_weather_station_temperature
-  humidity: sensor.pool_weather_station_humidity
-  illuminance: sensor.pool_weather_station_illuminance
-  precipitation: sensor.pool_weather_station_precipitation
-  pressure: sensor.pool_weather_station_pressure
-  wind_speed: sensor.pool_weather_station_wind_speed
-  gust_speed: sensor.pool_weather_station_gust_speed
-  wind_direction: sensor.pool_weather_station_wind_direction
-  uv_index: sensor.pool_weather_station_uv_index
-  dew_point: sensor.pool_weather_station_dew_point
+  temperature: sensor.YOUR_TEMPERATURE_SENSOR
+  humidity: sensor.YOUR_HUMIDITY_SENSOR
+  illuminance: sensor.YOUR_ILLUMINANCE_SENSOR
+  precipitation: sensor.YOUR_PRECIPITATION_SENSOR
+  pressure: sensor.YOUR_PRESSURE_SENSOR
+  wind_speed: sensor.YOUR_WIND_SPEED_SENSOR
+  gust_speed: sensor.YOUR_GUST_SPEED_SENSOR
+  wind_direction: sensor.YOUR_WIND_DIRECTION_SENSOR
+  uv_index: sensor.YOUR_UV_INDEX_SENSOR
+  dew_point: sensor.YOUR_DEW_POINT_SENSOR
 units:
   speed: km/h
 ```
@@ -241,7 +264,7 @@ ON; in YAML the sub-keys are evaluated regardless.
 | `forecast.condition_icons` | bool | `true` | Condition icons row above the chart. |
 | `forecast.show_wind_forecast` | bool | `true` | Wind row below the chart. |
 | `forecast.show_wind_arrow` | bool | `true` | Show the per-day wind-direction arrow inside the wind row. When the arrow is on and a column is too narrow to fit the arrow + speed side-by-side, the speed wraps onto a second line below the arrow. |
-| `forecast.show_date` | bool | `true` | `dd/mm` date row in the X-axis (v0.5+). When off, only the weekday is rendered. |
+| `forecast.show_date` | bool | `true` | `dd/mm` date row in the X-axis. When off, only the weekday is rendered. |
 
 </details>
 
@@ -305,8 +328,8 @@ ON; in YAML the sub-keys are evaluated regardless.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `forecast.type` | `'daily' \| 'hourly'` | `'daily'` | ⚠ Hidden in editor — see [Known limitations](#known-limitations). YAML still parses. |
-| `forecast.number_of_forecasts` | integer | `0` | ⚠ Hidden in editor — see [Known limitations](#known-limitations). YAML still parses. |
+| `forecast.type` | `'daily' \| 'hourly'` | `'daily'` | At hourly, station data is fetched at hour resolution (mean per hour, single temperature line) and the forecast is subscribed with `forecast_type: hourly`. `days` / `forecast_days` define the data window (so `days: 4` at hourly = 96 hours of station history). Editor radio in Setup. |
+| `forecast.number_of_forecasts` | integer | `8` | Number of bars visible in the viewport at once. Default `8` works across both modes — at daily with `days: 7` everything fits without scrolling, at hourly it caps the viewport at ~8 hours and the user scrolls. Set `0` for "fit all" (no scrolling). When more bars are loaded than visible, the chart row + wind row + conditions row scroll horizontally in lockstep. Initial scroll position is "now" (centred at the station/forecast boundary in combination mode). |
 | `autoscroll` | bool | `false` | ⚠ Hidden in editor — see [Known limitations](#known-limitations). YAML still parses. |
 | `locale` | string | HA's selected language | Override locale (e.g. `de`, `fr`). Falls back to English for missing keys. |
 
@@ -390,59 +413,13 @@ total correctly. To get a true live rain icon, expose a `mm/h` rate sensor
 
 ## Setting up a precipitation sensor
 
-The precipitation bars in the chart show **mm of rain per day**, not
-running totals. How that daily value is computed depends on what kind of
-sensor you have — the data layer auto-detects three shapes:
-
-| `state_class` (sensor attribute) | Statistics field used | What the sensor should look like |
-| -------------------------------- | --------------------- | -------------------------------- |
-| `total_increasing`               | `change`              | A counter that resets only on device boot or counter rollover (e.g. `pulse_meter`, integration of a `mm/h` rate). |
-| `total`                          | `sum`                 | A counter that the integration partitions into reset cycles itself. |
-| `measurement` (or no class)      | `max − previous_max`  | A daily-resetting bucket (e.g. `utility_meter` with `cycle: daily`, or a sensor that already exposes "today's rain"). |
-
-The classifier prefers a daily-reset sensor in `getStubConfig` (auto-fill in
-the visual editor) — `precipitation_today`, `precipitation_daily`, then
-generic `precipitation`.
-
-### If you only have a cumulative counter
-
-A `total_increasing` counter (lifetime mm) is the cleanest source: just
-plug it into `sensors.precipitation` and the daily values come out right.
-
-If your only counter is `measurement` (raw current state, no `state_class`),
-add a `utility_meter` so Home Assistant resets it every midnight:
-
-```yaml
-# configuration.yaml
-utility_meter:
-  rain_today:
-    source: sensor.your_raw_rain_counter
-    cycle: daily
-```
-
-…then point the card at `sensor.rain_today` instead. The card uses
-`state_class: total_increasing` automatically (`utility_meter`'s default for
-a daily cycle).
-
-### If you have a rate sensor (`mm/h`)
-
-A rate sensor cannot directly drive the daily bars — you need an integral:
-
-```yaml
-# configuration.yaml
-sensor:
-  - platform: integration
-    source: sensor.rain_rate_mm_h
-    name: rain_total_mm
-    unit_time: h
-    method: left      # rate × interval, no trapezoidal smoothing for rain
-    round: 2
-```
-
-Then add a daily `utility_meter` on top of `rain_total_mm` as above. The
-card receives a clean per-day bar; the rate sensor itself can be wired
-into `sensors.precipitation` *as well* if you want the live "now" condition
-to reflect rain (see the previous section about rate units).
+The precipitation bars show **mm of rain per day**, not running totals.
+Most weather-station integrations (Ecowitt, Pirateweather, BTHome,
+ESPHome `pulse_meter`, …) expose a cumulative `total_increasing` counter
+in mm — plug it into `sensors.precipitation` and the daily values come
+out right. The data layer also accepts `total` counters and `measurement`
+sensors that already represent "today's rain" (e.g. via a daily
+`utility_meter`).
 
 ## How conditions are determined
 
@@ -543,18 +520,17 @@ render tick. If a field doesn't seem to update:
 
 ## Known limitations
 
-For the two features below, the YAML keys are still parsed but the
-visual editor **no longer surfaces them** in v0.6 — the toggles were
-hidden so users don't rely on inert behaviour. Tracking issues are
-linked.
+For the toggles below, the YAML keys are still parsed but the visual
+editor **does not surface them** while their behaviour is broken or
+vestigial. Tracking issues are linked.
 
 | Field | Symptom | Tracking |
 | --- | --- | --- |
-| `forecast.type: hourly` | Accepted by the data layer (the `weather/subscribe_forecast` call uses `forecast_type: hourly`), but the chart's X-axis tick callback and the condition classifier are still daily-only. The chart will look wrong with hourly data. | [#2](https://github.com/chriguschneider/weather-station-card/issues/2) |
-| `autoscroll: true` | Toggle existed in YAML and the editor; the timer in `main.js` fires once per hour but only triggers a redraw — there's no actual scroll behaviour. | [#3](https://github.com/chriguschneider/weather-station-card/issues/3) |
+| `autoscroll: true` | Toggle existed in YAML and the editor; the timer in `main.js` fires once per hour but only triggers a redraw — there's no actual scroll behaviour. (v0.8's hourly viewport scrolling is unrelated and works fine.) | [#3](https://github.com/chriguschneider/weather-station-card/issues/3) |
 | `forecast.precipitation_type: probability` and `forecast.show_probability` | Station data has no probability field, so probability mode produces empty bars for past columns and `show_probability` has nothing to overlay there. Both keys are still parsed but no longer surfaced in the editor. | [#4](https://github.com/chriguschneider/weather-station-card/issues/4) |
-| `forecast.number_of_forecasts` | Vestigial — `days` and `forecast_days` already control column counts. Setting a positive value crops `this.forecasts` from the left and breaks combination mode (loses today + forecast block). | [#5](https://github.com/chriguschneider/weather-station-card/issues/5) |
-| Plugin tests | The three Chart.js plugins are now factory functions and could be unit-tested, but no plugin tests exist yet. Visual review remains the only safety net for chart rendering changes. | Optional improvement for v0.7. |
+| Hourly wind values blank with Open-Meteo | At `forecast.type: hourly`, the wind row of the *forecast* block renders empty cells when the upstream `weather.*` integration omits per-hour wind data. HA's Open-Meteo integration ([source](https://github.com/home-assistant/core/blob/dev/homeassistant/components/open_meteo/weather.py) — see `_async_forecast_hourly`) currently ships only `datetime`, `condition`, `precipitation` and `temperature` per hourly entry; `wind_speed` / `wind_bearing` are present only on the daily branch. Met.no and other integrations may differ. The card hides the arrow + value when either field is missing, so cells stay empty rather than showing a default-direction arrow with an orphan unit. | upstream integration |
+| Hourly classifier thresholds | At `forecast.type: hourly`, station hours run through the same `classifyDay` decision tree as daily aggregates. Thresholds (e.g. `rainy_threshold_mm: 0.5`) are calibrated for *daily* totals — 0.5 mm in one hour is meteorologically heavier rain than 0.5 mm over a day, so the classifier may report `pouring` more often than feels right at hourly. Override via `condition_mapping` if it bothers you; per-hour-tuned defaults are tracked for v0.9. | v0.9 follow-up |
+| Plugin tests | The three Chart.js plugins are now factory functions and could be unit-tested, but no plugin tests exist yet. Visual review remains the only safety net for chart rendering changes. | Optional improvement. |
 
 Reactions / comments on the linked issues help prioritise the wiring
 work. PRs welcome — the relevant code paths are linked from each issue.

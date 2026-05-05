@@ -12,6 +12,7 @@ export default {
         'src/condition-classifier.js',
         'src/data-source.js',
         'src/format-utils.js',
+        'src/forecast-utils.js',
       ],
     },
   },

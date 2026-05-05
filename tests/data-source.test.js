@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { dailyPrecipitation, MeasuredDataSource, ForecastDataSource } from '../src/data-source.js';
+import { bucketPrecipitation, dailyPrecipitation, MeasuredDataSource, ForecastDataSource } from '../src/data-source.js';
 import { WeatherEntityFeature } from '../src/const.js';
 
 describe('dailyPrecipitation', () => {
@@ -45,6 +45,30 @@ describe('dailyPrecipitation', () => {
 
   it('returns null when today has no usable field', () => {
     expect(dailyPrecipitation(series({ 100: {} }), 100, 99)).toBe(null);
+  });
+
+  // Bucket-agnostic shape: same logic must apply at hour granularity
+  // because v0.8 uses bucketPrecipitation directly with hourly buckets.
+  it('alias `bucketPrecipitation` is identical to `dailyPrecipitation`', () => {
+    expect(bucketPrecipitation).toBe(dailyPrecipitation);
+  });
+
+  it('works for hourly buckets — change path', () => {
+    // Hour keys: e.g. ms-since-epoch at the hour. Function is key-agnostic.
+    const hourMs = 1716393600000;
+    const prevHourMs = hourMs - 3600_000;
+    const m = new Map();
+    m.set(hourMs, { change: 0.3, max: 10 });
+    expect(bucketPrecipitation(m, hourMs, prevHourMs)).toBe(0.3);
+  });
+
+  it('works for hourly buckets — measurement diff with reset', () => {
+    const hourMs = 1716393600000;
+    const prevHourMs = hourMs - 3600_000;
+    const m = new Map();
+    m.set(hourMs, { max: 2 });
+    m.set(prevHourMs, { max: 25 }); // counter reset between hours
+    expect(bucketPrecipitation(m, hourMs, prevHourMs)).toBe(2);
   });
 });
 
@@ -132,6 +156,223 @@ describe('MeasuredDataSource._buildForecast', () => {
   });
 });
 
+describe('MeasuredDataSource hourly mode', () => {
+  // Round to the next full hour, matching what _fetchAggregates does.
+  const HOUR_MS = 3600_000;
+  const startHour = (() => {
+    const d = new Date(2026, 4, 1, 12, 0, 0, 0); // May 1, noon local
+    return d;
+  })();
+  const hourMs = (offsetHours) => {
+    const d = new Date(startHour.getTime() + offsetHours * HOUR_MS);
+    return { date: d, key: d.getTime() };
+  };
+
+  const fakeHass = {
+    config: { latitude: 47.4, longitude: 8.5 },
+    callWS: vi.fn(),
+  };
+
+  const sensors = {
+    temperature: 'sensor.temp',
+    humidity: 'sensor.hum',
+    illuminance: 'sensor.lux',
+    precipitation: 'sensor.rain',
+    pressure: 'sensor.pres',
+    wind_speed: 'sensor.wind',
+    gust_speed: 'sensor.gust',
+    wind_direction: 'sensor.dir',
+    uv_index: 'sensor.uv',
+    dew_point: 'sensor.dew',
+  };
+
+  it('produces one entry per hour, in chronological order', () => {
+    const ds = new MeasuredDataSource(fakeHass, {
+      sensors, days: 1, forecast: { type: 'hourly' },
+    });
+    // _buildHourlyForecast iterates i=1..hours from `start`.
+    const stats = {
+      'sensor.temp': [
+        { start: hourMs(1).date.toISOString(), max: 21, min: 19, mean: 20 },
+        { start: hourMs(2).date.toISOString(), max: 22, min: 20, mean: 21 },
+        { start: hourMs(3).date.toISOString(), max: 23, min: 21, mean: 22 },
+      ],
+    };
+    const out = ds._buildHourlyForecast(stats, sensors, startHour, 3);
+    expect(out).toHaveLength(3);
+    // mean — single line at hourly
+    expect(out[0].temperature).toBe(20);
+    expect(out[1].temperature).toBe(21);
+    expect(out[2].temperature).toBe(22);
+  });
+
+  it('omits templow on hourly entries (triggers single-line render)', () => {
+    const ds = new MeasuredDataSource(fakeHass, {
+      sensors, days: 1, forecast: { type: 'hourly' },
+    });
+    const stats = {
+      'sensor.temp': [{ start: hourMs(1).date.toISOString(), max: 21, min: 19, mean: 20 }],
+    };
+    const [entry] = ds._buildHourlyForecast(stats, sensors, startHour, 1);
+    expect('templow' in entry).toBe(false);
+  });
+
+  it('uses bucketPrecipitation for hourly precipitation', () => {
+    const ds = new MeasuredDataSource(fakeHass, {
+      sensors, days: 1, forecast: { type: 'hourly' },
+    });
+    const stats = {
+      'sensor.rain': [
+        { start: hourMs(1).date.toISOString(), change: 0.4 },
+      ],
+    };
+    const [entry] = ds._buildHourlyForecast(stats, sensors, startHour, 1);
+    expect(entry.precipitation).toBe(0.4);
+  });
+
+  it('returns null fields for hours without data, never throws', () => {
+    const ds = new MeasuredDataSource(fakeHass, {
+      sensors, days: 1, forecast: { type: 'hourly' },
+    });
+    // Stats only carries hour 1; hour 2 is missing entirely.
+    const stats = {
+      'sensor.temp': [{ start: hourMs(1).date.toISOString(), max: 21, min: 19, mean: 20 }],
+    };
+    const out = ds._buildHourlyForecast(stats, sensors, startHour, 2);
+    expect(out).toHaveLength(2);
+    expect(out[1].temperature).toBe(null);
+    expect(typeof out[1].condition).toBe('string');
+  });
+
+  it('falls back to live state for the last hour when recorder bucket is missing', () => {
+    // Recorder hourly stats lag — the still-in-progress current hour
+    // typically has no entry. For the last hour we read the entity's
+    // current state instead of leaving fields null.
+    const hass = {
+      config: { latitude: 47.4, longitude: 8.5 },
+      states: {
+        'sensor.temp': { state: '13.4' },
+        'sensor.hum': { state: '78' },
+        'sensor.wind': { state: '5.5' },
+      },
+      callWS: vi.fn(),
+    };
+    const ds = new MeasuredDataSource(hass, {
+      sensors, days: 1, forecast: { type: 'hourly' },
+    });
+    // 3 hours requested. Recorder only has data for the first two
+    // hours. The third (last) entry must be live-filled.
+    const stats = {
+      'sensor.temp': [
+        { start: hourMs(1).date.toISOString(), max: 12, min: 11, mean: 11.5 },
+        { start: hourMs(2).date.toISOString(), max: 13, min: 12, mean: 12.5 },
+        // hour 3 missing — current partial hour
+      ],
+    };
+    const out = ds._buildHourlyForecast(stats, sensors, startHour, 3);
+    expect(out[0].temperature).toBe(11.5);
+    expect(out[1].temperature).toBe(12.5);
+    expect(out[2].temperature).toBe(13.4); // live state
+    expect(out[2].humidity).toBe(78);
+    expect(out[2].wind_speed).toBe(5.5);
+  });
+
+  it('falls back to live state for precipitation in the last hour', () => {
+    const hass = {
+      config: { latitude: 47.4, longitude: 8.5 },
+      states: {
+        'sensor.rain': { state: '721.3' }, // lifetime cumulative reading
+      },
+      callWS: vi.fn(),
+    };
+    const ds = new MeasuredDataSource(hass, {
+      sensors, days: 1, forecast: { type: 'hourly' },
+    });
+    // Two hours requested. Hour 1 has a complete bucket; hour 2 (last,
+    // current) has no bucket yet. The live state stands in for the
+    // synthetic "current.max" so we can still compute the diff.
+    const stats = {
+      'sensor.rain': [
+        { start: hourMs(1).date.toISOString(), max: 720.8 },
+        // hour 2 missing — current partial hour
+      ],
+    };
+    const out = ds._buildHourlyForecast(stats, sensors, startHour, 2);
+    // 721.3 − 720.8 = 0.5 mm rain so far in the in-progress hour
+    expect(out[1].precipitation).toBeCloseTo(0.5, 5);
+  });
+
+  it('historic missing hours stay null (no live-fill leak)', () => {
+    const hass = {
+      config: { latitude: 47.4, longitude: 8.5 },
+      states: { 'sensor.temp': { state: '13.4' } },
+      callWS: vi.fn(),
+    };
+    const ds = new MeasuredDataSource(hass, {
+      sensors, days: 1, forecast: { type: 'hourly' },
+    });
+    // Historic hour 1 is missing; the LAST hour (2) is the only one
+    // that should benefit from the live-fill.
+    const stats = {
+      'sensor.temp': [
+        { start: hourMs(2).date.toISOString(), max: 13, min: 12, mean: 12.5 },
+      ],
+    };
+    const out = ds._buildHourlyForecast(stats, sensors, startHour, 2);
+    expect(out[0].temperature).toBe(null); // historic gap stays null
+    expect(out[1].temperature).toBe(12.5); // recorder data wins over live state
+  });
+
+  it('emits the canonical forecast shape (no templow, has condition)', () => {
+    const ds = new MeasuredDataSource(fakeHass, {
+      sensors, days: 1, forecast: { type: 'hourly' },
+    });
+    const stats = {
+      'sensor.temp': [{ start: hourMs(1).date.toISOString(), max: 21, min: 19, mean: 20 }],
+    };
+    const [entry] = ds._buildHourlyForecast(stats, sensors, startHour, 1);
+    expect(entry).toEqual(expect.objectContaining({
+      datetime: expect.any(String),
+      temperature: expect.any(Number),
+      precipitation: null,
+      precipitation_probability: null,
+      condition: expect.any(String),
+    }));
+    expect('wind_speed' in entry).toBe(true);
+    expect('humidity' in entry).toBe(true);
+  });
+
+  it('_fetchAggregates requests period:hour with days*24 slots when hourly', async () => {
+    const hass = {
+      config: { latitude: 47.4, longitude: 8.5 },
+      callWS: vi.fn().mockResolvedValue({}), // empty stats — we only check the request
+    };
+    const ds = new MeasuredDataSource(hass, {
+      sensors, days: 2, forecast: { type: 'hourly' },
+    });
+    await ds._fetchAggregates();
+    expect(hass.callWS).toHaveBeenCalledTimes(1);
+    const [msg] = hass.callWS.mock.calls[0];
+    expect(msg.type).toBe('recorder/statistics_during_period');
+    expect(msg.period).toBe('hour');
+    // window: end - start should span (days*24 + 1) hours = 49 hours
+    const startMs = new Date(msg.start_time).getTime();
+    const endMs = new Date(msg.end_time).getTime();
+    expect(Math.round((endMs - startMs) / HOUR_MS)).toBe(2 * 24 + 1);
+  });
+
+  it('_fetchAggregates falls back to period:day at default forecast.type', async () => {
+    const hass = {
+      config: { latitude: 47.4 },
+      callWS: vi.fn().mockResolvedValue({}),
+    };
+    const ds = new MeasuredDataSource(hass, { sensors, days: 3 });
+    await ds._fetchAggregates();
+    const [msg] = hass.callWS.mock.calls[0];
+    expect(msg.period).toBe('day');
+  });
+});
+
 describe('ForecastDataSource', () => {
   let unsub;
   let conn;
@@ -194,6 +435,32 @@ describe('ForecastDataSource', () => {
       forecast_type: 'daily',
       entity_id: 'weather.home',
     });
+  });
+
+  // v0.8 reactivation of forecast.type=hourly: pin that the config flag flows
+  // through to the WebSocket subscription. The render-side support for the
+  // hourly data shape is added separately (forecast-utils + tick plugin); this
+  // test guards the data layer entry point.
+  it('subscribes with forecast_type "hourly" when configured for an hourly-capable entity', async () => {
+    const ds = new ForecastDataSource(hass, { weather_entity: 'weather.no_daily', forecast: { type: 'hourly' } });
+    ds.subscribe(() => {});
+    await Promise.resolve();
+    expect(conn.subscribeMessage).toHaveBeenCalledTimes(1);
+    const [, msg] = conn.subscribeMessage.mock.calls[0];
+    expect(msg).toEqual({
+      type: 'weather/subscribe_forecast',
+      forecast_type: 'hourly',
+      entity_id: 'weather.no_daily',
+    });
+  });
+
+  it('emits an error when hourly is requested but entity only supports daily', async () => {
+    const ds = new ForecastDataSource(hass, { weather_entity: 'weather.home', forecast: { type: 'hourly' } });
+    const events = [];
+    ds.subscribe((e) => events.push(e));
+    await Promise.resolve();
+    expect(events[0].error).toMatch(/does not support hourly forecasts/);
+    expect(conn.subscribeMessage).not.toHaveBeenCalled();
   });
 
   it('forwards forecast events to the listener', async () => {

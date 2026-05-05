@@ -4,6 +4,73 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] — 2026-05-05
+
+### Added
+
+- **Hourly resolution for both blocks.** `forecast.type: 'hourly'` is
+  reactivated as a first-class mode: `MeasuredDataSource` reads sensor
+  history with `period: 'hour'` (mean per slot, single temperature
+  line), and `ForecastDataSource` subscribes with `forecast_type:
+  'hourly'`. Combination mode at hourly renders past hours + future
+  hours joined at a single "now" line — no doubled-today column.
+  Closes [#2](https://github.com/chriguschneider/weather-station-card/issues/2).
+- **Viewport scrolling.** `forecast.number_of_forecasts` now controls
+  how many bars are visible at once (was vestigial, see
+  [#5](https://github.com/chriguschneider/weather-station-card/issues/5)).
+  When fewer bars are visible than loaded, the chart row + conditions
+  row + wind row scroll horizontally in lockstep inside an
+  `overflow-x: auto` wrapper. Initial scroll position is "now":
+  centred at the station/forecast boundary in combination mode,
+  right edge in station-only, left edge in forecast-only.
+- Editor: `forecast.type` radio (Daily / Hourly) and
+  `forecast.number_of_forecasts` numeric field, both in Setup. Locale
+  strings (DE + EN) for the new fields.
+- `bucketPrecipitation` helper in `src/data-source.js` (renamed from
+  `dailyPrecipitation`, alias kept for backwards compatibility) — the
+  three-state-class fan-out (`change` / `sum` / `max`-diff) is
+  bucket-size-agnostic, so the same logic powers daily and hourly
+  precipitation extraction.
+- New pure helpers in `src/format-utils.js` and `src/forecast-utils.js`:
+  `computeInitialScrollLeft`, `pickHourlyTickIndices`,
+  `hourlyTempSeries`, `normalizeForecastMode`. All fully covered by
+  vitest.
+
+### Changed
+
+- **`forecast.number_of_forecasts` semantic flipped from "crop" to
+  "viewport"** (issue #5 fix). The old behaviour cropped
+  `this.forecasts` from the left and broke combination mode; the
+  cropping path is removed. Existing daily configs with the field at
+  `0` (default) are bit-identical to v0.7. Configs that explicitly
+  set a positive value will now scroll instead of crop.
+- `computeBlockSeparatorPositions` (`src/format-utils.js`) accepts a
+  `mode` parameter. At hourly combination it returns a single boundary
+  line between station and forecast; daily combination keeps the
+  doubled-today frame.
+- Hourly forecast wind cells render defensively: when the upstream
+  weather integration omits `wind_speed` and/or `wind_bearing` for
+  hourly entries (HA's Open-Meteo integration currently does this),
+  the cell stays empty rather than rendering a default-direction
+  arrow with an orphan `km/h` unit.
+- README: new "Daily vs. hourly resolution" section under Three Modes;
+  Known Limitations table updated to drop the v0.8-fixed entries
+  (#2 / #5) and add notes about the upstream Open-Meteo hourly-wind
+  gap and the hourly-classifier-threshold caveat.
+
+### Internal
+
+- Phase-A revert layer dropped the v1-plan tick-decimation code and
+  associated `<ha-alert>` editor block — viewport scrolling makes
+  decimation unnecessary.
+- `MeasuredDataSource` invalidation table now includes `forecast.type`
+  in the station rebuild keys (toggling daily↔hourly rebuilds the
+  station data source, not just the forecast one).
+- 111 vitest tests pass; +21 net new since v0.7 (hourly-tick
+  helpers, hourly tempSeries, normalize, bucketPrecipitation hourly
+  cases, MeasuredDataSource hourly path, separator hourly mode,
+  computeInitialScrollLeft).
+
 ## [0.7.0] — 2026-05-05
 
 ### Added

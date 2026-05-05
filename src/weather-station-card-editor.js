@@ -396,6 +396,34 @@ class WeatherStationCardEditor extends LitElement {
               @value-changed=${(e) => this._valueChanged({ target: { value: e.detail.value } }, 'weather_entity')}
             ></ha-entity-picker>
           ` : ''}
+          <!-- forecast.type drives both the forecast subscription and the
+               station aggregation period (daily → period:'day', hourly →
+               period:'hour'), so the radio belongs outside the showsForecast
+               gate — it's relevant in any non-empty mode. -->
+          <div class="radio-group">
+            <span style="margin-right:8px;font-weight:500;">${t('forecast_type_label')}:</span>
+            ${[
+              ['daily', 'forecast_type_daily'],
+              ['hourly', 'forecast_type_hourly'],
+            ].map(([value, key]) => html`
+              <div class="radio-item">
+                <ha-radio
+                  name="ws-forecast-type"
+                  .value=${value}
+                  .checked=${(fcfg.type || 'daily') === value}
+                  @change=${() => this._valueChanged({ target: { value } }, 'forecast.type')}
+                ></ha-radio>
+                <label>${t(key)}</label>
+              </div>
+            `)}
+          </div>
+          <ha-textfield
+            label="${t('number_of_forecasts')}"
+            type="number" min="0"
+            .value="${fcfg.number_of_forecasts != null ? fcfg.number_of_forecasts : ''}"
+            @change="${(e) => this._valueChanged(e, 'forecast.number_of_forecasts')}"
+          ></ha-textfield>
+          <p class="hint">${t('number_of_forecasts_hint')}</p>
         </div>
 
         <h4 class="subsection">${t('actions_heading')}</h4>
@@ -782,11 +810,12 @@ class WeatherStationCardEditor extends LitElement {
 
         <!-- ─── F. Advanced ─────────────────────────────────────────── -->
         <!--
-          forecast.type, autoscroll, forecast.number_of_forecasts,
-          forecast.precipitation_type and forecast.show_probability are
-          deliberately NOT rendered here while issues #2 / #3 / #4 / #5
-          are open. The YAML keys still parse (values flow through);
-          we just stop advertising broken or vestigial features.
+          autoscroll, forecast.precipitation_type and forecast.show_probability
+          are deliberately NOT rendered here while issues #3 / #4 are open.
+          The YAML keys still parse (values flow through); we just stop
+          advertising broken or vestigial features.
+          forecast.type and forecast.number_of_forecasts are wired again as
+          of v0.8 — both sit in the Setup block above next to weather_entity.
         -->
         <h3 class="section">${t('advanced_heading')}</h3>
         <div class="textfield-container">

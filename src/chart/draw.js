@@ -148,36 +148,12 @@ export function buildChart(ctx, {
             return context.dataset.data[context.dataIndex] + '°';
           },
         },
-        tooltip: {
-          caretSize: 0,
-          caretPadding: 15,
-          callbacks: {
-            title: function (items) {
-              const datetime = items[0].label;
-              return new Date(datetime).toLocaleDateString(language, {
-                month: 'short',
-                day: 'numeric',
-                weekday: 'short',
-                hour: 'numeric',
-                minute: 'numeric',
-                hour12: config.use_12hour_format,
-              });
-            },
-            label: function (context) {
-              const label = context.dataset.label;
-              const value = context.formattedValue;
-              const probability = data.forecast[context.dataIndex].precipitation_probability;
-              const unit = context.datasetIndex === 2 ? precipUnit : tempUnit;
-              if (config.forecast.precipitation_type === 'rainfall'
-                  && context.datasetIndex === 2
-                  && config.forecast.show_probability
-                  && probability !== undefined && probability !== null) {
-                return `${label}: ${value} ${precipUnit} / ${Math.round(probability)}%`;
-              }
-              return `${label}: ${value} ${unit}`;
-            },
-          },
-        },
+        // Tooltip disabled in v0.8 — on mobile (and especially within the
+        // hourly scroll viewport) the tap-to-show-tooltip pop-up
+        // interferes with horizontal swiping. The chart's own datalabels
+        // already render the temperature / precipitation values inline,
+        // so the tooltip carried no extra information anyway.
+        tooltip: { enabled: false },
       },
     },
   });

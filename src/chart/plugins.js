@@ -31,14 +31,14 @@ import { computeBlockSeparatorPositions } from '../format-utils.js';
 //
 // Forecast-only: today is leftmost; the chart's left border already
 // encloses it, so a line on the right of today is enough.
-export function createSeparatorPlugin({ stationCount, forecastCount, style, dividerColor }) {
+export function createSeparatorPlugin({ stationCount, forecastCount, style, dividerColor, mode }) {
   return {
     id: 'blockSeparator',
     afterDraw(chart) {
       const xScale = chart.scales.x;
       if (!xScale || !xScale.ticks) return;
       const ticks = xScale.ticks.length;
-      const positions = computeBlockSeparatorPositions(stationCount, forecastCount, ticks);
+      const positions = computeBlockSeparatorPositions(stationCount, forecastCount, ticks, mode);
       if (!positions.length) return;
       const c = chart.ctx;
       const { top, bottom } = chart.chartArea;

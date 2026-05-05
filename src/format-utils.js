@@ -27,20 +27,65 @@ export function lightenColor(color, factor = 0.45) {
   return color;
 }
 
-// Compute the tick-index pairs at which the chart's "today" framing lines
+// Decide where to scroll the hourly viewport on first render so the user
+// lands at a useful position rather than "the start of all loaded data".
+//
+//   combination   → centre the station/forecast boundary in the viewport.
+//   station-only  → right edge (most recent hour visible).
+//   forecast-only → left edge (next hours visible).
+//   all-visible   → 0 (no scrolling possible anyway).
+//
+// Returns a scrollLeft value clamped to [0, contentWidth - viewportWidth].
+// Pure function — caller reads `scrollWidth` and `clientWidth` from the
+// scroll container after layout and feeds them in.
+export function computeInitialScrollLeft({ stationCount, forecastCount, contentWidth, viewportWidth }) {
+  const total = stationCount + forecastCount;
+  if (total === 0) return 0;
+  if (!Number.isFinite(contentWidth) || !Number.isFinite(viewportWidth)) return 0;
+  if (viewportWidth >= contentWidth) return 0;
+
+  let target;
+  if (stationCount > 0 && forecastCount > 0) {
+    const boundaryFraction = stationCount / total;
+    target = boundaryFraction * contentWidth - viewportWidth / 2;
+  } else if (stationCount > 0) {
+    target = contentWidth - viewportWidth;
+  } else {
+    target = 0;
+  }
+  if (target < 0) return 0;
+  if (target > contentWidth - viewportWidth) return contentWidth - viewportWidth;
+  return target;
+}
+
+// Compute the tick-index pairs at which the chart's framing / "now" lines
 // should be drawn. Returns an array of `[leftIdx, rightIdx]` pairs; the
 // caller draws a vertical line at the midpoint between those two ticks.
 //
+// Daily mode (today is a doubled column when both blocks are present):
 // - Both blocks active: line before station-today + line after forecast-today.
 // - Station-only:       line before today (rightmost column).
 // - Forecast-only:      line after today (leftmost column).
-// - Empty / single-tick chart: no lines.
-export function computeBlockSeparatorPositions(stationCount, forecastCount, ticksLength) {
+//
+// Hourly mode (no doubled today — station and forecast meet at "now"):
+// - Both blocks active: a single "now" line between the last station hour
+//   and the first forecast hour.
+// - Station-only / Forecast-only: same as daily — anchor "now" against
+//   the chart's own edge.
+//
+// Empty / single-tick chart: no lines.
+export function computeBlockSeparatorPositions(stationCount, forecastCount, ticksLength, mode = 'daily') {
   if (!Number.isFinite(ticksLength) || ticksLength < 2) return [];
   const out = [];
   if (stationCount > 0 && forecastCount > 0) {
-    if (stationCount >= 2) out.push([stationCount - 2, stationCount - 1]);
-    if (stationCount + 1 < ticksLength) out.push([stationCount, stationCount + 1]);
+    if (mode === 'hourly') {
+      // The "now" boundary sits between index (stationCount - 1) and
+      // index stationCount. One line, centred between those ticks.
+      out.push([stationCount - 1, stationCount]);
+    } else {
+      if (stationCount >= 2) out.push([stationCount - 2, stationCount - 1]);
+      if (stationCount + 1 < ticksLength) out.push([stationCount, stationCount + 1]);
+    }
   } else if (stationCount > 0) {
     out.push([ticksLength - 2, ticksLength - 1]);
   } else if (forecastCount > 0) {
