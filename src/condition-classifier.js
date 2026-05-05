@@ -15,6 +15,15 @@
 // Default thresholds. Every value is grounded in an official scale or
 // glossary entry; users can override individual keys via the card's
 // `condition_mapping` config.
+//
+// The precipitation thresholds (`*_precip_mm`, `rainy_threshold_mm`,
+// `pouring_threshold_mm`) are calibrated for *daily* totals — `0.5 mm`
+// over 24 h is light drizzle, `10 mm` over 24 h is pouring, `50 mm`
+// over 24 h is the NWS exceptional-rainfall outlook. When `classifyDay`
+// is called with `period: 'hour'`, the precipitation thresholds are
+// rescaled per HOURLY_PRECIP_OVERRIDES below before user overrides
+// apply. Wind, gust, fog, and cloud thresholds use the same value at
+// either period (they're instantaneous / mean values, not totals).
 const DEFAULTS = Object.freeze({
   // Beaufort 10 ("storm") begins at 24.5 m/s. WMO No. 306 Vol. I.1.
   exceptional_gust_ms: 24.5,
@@ -50,6 +59,19 @@ const DEFAULTS = Object.freeze({
   // < 0.30 ≈ 7–8/8 (overcast).
   sunny_cloud_ratio: 0.70,
   partly_cloud_ratio: 0.30,
+});
+
+// Per-hour replacements for the precipitation thresholds. Active when
+// `classifyDay(..., 'hour')`. Reference: WMO/AMS rain-rate scales —
+// drizzle ~0.1 mm/h, moderate rain >2.5 mm/h, heavy rain >7.6 mm/h
+// (NWS), violent rain ~50 mm/h. So:
+//   - rainy: 0.1 mm/h is the lower bound of measurable drizzle
+//   - pouring: 4 mm/h is moderate-to-heavy sustained rain
+//   - exceptional: 30 mm/h is a cloudburst (violent end of the scale)
+const HOURLY_PRECIP_OVERRIDES = Object.freeze({
+  rainy_threshold_mm: 0.1,
+  pouring_threshold_mm: 4,
+  exceptional_precip_mm: 30,
 });
 
 // Solar declination in degrees (Cooper 1969 — accurate to ~0.5°, plenty for
@@ -89,10 +111,19 @@ export function clearSkyLuxAt(latDeg, lonDeg, date) {
   return 110000 * cosZ;
 }
 
-// Map a per-day record to an HA condition ID. Worst-of-day priority:
+// Map a per-period record to an HA condition ID. Worst-of-period priority:
 // extreme weather > precipitation > fog > wind > cloud cover.
-export function classifyDay(day, overrides = {}) {
-  const t = { ...DEFAULTS, ...overrides };
+//
+// `period` selects the threshold table for precipitation rules:
+//   - 'day' (default): `precip_total` interpreted as mm in the past 24 h
+//   - 'hour': `precip_total` interpreted as mm in the past 1 h, with
+//     thresholds rescaled accordingly so the same data doesn't bias
+//     toward 'pouring' / 'exceptional' just because the bucket shrank.
+export function classifyDay(day, overrides = {}, period = 'day') {
+  const periodDefaults = period === 'hour'
+    ? { ...DEFAULTS, ...HOURLY_PRECIP_OVERRIDES }
+    : DEFAULTS;
+  const t = { ...periodDefaults, ...overrides };
 
   const {
     temp_max,

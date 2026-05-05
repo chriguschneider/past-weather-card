@@ -384,7 +384,7 @@ export class MeasuredDataSource {
       ? clearSkyLuxAt(lat, lon, hour.hourStart)
       : 110000;
     const { hourStart: _ignored, ...inputs } = hour;
-    return classifyDay({ ...inputs, clearsky_lux }, this.config.condition_mapping || {});
+    return classifyDay({ ...inputs, clearsky_lux }, this.config.condition_mapping || {}, 'hour');
   }
 }
 

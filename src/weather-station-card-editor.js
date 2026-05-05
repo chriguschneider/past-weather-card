@@ -802,8 +802,6 @@ class WeatherStationCardEditor extends LitElement {
 
         <!-- ─── F. Advanced ─────────────────────────────────────────── -->
         <!--
-          autoscroll is deliberately NOT rendered here while issue #3 is
-          open — the YAML key still parses but the toggle is inert.
           forecast.type and forecast.number_of_forecasts are wired as of
           v0.8 — both sit in the Setup block above next to weather_entity.
         -->

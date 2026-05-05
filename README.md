@@ -322,13 +322,12 @@ ON; in YAML the sub-keys are evaluated regardless.
 </details>
 
 <details>
-<summary><b>F. Advanced</b> — forecast type, locale, autoscroll, classifier overrides</summary>
+<summary><b>F. Advanced</b> — forecast type, locale, classifier overrides</summary>
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `forecast.type` | `'daily' \| 'hourly'` | `'daily'` | At hourly, station data is fetched at hour resolution (mean per hour, single temperature line) and the forecast is subscribed with `forecast_type: hourly`. `days` / `forecast_days` define the data window (so `days: 4` at hourly = 96 hours of station history). Editor radio in Setup. |
 | `forecast.number_of_forecasts` | integer | `8` | Number of bars visible in the viewport at once. Default `8` works across both modes — at daily with `days: 7` everything fits without scrolling, at hourly it caps the viewport at ~8 hours and the user scrolls. Set `0` for "fit all" (no scrolling). When more bars are loaded than visible, the chart row + wind row + conditions row scroll horizontally in lockstep. Initial scroll position is "now" (centred at the station/forecast boundary in combination mode). |
-| `autoscroll` | bool | `false` | ⚠ Hidden in editor — see [Known limitations](#known-limitations). YAML still parses. |
 | `locale` | string | HA's selected language | Override locale (e.g. `de`, `fr`). Falls back to English for missing keys. |
 
 **`condition_mapping` — override classifier thresholds**
@@ -524,9 +523,7 @@ vestigial. Tracking issues are linked.
 
 | Field | Symptom | Tracking |
 | --- | --- | --- |
-| `autoscroll: true` | Toggle existed in YAML and the editor; the timer in `main.js` fires once per hour but only triggers a redraw — there's no actual scroll behaviour. (v0.8's hourly viewport scrolling is unrelated and works fine.) | [#3](https://github.com/chriguschneider/weather-station-card/issues/3) |
 | Hourly wind values blank with Open-Meteo | At `forecast.type: hourly`, the wind row of the *forecast* block renders empty cells when the upstream `weather.*` integration omits per-hour wind data. HA's Open-Meteo integration ([source](https://github.com/home-assistant/core/blob/dev/homeassistant/components/open_meteo/weather.py) — see `_async_forecast_hourly`) currently ships only `datetime`, `condition`, `precipitation` and `temperature` per hourly entry; `wind_speed` / `wind_bearing` are present only on the daily branch. Met.no and other integrations may differ. The card hides the arrow + value when either field is missing, so cells stay empty rather than showing a default-direction arrow with an orphan unit. | upstream integration |
-| Hourly classifier thresholds | At `forecast.type: hourly`, station hours run through the same `classifyDay` decision tree as daily aggregates. Thresholds (e.g. `rainy_threshold_mm: 0.5`) are calibrated for *daily* totals — 0.5 mm in one hour is meteorologically heavier rain than 0.5 mm over a day, so the classifier may report `pouring` more often than feels right at hourly. Override via `condition_mapping` if it bothers you; per-hour-tuned defaults are tracked for v0.9. | [#7](https://github.com/chriguschneider/weather-station-card/issues/7) |
 
 Reactions / comments on the linked issues help prioritise the wiring
 work. PRs welcome — the relevant code paths are linked from each issue.

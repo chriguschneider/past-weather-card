@@ -4,6 +4,47 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.4] — 2026-05-05
+
+### Changed
+
+- **Hourly classifier thresholds rescaled.** When `forecast.type:
+  hourly`, station hours and the live "current condition" snapshot
+  now classify with precipitation thresholds calibrated for 1-hour
+  totals instead of 24-hour totals: `rainy ≥ 0.1 mm/h` (was 0.5),
+  `pouring ≥ 4 mm/h` (was 10), `exceptional ≥ 30 mm/h` (was 50).
+  Wind / gust / fog / cloud thresholds are unchanged (those are
+  instantaneous values, not totals). Daily classification is
+  unaffected. `condition_mapping` overrides apply on top of the
+  per-period defaults — same key names, no editor change. Closes
+  [#7](https://github.com/chriguschneider/weather-station-card/issues/7).
+- `classifyDay(day, overrides, period)` API: third parameter accepts
+  `'day'` (default) or `'hour'`. Existing callers stay daily.
+
+### Removed
+
+- **`autoscroll` config key** — was upstream-vestigial and never
+  actually scrolled. The timer fired every hour but only triggered a
+  redraw, with no horizontal pan logic anywhere. v0.8's hourly
+  viewport scrolling and the v0.8.2 jump-to-now button cover the
+  intent better. The key has been hidden from the editor since v0.6.
+  Now removed from `setConfig` defaults, the `autoscroll()` /
+  `cancelAutoscroll()` methods, the cleanup in `disconnectedCallback`,
+  the `updated()` lifecycle re-trigger, the `computeForecastData`
+  cutoff filter, the locale strings (DE + EN), and the README config
+  table / known-limitations. Closes
+  [#3](https://github.com/chriguschneider/weather-station-card/issues/3).
+
+  YAML configs that still set `autoscroll: true` continue to load —
+  unknown keys are ignored. Drop it from your YAML for cleanliness.
+
+### Internal
+
+- 138 vitest tests pass (+10 hourly-classifier tests covering the
+  rescaled precipitation thresholds, the cloud/wind no-change path,
+  user-override layering, and backwards-compatibility of the default
+  period parameter).
+
 ## [0.8.3] — 2026-05-05
 
 ### Removed

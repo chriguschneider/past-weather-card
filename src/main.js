@@ -89,7 +89,6 @@ static getStubConfig(hass, unusedEntities, allEntities) {
     icons_size: 25,
     animated_icons: false,
     icon_style: 'style1',
-    autoscroll: false,
     forecast: {
       labels_font_size: '11',
       precip_bar_size: '100',
@@ -242,6 +241,9 @@ set hass(hass) {
   const clearskyNow = lat != null && lon != null
     ? clearSkyLuxAt(lat, lon, new Date())
     : 110000;
+  // precip_total here is precipRateNow — an instantaneous rate (mm/h)
+  // when the sensor reports a /h unit. Use period: 'hour' so the
+  // precipitation thresholds match the rate semantics, not 24 h totals.
   const currentCondition = classifyDay({
     temp_max: nowTemp,
     temp_min: nowTemp,
@@ -252,7 +254,7 @@ set hass(hass) {
     gust_max: numOrNull(this.wind_gust_speed),
     dew_point_mean: numOrNull(this.dew_point),
     clearsky_lux: clearskyNow,
-  }, this.config.condition_mapping || {});
+  }, this.config.condition_mapping || {}, 'hour');
 
   // Synthesized stand-in for the original weather entity. The *_unit fields
   // here represent the SOURCE units (what the data layer actually emits);
@@ -378,10 +380,6 @@ set hass(hass) {
     if (this._clockTimer) {
       clearInterval(this._clockTimer);
       this._clockTimer = null;
-    }
-    if (this.autoscrollTimeout) {
-      clearTimeout(this.autoscrollTimeout);
-      this.autoscrollTimeout = null;
     }
   }
 
@@ -586,10 +584,6 @@ async firstUpdated(changedProperties) {
   this.measureCard();
   await new Promise(resolve => setTimeout(resolve, 0));
   this.drawChart();
-
-  if (this.config.autoscroll) {
-    this.autoscroll();
-  }
 }
 
 // Pointer-based tap / hold / double-tap detection on the ha-card root.
@@ -732,11 +726,6 @@ async updated(changedProperties) {
       if ((this.forecasts && this.forecasts.length) || forecastDaysChanged) {
         try { this._refreshForecasts(); } catch (e) { console.error('[weather-station-card] redraw failed', e); }
       }
-
-      if (this.config.autoscroll !== oldConfig.autoscroll) {
-        if (!this.config.autoscroll) this.autoscroll();
-        else this.cancelAutoscroll();
-      }
     }
   }
 
@@ -771,36 +760,6 @@ _teardownForecast() {
   if (this._forecastUnsubscribe) { this._forecastUnsubscribe(); this._forecastUnsubscribe = null; }
   this._forecastSource = null;
   this._forecastData = [];
-}
-
-autoscroll() {
-  if (this.autoscrollTimeout) {
-    // Autscroll already set, nothing to do
-    return;
-  }
-
-  const updateChartOncePerHour = () => {
-    const now = new Date();
-    const nextHour = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        now.getHours()+1,
-    );
-    this.autoscrollTimeout = setTimeout(() => {
-      this.autoscrollTimeout = null;
-      this.updateChart();
-      updateChartOncePerHour();
-    }, nextHour - now);
-  };
-
-  updateChartOncePerHour();
-}
-
-cancelAutoscroll() {
-  if (this.autoscrollTimeout) {
-    clearTimeout(this.autoscrollTimeout);
-  }
 }
 
 drawChart(args) {
@@ -1064,11 +1023,7 @@ _drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this)
 }
 
 computeForecastData({ config, forecastItems } = this) {
-  let forecast = this.forecasts ? this.forecasts.slice(0, forecastItems) : [];
-  if (config.autoscroll) {
-    const cutoff = (config.forecast.type === 'hourly' ? 1 : 24) * 60 * 60 * 1000;
-    forecast = forecast.filter((d) => new Date() - new Date(d.datetime) <= cutoff);
-  }
+  const forecast = this.forecasts ? this.forecasts.slice(0, forecastItems) : [];
   const dateTime = forecast.map((d) => d.datetime);
   const { tempHigh, tempLow } = hourlyTempSeries(forecast, {
     roundTemp: config.forecast.round_temp == true,

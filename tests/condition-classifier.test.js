@@ -127,6 +127,70 @@ describe('clearSkyNoonLux', () => {
   });
 });
 
+describe('classifyDay — hourly period (precipitation thresholds rescaled)', () => {
+  // Reference scale used in HOURLY_PRECIP_OVERRIDES:
+  //   rainy ≥ 0.1 mm/h, pouring ≥ 4 mm/h, exceptional ≥ 30 mm/h.
+
+  it('emits rainy at 0.1 mm/h (sub-daily-threshold)', () => {
+    expect(classifyDay({ precip_total: 0.1 }, {}, 'hour')).toBe('rainy');
+  });
+
+  it('does NOT emit rainy below 0.1 mm/h', () => {
+    expect(classifyDay({ precip_total: 0.05, lux_max: CLEAR, clearsky_lux: CLEAR }, {}, 'hour'))
+      .not.toBe('rainy');
+  });
+
+  it('emits pouring at 4 mm/h (well below daily 10 mm threshold)', () => {
+    expect(classifyDay({ precip_total: 4 }, {}, 'hour')).toBe('pouring');
+  });
+
+  it('does not emit pouring at 3 mm/h', () => {
+    expect(classifyDay({ precip_total: 3 }, {}, 'hour')).toBe('rainy');
+  });
+
+  it('emits exceptional at 30 mm/h (cloudburst)', () => {
+    expect(classifyDay({ precip_total: 30 }, {}, 'hour')).toBe('exceptional');
+  });
+
+  it('does not emit exceptional at 29 mm/h', () => {
+    expect(classifyDay({ precip_total: 29 }, {}, 'hour')).toBe('pouring');
+  });
+
+  it('hourly: 0.5 mm/h is light rain, not the daily-style "trace drizzle"', () => {
+    // Same input value that triggers exactly rainy at daily — at hourly
+    // 0.5 mm/h is moderate, still rainy (4 mm/h is the next tier).
+    expect(classifyDay({ precip_total: 0.5 }, {}, 'hour')).toBe('rainy');
+    expect(classifyDay({ precip_total: 0.5 }, {}, 'day')).toBe('rainy');
+  });
+
+  it('user condition_mapping override applies on top of hourly defaults', () => {
+    // User pins rainy lower; should still trip at 0.05 mm/h hourly.
+    expect(classifyDay(
+      { precip_total: 0.05 },
+      { rainy_threshold_mm: 0.04 },
+      'hour',
+    )).toBe('rainy');
+  });
+
+  it('non-precipitation thresholds (gust, fog, cloud) unchanged at hourly', () => {
+    // Beaufort 10 still 24.5 m/s either way.
+    expect(classifyDay({ gust_max: 24.5 }, {}, 'hour')).toBe('exceptional');
+    // Cloud-ratio rules use the same lux-based thresholds.
+    expect(classifyDay(
+      { lux_max: 90000, clearsky_lux: 110000 }, {}, 'hour',
+    )).toBe('sunny');
+  });
+
+  it('default period is day when omitted (backwards-compatible)', () => {
+    // 0.5 mm at daily = rainy, at hourly = also rainy (above 0.1).
+    // 0.3 mm at daily = NOT rainy (below 0.5), at hourly = rainy.
+    // So 0.3 mm with no period arg should follow daily semantics.
+    expect(classifyDay({ precip_total: 0.3, lux_max: CLEAR, clearsky_lux: CLEAR }))
+      .not.toBe('rainy');
+    expect(classifyDay({ precip_total: 0.3 }, {}, 'hour')).toBe('rainy');
+  });
+});
+
 describe('clearSkyLuxAt', () => {
   it('returns 0 when sun is below horizon', () => {
     // Midnight UTC at lat 47, lon 8 (Switzerland) → sun far below horizon

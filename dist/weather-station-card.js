@@ -188,8 +188,6 @@ const locale = {
       'forecast_type_hint': 'Stündlich wird erkannt, das Diagramm rendert aber weiterhin tageweise. Bekannte Einschränkung.',
       'number_of_forecasts': 'Sichtbare Spalten',
       'number_of_forecasts_hint': 'Wie viele Balken auf einmal sichtbar sind (Default 8 — passt sowohl für 7 Tage täglich als auch für eine Stunden-Auswahl bei stündlich). 0 = alles zeigen ohne Scrollen. Wenn weniger Spalten sichtbar als Daten geladen sind, kann man horizontal scrollen.',
-      'autoscroll': 'Stündlich autoscrollen',
-      'autoscroll_hint': 'Aktuell nicht im Diagramm verdrahtet — bekannte Einschränkung.',
       'locale': 'Sprache (Override)',
       'condition_mapping_heading': 'Klassifikator-Overrides',
       'condition_mapping_hint': 'Leere Felder benutzen die meteorologisch begründeten Defaults.',
@@ -361,8 +359,6 @@ const locale = {
       'forecast_type_hint': 'Hourly is recognised but the chart still renders daily ticks. Tracked as a known limitation.',
       'number_of_forecasts': 'Visible columns',
       'number_of_forecasts_hint': 'How many bars are visible at once (default 8 — fits both 7-day daily and an hour-window at hourly). 0 = fit all without scrolling. When loaded bars exceed visible, scroll horizontally for the rest.',
-      'autoscroll': 'Autoscroll once per hour',
-      'autoscroll_hint': 'Currently not wired through to the chart — known limitation.',
       'locale': 'Locale override',
       'condition_mapping_heading': 'Condition classifier overrides',
       'condition_mapping_hint': 'Empty cells use the meteorologically-grounded defaults.',
@@ -1861,8 +1857,6 @@ class WeatherStationCardEditor extends s {
 
         <!-- ─── F. Advanced ─────────────────────────────────────────── -->
         <!--
-          autoscroll is deliberately NOT rendered here while issue #3 is
-          open — the YAML key still parses but the toggle is inert.
           forecast.type and forecast.number_of_forecasts are wired as of
           v0.8 — both sit in the Setup block above next to weather_entity.
         -->
@@ -1934,6 +1928,15 @@ customElements.define("weather-station-card-editor", WeatherStationCardEditor);
 // Default thresholds. Every value is grounded in an official scale or
 // glossary entry; users can override individual keys via the card's
 // `condition_mapping` config.
+//
+// The precipitation thresholds (`*_precip_mm`, `rainy_threshold_mm`,
+// `pouring_threshold_mm`) are calibrated for *daily* totals — `0.5 mm`
+// over 24 h is light drizzle, `10 mm` over 24 h is pouring, `50 mm`
+// over 24 h is the NWS exceptional-rainfall outlook. When `classifyDay`
+// is called with `period: 'hour'`, the precipitation thresholds are
+// rescaled per HOURLY_PRECIP_OVERRIDES below before user overrides
+// apply. Wind, gust, fog, and cloud thresholds use the same value at
+// either period (they're instantaneous / mean values, not totals).
 const DEFAULTS = Object.freeze({
   // Beaufort 10 ("storm") begins at 24.5 m/s. WMO No. 306 Vol. I.1.
   exceptional_gust_ms: 24.5,
@@ -1969,6 +1972,19 @@ const DEFAULTS = Object.freeze({
   // < 0.30 ≈ 7–8/8 (overcast).
   sunny_cloud_ratio: 0.70,
   partly_cloud_ratio: 0.30,
+});
+
+// Per-hour replacements for the precipitation thresholds. Active when
+// `classifyDay(..., 'hour')`. Reference: WMO/AMS rain-rate scales —
+// drizzle ~0.1 mm/h, moderate rain >2.5 mm/h, heavy rain >7.6 mm/h
+// (NWS), violent rain ~50 mm/h. So:
+//   - rainy: 0.1 mm/h is the lower bound of measurable drizzle
+//   - pouring: 4 mm/h is moderate-to-heavy sustained rain
+//   - exceptional: 30 mm/h is a cloudburst (violent end of the scale)
+const HOURLY_PRECIP_OVERRIDES = Object.freeze({
+  rainy_threshold_mm: 0.1,
+  pouring_threshold_mm: 4,
+  exceptional_precip_mm: 30,
 });
 
 // Solar declination in degrees (Cooper 1969 — accurate to ~0.5°, plenty for
@@ -2008,10 +2024,19 @@ function clearSkyLuxAt(latDeg, lonDeg, date) {
   return 110000 * cosZ;
 }
 
-// Map a per-day record to an HA condition ID. Worst-of-day priority:
+// Map a per-period record to an HA condition ID. Worst-of-period priority:
 // extreme weather > precipitation > fog > wind > cloud cover.
-function classifyDay(day, overrides = {}) {
-  const t = { ...DEFAULTS, ...overrides };
+//
+// `period` selects the threshold table for precipitation rules:
+//   - 'day' (default): `precip_total` interpreted as mm in the past 24 h
+//   - 'hour': `precip_total` interpreted as mm in the past 1 h, with
+//     thresholds rescaled accordingly so the same data doesn't bias
+//     toward 'pouring' / 'exceptional' just because the bucket shrank.
+function classifyDay(day, overrides = {}, period = 'day') {
+  const periodDefaults = period === 'hour'
+    ? { ...DEFAULTS, ...HOURLY_PRECIP_OVERRIDES }
+    : DEFAULTS;
+  const t = { ...periodDefaults, ...overrides };
 
   const {
     temp_max,
@@ -2452,7 +2477,7 @@ class MeasuredDataSource {
       ? clearSkyLuxAt(lat, lon, hour.hourStart)
       : 110000;
     const { hourStart: _ignored, ...inputs } = hour;
-    return classifyDay({ ...inputs, clearsky_lux }, this.config.condition_mapping || {});
+    return classifyDay({ ...inputs, clearsky_lux }, this.config.condition_mapping || {}, 'hour');
   }
 }
 
@@ -19705,7 +19730,6 @@ static getStubConfig(hass, unusedEntities, allEntities) {
     icons_size: 25,
     animated_icons: false,
     icon_style: 'style1',
-    autoscroll: false,
     forecast: {
       labels_font_size: '11',
       precip_bar_size: '100',
@@ -19858,6 +19882,9 @@ set hass(hass) {
   const clearskyNow = lat != null && lon != null
     ? clearSkyLuxAt(lat, lon, new Date())
     : 110000;
+  // precip_total here is precipRateNow — an instantaneous rate (mm/h)
+  // when the sensor reports a /h unit. Use period: 'hour' so the
+  // precipitation thresholds match the rate semantics, not 24 h totals.
   const currentCondition = classifyDay({
     temp_max: nowTemp,
     temp_min: nowTemp,
@@ -19868,7 +19895,7 @@ set hass(hass) {
     gust_max: numOrNull(this.wind_gust_speed),
     dew_point_mean: numOrNull(this.dew_point),
     clearsky_lux: clearskyNow,
-  }, this.config.condition_mapping || {});
+  }, this.config.condition_mapping || {}, 'hour');
 
   // Synthesized stand-in for the original weather entity. The *_unit fields
   // here represent the SOURCE units (what the data layer actually emits);
@@ -19994,10 +20021,6 @@ set hass(hass) {
     if (this._clockTimer) {
       clearInterval(this._clockTimer);
       this._clockTimer = null;
-    }
-    if (this.autoscrollTimeout) {
-      clearTimeout(this.autoscrollTimeout);
-      this.autoscrollTimeout = null;
     }
   }
 
@@ -20202,10 +20225,6 @@ async firstUpdated(changedProperties) {
   this.measureCard();
   await new Promise(resolve => setTimeout(resolve, 0));
   this.drawChart();
-
-  if (this.config.autoscroll) {
-    this.autoscroll();
-  }
 }
 
 // Pointer-based tap / hold / double-tap detection on the ha-card root.
@@ -20348,11 +20367,6 @@ async updated(changedProperties) {
       if ((this.forecasts && this.forecasts.length) || forecastDaysChanged) {
         try { this._refreshForecasts(); } catch (e) { console.error('[weather-station-card] redraw failed', e); }
       }
-
-      if (this.config.autoscroll !== oldConfig.autoscroll) {
-        if (!this.config.autoscroll) this.autoscroll();
-        else this.cancelAutoscroll();
-      }
     }
   }
 
@@ -20387,36 +20401,6 @@ _teardownForecast() {
   if (this._forecastUnsubscribe) { this._forecastUnsubscribe(); this._forecastUnsubscribe = null; }
   this._forecastSource = null;
   this._forecastData = [];
-}
-
-autoscroll() {
-  if (this.autoscrollTimeout) {
-    // Autscroll already set, nothing to do
-    return;
-  }
-
-  const updateChartOncePerHour = () => {
-    const now = new Date();
-    const nextHour = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        now.getHours()+1,
-    );
-    this.autoscrollTimeout = setTimeout(() => {
-      this.autoscrollTimeout = null;
-      this.updateChart();
-      updateChartOncePerHour();
-    }, nextHour - now);
-  };
-
-  updateChartOncePerHour();
-}
-
-cancelAutoscroll() {
-  if (this.autoscrollTimeout) {
-    clearTimeout(this.autoscrollTimeout);
-  }
 }
 
 drawChart(args) {
@@ -20680,11 +20664,7 @@ _drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this)
 }
 
 computeForecastData({ config, forecastItems } = this) {
-  let forecast = this.forecasts ? this.forecasts.slice(0, forecastItems) : [];
-  if (config.autoscroll) {
-    const cutoff = (config.forecast.type === 'hourly' ? 1 : 24) * 60 * 60 * 1000;
-    forecast = forecast.filter((d) => new Date() - new Date(d.datetime) <= cutoff);
-  }
+  const forecast = this.forecasts ? this.forecasts.slice(0, forecastItems) : [];
   const dateTime = forecast.map((d) => d.datetime);
   const { tempHigh, tempLow } = hourlyTempSeries(forecast, {
     roundTemp: config.forecast.round_temp == true,
