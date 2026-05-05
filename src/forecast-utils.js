@@ -64,8 +64,18 @@ export function pickHourlyTickIndices(datetimes, opts = {}) {
 //
 // Returns:
 //   tempHigh: number[]   — always populated, one entry per input.
-//   tempLow:  number[] | null
-//             null when any entry lacks `templow` (hourly or mixed).
+//   tempLow:  (number | null)[] | null
+//             null when NO entry carries `templow` (pure hourly).
+//             Otherwise a positional array with null entries for any
+//             individual day where the recorder had no `min` reading
+//             (sensor offline that day) — Chart.js draws a gap there
+//             instead of dropping the whole second line.
+//
+// History (v1.0.1): the previous "all-or-nothing" rule (any null →
+// tempLow returned as null entirely) hid the low-temp line in
+// combination + station modes whenever a single past day had a
+// missing min reading. Switched to "some have low" so a single
+// offline day shows as a gap, not as a vanished dataset.
 export function hourlyTempSeries(entries, opts = {}) {
   if (!Array.isArray(entries) || entries.length === 0) {
     return { tempHigh: [], tempLow: null };
@@ -83,20 +93,21 @@ export function hourlyTempSeries(entries, opts = {}) {
 
   const tempHigh = new Array(entries.length);
   const tempLow = new Array(entries.length);
-  let allHaveLow = true;
+  let anyHaveLow = false;
 
   for (let i = 0; i < entries.length; i++) {
     const d = entries[i] || {};
     tempHigh[i] = r(d.temperature);
     if (typeof d.templow === 'undefined' || d.templow === null) {
-      allHaveLow = false;
+      tempLow[i] = null;
     } else {
       tempLow[i] = r(d.templow);
+      anyHaveLow = true;
     }
   }
   return {
     tempHigh,
-    tempLow: allHaveLow ? tempLow : null,
+    tempLow: anyHaveLow ? tempLow : null,
   };
 }
 
