@@ -19,6 +19,8 @@ import {
 } from './forecast-utils.js';
 import { overlayFromOpenMeteo, sunshineFractions } from './sunshine-source.js';
 import { OpenMeteoSunshineSource } from './openmeteo-source.js';
+import { safeQuery } from './utils/safe-query.js';
+import { parseNumericSafe } from './utils/numeric.js';
 import { cardStyles } from './chart/styles.js';
 import {
   createSeparatorPlugin,
@@ -251,15 +253,11 @@ set hass(hass) {
   // (unit ends in /h) — cumulative counters can't be turned into a
   // current rate without extra history and would otherwise spuriously
   // trigger 'rainy' on a dry day.
-  const numOrNull = (v) => {
-    const n = parseFloat(v);
-    return Number.isFinite(n) ? n : null;
-  };
-  const nowTemp = numOrNull(this.temperature);
-  const luxNow = numOrNull(valueOf(sensors.illuminance));
+  const nowTemp = parseNumericSafe(this.temperature);
+  const luxNow = parseNumericSafe(valueOf(sensors.illuminance));
   const precipUnit = attrOf(sensors.precipitation, 'unit_of_measurement') || '';
   const precipIsRate = /\/(h|hr|hour)$/i.test(precipUnit);
-  const precipRateNow = precipIsRate ? numOrNull(valueOf(sensors.precipitation)) : null;
+  const precipRateNow = precipIsRate ? parseNumericSafe(valueOf(sensors.precipitation)) : null;
   const lat = hass.config && hass.config.latitude;
   const lon = hass.config && hass.config.longitude;
 
@@ -289,12 +287,12 @@ set hass(hass) {
     currentCondition = classifyDay({
       temp_max: nowTemp,
       temp_min: nowTemp,
-      humidity: numOrNull(this.humidity),
+      humidity: parseNumericSafe(this.humidity),
       lux_max: luxNow,
       precip_total: precipRateNow,
-      wind_mean: numOrNull(this.windSpeed),
-      gust_max: numOrNull(this.wind_gust_speed),
-      dew_point_mean: numOrNull(this.dew_point),
+      wind_mean: parseNumericSafe(this.windSpeed),
+      gust_max: parseNumericSafe(this.wind_gust_speed),
+      dew_point_mean: parseNumericSafe(this.dew_point),
       clearsky_lux: clearskyNow,
     }, this.config.condition_mapping || {}, 'hour');
     this._liveConditionKey = conditionKey;
@@ -564,7 +562,7 @@ measureCard() {
   // Callers (firstUpdated, ResizeObserver, _refreshForecasts) all gate on
   // shadowRoot existence — the only thing left to guard is the ha-card
   // element itself, which can briefly be missing during teardown.
-  const card = this.shadowRoot && this.shadowRoot.querySelector('ha-card');
+  const card = safeQuery(this.shadowRoot,'ha-card');
   if (!card) return;
 
   // forecastItems is the count of bars actually rendered. v0.8 treats
@@ -712,7 +710,7 @@ async firstUpdated(changedProperties) {
 // tap delay is required to disambiguate single from double — that's
 // the same window HA's own action-handler uses.
 _setupActionHandler() {
-  const card = this.shadowRoot && this.shadowRoot.querySelector('ha-card');
+  const card = safeQuery(this.shadowRoot,'ha-card');
   if (!card) return;
 
   // Cursor reflects "is anything wired" — refresh on every call so
@@ -1736,7 +1734,7 @@ _convertWindSpeed(raw) {
   // every render. Cleanup teardown is stored on `this` so disconnect
   // can detach.
   _setupScrollUx() {
-    const wrapper = this.shadowRoot && this.shadowRoot.querySelector('.forecast-scroll.scrolling');
+    const wrapper = safeQuery(this.shadowRoot,'.forecast-scroll.scrolling');
     if (!wrapper) {
       // Non-scrolling render (daily default fits all). Detach any
       // previously bound handlers so a daily↔hourly toggle doesn't leak.
@@ -1880,7 +1878,7 @@ _convertWindSpeed(raw) {
   }
 
   _updateScrollIndicators() {
-    const block = this.shadowRoot && this.shadowRoot.querySelector('.forecast-scroll-block');
+    const block = safeQuery(this.shadowRoot,'.forecast-scroll-block');
     if (!block) return;
     const wrapper = block.querySelector('.forecast-scroll.scrolling');
     if (!wrapper) return;
@@ -1956,7 +1954,7 @@ _convertWindSpeed(raw) {
 
   _onJumpToNowClick(ev) {
     if (ev) ev.stopPropagation();
-    const wrapper = this.shadowRoot && this.shadowRoot.querySelector('.forecast-scroll.scrolling');
+    const wrapper = safeQuery(this.shadowRoot,'.forecast-scroll.scrolling');
     if (!wrapper) return;
     const target = computeInitialScrollLeft({
       stationCount: this._stationCount || 0,
@@ -2060,7 +2058,7 @@ _convertWindSpeed(raw) {
   // manual scroll position survives data refreshes (which fire every
   // hour from MeasuredDataSource).
   _maybeApplyInitialScroll(changedProperties) {
-    const wrapper = this.shadowRoot && this.shadowRoot.querySelector('.forecast-scroll.scrolling');
+    const wrapper = safeQuery(this.shadowRoot,'.forecast-scroll.scrolling');
     if (!wrapper) {
       // Non-scrolling render (or before first paint). Mark unapplied so
       // the next scrolling render re-positions.
