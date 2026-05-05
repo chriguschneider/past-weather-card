@@ -574,7 +574,7 @@ getWindDirIcon(deg) {
   if (typeof deg === 'number') {
     return cardinalDirectionsIcon[parseInt((deg + 22.5) / 45.0)];
   } else {
-    var i = 9;
+    let i = 9;
     switch (deg) {
       case "N":
         i = 0;
@@ -883,15 +883,15 @@ _drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this)
     this.forecastChart.destroy();
   }
   this._chartPhase = 'compute';
-  var tempUnit = this._hass.config.unit_system.temperature;
-  var lengthUnit = this._hass.config.unit_system.length;
-  var precipUnit = lengthUnit === 'km' ? this.ll('units')['mm'] : this.ll('units')['in'];
+  const tempUnit = this._hass.config.unit_system.temperature;
+  const lengthUnit = this._hass.config.unit_system.length;
+  const precipUnit = lengthUnit === 'km' ? this.ll('units')['mm'] : this.ll('units')['in'];
   const data = this.computeForecastData();
 
-  var style = getComputedStyle(document.body);
-  var backgroundColor = style.getPropertyValue('--card-background-color');
-  var textColor = style.getPropertyValue('--primary-text-color');
-  var dividerColor = style.getPropertyValue('--divider-color');
+  const style = getComputedStyle(document.body);
+  const backgroundColor = style.getPropertyValue('--card-background-color');
+  const textColor = style.getPropertyValue('--primary-text-color');
+  const dividerColor = style.getPropertyValue('--divider-color');
   const canvas = this.renderRoot.querySelector('#forecastChart');
   if (!canvas) {
     requestAnimationFrame(() => this.drawChart());
@@ -987,7 +987,7 @@ _drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this)
   // pass through so the bar slot stays empty for missing data.
   const sunshineFractionData = sunshineFractions(data.sunshine, data.dayLength);
 
-  var datasets = [
+  const datasets = [
     {
       label: this.ll('tempHi'),
       type: 'line',

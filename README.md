@@ -221,6 +221,7 @@ classifier, and (where relevant) the attribute readouts. Only
 | `sensors.wind_direction` | Wind direction attribute & arrow |
 | `sensors.uv_index` | UV attribute |
 | `sensors.dew_point` | Fog detection (combined with humidity) |
+| `sensors.sunshine_duration` | Today's live sunshine value (scalar, seconds or hours auto-detected at the `≥ 30` threshold). Past columns fall back to the recorder's daily-max for this same sensor. Only used when `forecast.show_sunshine: true`. |
 
 </details>
 
