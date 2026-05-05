@@ -10,7 +10,13 @@ import './weather-station-card-editor.js';
 import { MeasuredDataSource, ForecastDataSource } from './data-source.js';
 import { classifyDay, clearSkyLuxAt } from './condition-classifier.js';
 import { lightenColor, computeInitialScrollLeft } from './format-utils.js';
-import { hourlyTempSeries, normalizeForecastMode } from './forecast-utils.js';
+import {
+  hourlyTempSeries,
+  normalizeForecastMode,
+  startOfTodayMs,
+  filterMidnightStaleForecast,
+  dropEmptyStationToday,
+} from './forecast-utils.js';
 import { overlayFromOpenMeteo, sunshineFractions } from './sunshine-source.js';
 import { OpenMeteoSunshineSource } from './openmeteo-source.js';
 import { cardStyles } from './chart/styles.js';
@@ -432,8 +438,13 @@ set hass(hass) {
     // MeasuredDataSource fetches with period:'hour' when the type is
     // hourly — so the previous show_station-override at hourly is gone.
     const { config: effectiveCfg } = normalizeForecastMode(this.config);
-    const station = effectiveCfg.show_station !== false ? (this._stationData || []) : [];
+    let station = effectiveCfg.show_station !== false ? (this._stationData || []) : [];
     let forecast = [];
+    // Midnight-transition guards (see filterMidnightStaleForecast and
+    // dropEmptyStationToday below). Cached locally so the same `today`
+    // boundary is used for both station + forecast filters within one
+    // refresh tick.
+    const todayStartMs = startOfTodayMs();
     if (effectiveCfg.show_forecast === true && effectiveCfg.weather_entity) {
       // `days` / `forecast_days` are the data-loading window in days for
       // both modes; at hourly each day expands to 24 buckets.
@@ -441,8 +452,10 @@ set hass(hass) {
       const slotsPerUnit = isHourly ? 24 : 1;
       const cap = parseInt(effectiveCfg.forecast_days, 10);
       const limit = (cap > 0 ? cap : (parseInt(effectiveCfg.days, 10) || 7)) * slotsPerUnit;
-      forecast = (this._forecastData || []).slice(0, limit);
+      forecast = filterMidnightStaleForecast(this._forecastData || [], todayStartMs)
+        .slice(0, limit);
     }
+    station = dropEmptyStationToday(station, todayStartMs);
     this._stationCount = station.length;
     this._forecastCount = forecast.length;
     this._ensureSunshineSource(effectiveCfg);

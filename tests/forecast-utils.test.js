@@ -3,6 +3,9 @@ import {
   pickHourlyTickIndices,
   hourlyTempSeries,
   normalizeForecastMode,
+  startOfTodayMs,
+  filterMidnightStaleForecast,
+  dropEmptyStationToday,
 } from '../src/forecast-utils.js';
 
 // Build N consecutive hourly ISO timestamps starting at the given base.
@@ -281,5 +284,143 @@ describe('normalizeForecastMode', () => {
     expect(() => normalizeForecastMode(undefined)).not.toThrow();
     const out = normalizeForecastMode(null);
     expect(out.warnings).toEqual([]);
+  });
+});
+
+describe('startOfTodayMs', () => {
+  it('returns ms-since-epoch at local-midnight today', () => {
+    const got = startOfTodayMs();
+    const d = new Date(got);
+    expect(d.getHours()).toBe(0);
+    expect(d.getMinutes()).toBe(0);
+    expect(d.getSeconds()).toBe(0);
+    // Today's date matches the wall clock
+    const now = new Date();
+    expect(d.getDate()).toBe(now.getDate());
+    expect(d.getMonth()).toBe(now.getMonth());
+  });
+
+  it('is finite', () => {
+    expect(Number.isFinite(startOfTodayMs())).toBe(true);
+  });
+});
+
+describe('filterMidnightStaleForecast', () => {
+  // Use absolute timestamps so the test is deterministic regardless of
+  // when it runs.
+  const today = new Date(2026, 4, 6, 0, 0, 0, 0).getTime(); // May 6 local midnight
+  const yesterday = new Date(2026, 4, 5, 0, 0, 0, 0).getTime();
+  const tomorrow = new Date(2026, 4, 7, 0, 0, 0, 0).getTime();
+
+  it('drops entries before today', () => {
+    const out = filterMidnightStaleForecast([
+      { datetime: new Date(yesterday).toISOString(), temperature: 10 },
+      { datetime: new Date(today).toISOString(), temperature: 12 },
+      { datetime: new Date(tomorrow).toISOString(), temperature: 14 },
+    ], today);
+    expect(out).toHaveLength(2);
+    expect(out[0].temperature).toBe(12);
+    expect(out[1].temperature).toBe(14);
+  });
+
+  it('keeps today entries even at exactly midnight', () => {
+    const out = filterMidnightStaleForecast([
+      { datetime: new Date(today).toISOString(), temperature: 12 },
+    ], today);
+    expect(out).toHaveLength(1);
+  });
+
+  it('keeps entries with malformed datetime (defensive — let them render)', () => {
+    const out = filterMidnightStaleForecast([
+      { datetime: 'not-a-date', temperature: 99 },
+    ], today);
+    expect(out).toHaveLength(1);
+  });
+
+  it('keeps entries with missing datetime', () => {
+    const out = filterMidnightStaleForecast([
+      { temperature: 99 },
+    ], today);
+    expect(out).toHaveLength(1);
+  });
+
+  it('returns a new array (does not mutate input)', () => {
+    const input = [
+      { datetime: new Date(yesterday).toISOString() },
+      { datetime: new Date(today).toISOString() },
+    ];
+    const out = filterMidnightStaleForecast(input, today);
+    expect(out).not.toBe(input);
+    expect(input).toHaveLength(2); // unchanged
+  });
+
+  it('returns [] for non-array input', () => {
+    expect(filterMidnightStaleForecast(null, today)).toEqual([]);
+    expect(filterMidnightStaleForecast(undefined, today)).toEqual([]);
+    expect(filterMidnightStaleForecast({}, today)).toEqual([]);
+  });
+
+  it('passes through unchanged when todayStartMs is non-finite', () => {
+    const input = [{ datetime: '2026-05-05T00:00:00Z' }];
+    expect(filterMidnightStaleForecast(input, NaN)).toEqual(input);
+  });
+});
+
+describe('dropEmptyStationToday', () => {
+  const today = new Date(2026, 4, 6, 0, 0, 0, 0).getTime();
+  const yesterday = new Date(2026, 4, 5, 0, 0, 0, 0).getTime();
+
+  const todayEmpty = {
+    datetime: new Date(today).toISOString(),
+    temperature: null, templow: null, precipitation: null,
+    sunshine: 2.0, // sunshine overlay filled this in
+  };
+  const todayWithData = {
+    datetime: new Date(today).toISOString(),
+    temperature: 18, templow: 9, precipitation: 0,
+  };
+  const yesterdayWithData = {
+    datetime: new Date(yesterday).toISOString(),
+    temperature: 17, templow: 8, precipitation: 1.2,
+  };
+  const yesterdayEmpty = {
+    datetime: new Date(yesterday).toISOString(),
+    temperature: null, templow: null, precipitation: null,
+  };
+
+  it('drops the last station entry when it is today + has no recorded data', () => {
+    const out = dropEmptyStationToday([yesterdayWithData, todayEmpty], today);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toBe(yesterdayWithData);
+  });
+
+  it('keeps the last station entry when today already has data', () => {
+    const out = dropEmptyStationToday([yesterdayWithData, todayWithData], today);
+    expect(out).toHaveLength(2);
+  });
+
+  it('keeps an offline-historical day even with all null fields', () => {
+    // yesterdayEmpty has all null fields BUT it's NOT today — sensor
+    // was offline a previous day, the chart should still show the
+    // column (with line gaps) rather than dropping it.
+    const out = dropEmptyStationToday([yesterdayEmpty, todayWithData], today);
+    expect(out).toHaveLength(2);
+  });
+
+  it('does not modify the input array', () => {
+    const input = [yesterdayWithData, todayEmpty];
+    dropEmptyStationToday(input, today);
+    expect(input).toHaveLength(2);
+  });
+
+  it('returns the original on non-array / empty input', () => {
+    expect(dropEmptyStationToday([], today)).toEqual([]);
+    expect(dropEmptyStationToday(null, today)).toEqual(null);
+  });
+
+  it('keeps an entry with missing datetime (defensive)', () => {
+    const noDatetime = { temperature: null, templow: null, precipitation: null };
+    const out = dropEmptyStationToday([yesterdayWithData, noDatetime], today);
+    expect(out).toHaveLength(2);
   });
 });

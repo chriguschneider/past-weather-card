@@ -135,3 +135,70 @@ export function normalizeForecastMode(rawConfig) {
   }
   return { config, warnings };
 }
+
+// Returns the local-midnight start-of-today as ms-since-epoch. Pure
+// helper used by the midnight-transition guards below — kept as a
+// function (rather than `Date.now() - Date.now() % DAY_MS`) so each
+// caller picks up the user's local timezone and DST behaviour.
+export function startOfTodayMs() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+// Just past local midnight, two HA-side mismatches can show up at the
+// chart's station/forecast boundary:
+//
+//   1. Forecast data still carries yesterday's daily entry. HA weather
+//      integrations refresh on their own cadence (Open-Meteo a few times
+//      per day, Met.no every model run), so for some minutes after
+//      midnight the array can lead with a YYYY-MM-DD that is now
+//      yesterday's date.
+//
+//   2. Station data has a "today" daily bucket that the recorder hasn't
+//      aggregated yet — temperature / templow / precipitation are all
+//      null. The Open-Meteo sunshine overlay fills `sunshine` from the
+//      forecast value, producing a hybrid entry: sunshine bar visible,
+//      no temperature line, no date label (the doubled-today plugin
+//      suppresses the label at i = stationCount-1, expecting that
+//      column to be the legitimate "today station" partner of "today
+//      forecast"; an empty hybrid entry there shifts the framing onto
+//      the wrong column).
+//
+// Both filters are pure on the array level. Apply them in
+// `_refreshForecasts` once per merge so the same today-boundary is
+// used for station + forecast.
+
+// Drop forecast entries whose datetime is strictly before today's
+// local midnight. Idempotent on already-clean arrays. Hourly forecasts
+// pass through unchanged in practice (every hour from today onwards is
+// "today or later").
+export function filterMidnightStaleForecast(forecast, todayStartMs) {
+  if (!Array.isArray(forecast)) return [];
+  if (!Number.isFinite(todayStartMs)) return forecast.slice();
+  return forecast.filter((entry) => {
+    if (!entry || !entry.datetime) return true;
+    const t = new Date(entry.datetime).getTime();
+    if (!Number.isFinite(t)) return true;
+    return t >= todayStartMs;
+  });
+}
+
+// Drop the last station entry if it's "today" AND has no recorded
+// data yet (recorder hasn't aggregated). Returns a new array; original
+// unchanged. The "no recorded data" check is intentionally narrow
+// (temperature + templow + precipitation): an offline-sensor
+// historical day should NOT be filtered, since the chart still wants
+// to show its column with whatever data IS present (e.g. a sunshine
+// reading from a different sensor).
+export function dropEmptyStationToday(station, todayStartMs) {
+  if (!Array.isArray(station) || station.length === 0) return station;
+  const last = station[station.length - 1];
+  if (!last || !last.datetime) return station;
+  const lastT = new Date(last.datetime).getTime();
+  if (!Number.isFinite(lastT) || lastT < todayStartMs) return station;
+  const noRecordedData = last.temperature == null
+    && last.templow == null
+    && last.precipitation == null;
+  return noRecordedData ? station.slice(0, -1) : station;
+}
