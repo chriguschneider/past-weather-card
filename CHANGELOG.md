@@ -4,6 +4,38 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] — 2026-05-05
+
+### Added
+
+- **Whole-card click actions.** New `tap_action`, `hold_action`, and
+  `double_tap_action` config keys, edited via HA's standard `ui_action`
+  selector (same picker Bubble / Mushroom / built-in cards use). Supported
+  actions: `more-info`, `navigate`, `url`, `toggle`, `perform-action`,
+  `assist`, `fire-dom-event`, `none`. The action runs on the whole card —
+  a click anywhere on the chart, main panel, or attribute row triggers the
+  same configured action.
+- Editor: new "Actions" subsection in Setup with three pickers (tap / hold
+  / double-tap).
+
+### Changed
+
+- **Default click behaviour: `none` (read-only).** Previously, clicking
+  the forecast-conditions row opened more-info on the temperature sensor.
+  That implicit handler is replaced by the configurable `tap_action`,
+  defaulting to `none`. Configs that want the old behaviour back should
+  set `tap_action: { action: more-info, entity: sensor.<your_temp> }` —
+  or any other action they prefer. The cursor only switches to a hand
+  when at least one action is wired, so the default card looks read-only.
+
+### Internal
+
+- Pointer-based tap / hold / double-tap detection (500 ms hold threshold,
+  250 ms double-tap window) bound to the `<ha-card>` root, rebound on
+  every render so a re-mounted card never silently loses its handlers.
+- Inline `_runAction` helper avoids depending on HA's internal
+  `handle-action` module path (renamed across HA versions).
+
 ## [0.6.0] — 2026-05-05
 
 ### Changed

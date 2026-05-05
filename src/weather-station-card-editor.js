@@ -221,6 +221,22 @@ class WeatherStationCardEditor extends LitElement {
     this.requestUpdate();
   }
 
+  // ha-selector with the ui_action selector returns either an action
+  // config object or undefined (when the picker is reset). Persist the
+  // value as-is so HA's standard handle-action helper can read it back
+  // unchanged — same shape Bubble / Mushroom / built-in cards consume.
+  _actionChanged(key, value) {
+    if (!this._config) return;
+    const newConfig = { ...this._config };
+    if (value === undefined || value === null) {
+      delete newConfig[key];
+    } else {
+      newConfig[key] = value;
+    }
+    this.configChanged(newConfig);
+    this.requestUpdate();
+  }
+
   // condition_mapping override editor: empty input = use default (key
   // removed from the YAML); any value coerces to a number.
   _conditionMappingChanged(event, key) {
@@ -380,6 +396,23 @@ class WeatherStationCardEditor extends LitElement {
               @value-changed=${(e) => this._valueChanged({ target: { value: e.detail.value } }, 'weather_entity')}
             ></ha-entity-picker>
           ` : ''}
+        </div>
+
+        <h4 class="subsection">${t('actions_heading')}</h4>
+        <div class="textfield-container">
+          ${[
+            ['tap_action', 'tap_action_label'],
+            ['hold_action', 'hold_action_label'],
+            ['double_tap_action', 'double_tap_action_label'],
+          ].map(([key, labelKey]) => html`
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ ui_action: {} }}
+              .value=${cfg[key]}
+              .label=${t(labelKey)}
+              @value-changed=${(e) => this._actionChanged(key, e.detail.value)}
+            ></ha-selector>
+          `)}
         </div>
 
         <!-- ─── B. Sensors ──────────────────────────────────────────── -->

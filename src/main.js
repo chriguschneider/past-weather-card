@@ -129,6 +129,8 @@ static getStubConfig(hass, unusedEntities, allEntities) {
   }
 
 setConfig(config) {
+  // tap/hold/double_tap default to 'none' — the card is read-only by
+  // default and the user opts into actions via the editor.
   const cardConfig = {
     icons_size: 25,
     animated_icons: false,
@@ -141,6 +143,9 @@ setConfig(config) {
     show_wind_gust_speed: false,
     days: 7,
     sensors: {},
+    tap_action: { action: 'none' },
+    hold_action: { action: 'none' },
+    double_tap_action: { action: 'none' },
     ...config,
     forecast: {
       precipitation_type: 'rainfall',
@@ -360,6 +365,10 @@ set hass(hass) {
     this.detachResizeObserver();
     this._teardownStation();
     this._teardownForecast();
+    if (this._actionHandlerTeardown) {
+      this._actionHandlerTeardown();
+      this._actionHandlerTeardown = null;
+    }
     if (this._clockTimer) {
       clearInterval(this._clockTimer);
       this._clockTimer = null;
@@ -571,9 +580,113 @@ async firstUpdated(changedProperties) {
   }
 }
 
+// Pointer-based tap / hold / double-tap detection on the ha-card root.
+// Dispatches the configured action by calling _runAction directly (HA's
+// frontend doesn't have a global hass-action listener — cards are
+// expected to invoke handle-action themselves; firing the event was a
+// no-op, see commit history).
+//
+// Why pointer events vs. plain click: we need hold detection (fires
+// before pointerup) and a way to suppress the trailing tap. A 250 ms
+// tap delay is required to disambiguate single from double — that's
+// the same window HA's own action-handler uses.
+_setupActionHandler() {
+  const card = this.shadowRoot && this.shadowRoot.querySelector('ha-card');
+  if (!card) return;
+
+  // Cursor reflects "is anything wired" — refresh on every call so
+  // toggling tap_action in the editor flips the hand cursor on/off
+  // immediately, not only on first render.
+  const cfg0 = this.config || {};
+  const isLive = (a) => a && a.action && a.action !== 'none';
+  card.style.cursor = (isLive(cfg0.tap_action) || isLive(cfg0.hold_action) || isLive(cfg0.double_tap_action))
+    ? 'pointer' : '';
+
+  if (card._wsActionHandlerBound) return;
+  card._wsActionHandlerBound = true;
+
+  const HOLD_MS = 500;
+  const DBL_MS = 250;
+  let holdTimer = null;
+  let holdFired = false;
+  let lastTapAt = 0;
+  let pendingTap = null;
+
+  const fire = (kind) => {
+    const cfg = this.config || {};
+    const map = {
+      tap: cfg.tap_action,
+      hold: cfg.hold_action,
+      double_tap: cfg.double_tap_action,
+    };
+    this._runAction(map[kind]);
+  };
+
+  const clearHold = () => {
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+  };
+
+  const onPointerDown = () => {
+    holdFired = false;
+    clearHold();
+    holdTimer = setTimeout(() => {
+      holdFired = true;
+      fire('hold');
+    }, HOLD_MS);
+  };
+
+  const onPointerUp = () => {
+    clearHold();
+    if (holdFired) return;
+    const now = Date.now();
+    if (now - lastTapAt < DBL_MS) {
+      // Second tap inside the double-tap window — cancel the queued
+      // single tap and fire double_tap instead.
+      lastTapAt = 0;
+      if (pendingTap) { clearTimeout(pendingTap); pendingTap = null; }
+      fire('double_tap');
+      return;
+    }
+    lastTapAt = now;
+    pendingTap = setTimeout(() => {
+      pendingTap = null;
+      fire('tap');
+    }, DBL_MS);
+  };
+
+  const onPointerCancel = () => {
+    clearHold();
+    holdFired = false;
+  };
+
+  card.addEventListener('pointerdown', onPointerDown);
+  card.addEventListener('pointerup', onPointerUp);
+  card.addEventListener('pointercancel', onPointerCancel);
+  card.addEventListener('pointerleave', onPointerCancel);
+
+  // Saved so disconnectedCallback can detach. Re-using `card` rather than
+  // `this` because the ha-card element is what we bound to.
+  this._actionHandlerTeardown = () => {
+    card.removeEventListener('pointerdown', onPointerDown);
+    card.removeEventListener('pointerup', onPointerUp);
+    card.removeEventListener('pointercancel', onPointerCancel);
+    card.removeEventListener('pointerleave', onPointerCancel);
+    clearHold();
+    if (pendingTap) clearTimeout(pendingTap);
+    card._wsActionHandlerBound = false;
+  };
+}
+
 
 async updated(changedProperties) {
   await this.updateComplete;
+
+  // Re-attempt action-handler binding after every render. Lit can swap
+  // the <ha-card> element when the render branch changes (the
+  // weather-undefined fallback uses a different template than the
+  // populated branch); the per-element _wsActionHandlerBound flag
+  // makes this idempotent on stable elements.
+  this._setupActionHandler();
 
   if (changedProperties.has('config')) {
     const oldConfig = changedProperties.get('config');
@@ -1291,7 +1404,7 @@ renderForecastConditionIcons({ config, forecastItems, sun } = this) {
   }
 
   return html`
-    <div class="conditions" @click="${(e) => this.showMoreInfo(config.sensors && config.sensors.temperature)}">
+    <div class="conditions">
       ${forecast.map((item) => {
         const forecastTime = new Date(item.datetime);
         const sunriseTime = new Date(sun.attributes.next_rising);
@@ -1408,8 +1521,67 @@ _convertWindSpeed(raw) {
     return event;
   }
 
-  showMoreInfo(entity) {
-    this._fire('hass-more-info', { entityId: entity });
+  // Mirror of HA's frontend handle-action helper, scoped to the actions
+  // the editor exposes via ha-selector ui_action: more-info, navigate,
+  // url, toggle, perform-action (a.k.a. call-service) and assist.
+  // 'none' / unconfigured actions are no-ops. We don't import HA's
+  // handle-action to avoid a runtime dependency on an internal module
+  // path that has changed names across HA versions.
+  _runAction(actionConfig) {
+    if (!actionConfig || !actionConfig.action || actionConfig.action === 'none') return;
+    const hass = this._hass;
+    const fallbackEntity = (this.config && this.config.sensors && this.config.sensors.temperature) || '';
+    const action = actionConfig.action;
+
+    if (action === 'more-info') {
+      const entityId = actionConfig.entity || fallbackEntity;
+      if (entityId) this._fire('hass-more-info', { entityId });
+      return;
+    }
+    if (action === 'navigate') {
+      if (!actionConfig.navigation_path) return;
+      window.history.pushState(null, '', actionConfig.navigation_path);
+      // HA listens for `location-changed` on window to drive the router;
+      // bubbles:true so it reaches the panel regardless of who fired it.
+      const ev = new Event('location-changed', { bubbles: true, composed: true, cancelable: false });
+      ev.detail = { replace: actionConfig.navigation_replace === true };
+      window.dispatchEvent(ev);
+      return;
+    }
+    if (action === 'url') {
+      if (!actionConfig.url_path) return;
+      window.open(actionConfig.url_path);
+      return;
+    }
+    if (action === 'toggle') {
+      const entityId = actionConfig.entity || fallbackEntity;
+      if (!entityId || !hass) return;
+      const domain = entityId.split('.')[0];
+      hass.callService(domain, 'toggle', { entity_id: entityId });
+      return;
+    }
+    if (action === 'perform-action' || action === 'call-service') {
+      // HA renamed `service` → `perform_action` in 2024.8; keep both for
+      // backwards compatibility with older YAML.
+      const svc = actionConfig.perform_action || actionConfig.service;
+      if (!svc || !hass) return;
+      const dot = svc.indexOf('.');
+      if (dot < 0) return;
+      const domain = svc.slice(0, dot);
+      const service = svc.slice(dot + 1);
+      const data = actionConfig.data || actionConfig.service_data || {};
+      const target = actionConfig.target;
+      hass.callService(domain, service, data, target);
+      return;
+    }
+    if (action === 'assist') {
+      this._fire('hass-action-assist', actionConfig);
+      return;
+    }
+    if (action === 'fire-dom-event') {
+      this._fire('ll-custom', actionConfig);
+      return;
+    }
   }
 }
 

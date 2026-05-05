@@ -146,6 +146,36 @@ compatibility — the editor projects them onto a single radio.
 | `weather_entity` | string | _none_ | `weather.*` entity used for the forecast block. Required when `show_forecast: true`. |
 | `days` | integer | `7` | Number of past days (station block). 1–14. |
 | `forecast_days` | integer | `days` | Number of forecast columns; defaults to the same span as `days`. |
+| `tap_action` | object | `{ action: none }` | Action triggered by a single click on the card. See [Actions](#actions) below. |
+| `hold_action` | object | `{ action: none }` | Action triggered by holding the card for ≥ 500 ms. |
+| `double_tap_action` | object | `{ action: none }` | Action triggered by a double click within 250 ms. |
+
+#### Actions
+
+The card exposes the standard Home Assistant action selector for tap, hold,
+and double-tap. The supported `action` values are the ones HA's UI editor
+offers — `more-info`, `navigate`, `url`, `toggle`, `perform-action`,
+`assist`, and `none` (the default). The action runs on the **whole card**;
+clicks anywhere on the chart, the main panel, or the attribute row trigger
+the same configured action.
+
+```yaml
+tap_action:
+  action: navigate
+  navigation_path: /lovelace-garden
+hold_action:
+  action: more-info
+  entity: sensor.outdoor_temperature
+double_tap_action:
+  action: perform-action
+  perform_action: light.toggle
+  target:
+    entity_id: light.terrace
+```
+
+For `more-info` and `toggle`, if no `entity` is set the action falls back to
+`sensors.temperature`. The cursor only switches to a hand when at least one
+action is non-`none`, so the default read-only card looks read-only.
 
 </details>
 
