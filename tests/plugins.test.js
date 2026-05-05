@@ -20,6 +20,7 @@ import {
   createSeparatorPlugin,
   createDailyTickLabelsPlugin,
   createSunshineLabelPlugin,
+  createPrecipLabelPlugin,
 } from '../src/chart/plugins.js';
 
 function mockCtx() {
@@ -373,5 +374,130 @@ describe('createSunshineLabelPlugin', () => {
     const chart = sunshineMockChart({ tickCount: 1 });
     p.afterDraw(chart);
     expect(chart.ctx.strokeStyle).toBe('rgba(1, 2, 3, 1.0)');
+  });
+});
+
+describe('createPrecipLabelPlugin', () => {
+  // The precip-label plugin reads from chart.getDatasetMeta(2) — the
+  // third dataset in our chart (tempHigh, tempLow, precip). The mock
+  // chart needs to expose that meta plus the PrecipAxis scale used to
+  // anchor the label to the precipitation 0-line.
+  function precipMockChart({ barCount = 3, hasPrecipAxis = true, hasXScale = true } = {}) {
+    return {
+      ctx: mockCtx(),
+      chartArea: { top: 10, bottom: 200, left: 0, right: 700 },
+      getDatasetMeta: (i) => i === 2 ? {
+        data: Array.from({ length: barCount }, (_, idx) => ({
+          x: idx * 50 + 25,
+          options: { borderColor: '#abcdef' },
+        })),
+      } : null,
+      scales: {
+        ...(hasXScale ? { x: { getPixelForTick: (i) => i * 50 + 25 } } : {}),
+        ...(hasPrecipAxis ? {
+          PrecipAxis: { getPixelForValue: () => 180 },
+        } : {}),
+      },
+    };
+  }
+
+  const baseConfig = { forecast: { labels_font_size: 11 } };
+
+  it('returns a plugin object with id and afterDatasetsDraw hook', () => {
+    const p = createPrecipLabelPlugin({
+      config: baseConfig, data: { precip: [] },
+      precipUnit: 'mm', precipPerBarColor: [], precipColor: '#0066cc',
+      textColor: '#000', backgroundColor: '#fff',
+    });
+    expect(p.id).toBe('precipLabel');
+    expect(typeof p.afterDatasetsDraw).toBe('function');
+  });
+
+  it('bails out when precip dataset meta is missing (chart not ready)', () => {
+    const p = createPrecipLabelPlugin({
+      config: baseConfig, data: { precip: [1.5] },
+      precipUnit: 'mm', precipPerBarColor: ['#0066cc'], precipColor: '#0066cc',
+      textColor: '#000', backgroundColor: '#fff',
+    });
+    const chart = {
+      ctx: mockCtx(),
+      getDatasetMeta: () => null,
+      scales: {},
+      chartArea: { top: 0, bottom: 100 },
+    };
+    expect(() => p.afterDatasetsDraw(chart)).not.toThrow();
+    expect(chart.ctx.fillText).not.toHaveBeenCalled();
+  });
+
+  it('skips bars with null or zero precipitation', () => {
+    const p = createPrecipLabelPlugin({
+      config: baseConfig, data: { precip: [null, 0, 1.2] },
+      precipUnit: 'mm', precipPerBarColor: ['#0066cc', '#0066cc', '#0066cc'],
+      precipColor: '#0066cc', textColor: '#000', backgroundColor: '#fff',
+    });
+    const chart = precipMockChart({ barCount: 3 });
+    p.afterDatasetsDraw(chart);
+    // Only 1.2 → renders. number + unit = 2 fillText calls per visible bar.
+    expect(chart.ctx.fillText).toHaveBeenCalledTimes(2);
+    expect(chart.ctx.fillRect).toHaveBeenCalledTimes(1);
+  });
+
+  it('rounds large values (>9) to integers and keeps 1 decimal otherwise', () => {
+    const p = createPrecipLabelPlugin({
+      config: baseConfig, data: { precip: [12.7, 0.5] },
+      precipUnit: 'mm', precipPerBarColor: ['#0066cc', '#0066cc'],
+      precipColor: '#0066cc', textColor: '#000', backgroundColor: '#fff',
+    });
+    const chart = precipMockChart({ barCount: 2 });
+    p.afterDatasetsDraw(chart);
+    expect(chart.ctx.fillText).toHaveBeenCalledWith('13', expect.any(Number), expect.any(Number));
+    expect(chart.ctx.fillText).toHaveBeenCalledWith('0.5', expect.any(Number), expect.any(Number));
+  });
+
+  it('falls back to bar.x when xScale.getPixelForTick is missing', () => {
+    const p = createPrecipLabelPlugin({
+      config: baseConfig, data: { precip: [1.5] },
+      precipUnit: 'mm', precipPerBarColor: ['#0066cc'], precipColor: '#0066cc',
+      textColor: '#000', backgroundColor: '#fff',
+    });
+    const chart = precipMockChart({ barCount: 1, hasXScale: false });
+    p.afterDatasetsDraw(chart);
+    // Should still render; just at bar.x instead of tick pixel.
+    expect(chart.ctx.fillText).toHaveBeenCalledTimes(2);
+  });
+
+  it('falls back to chartArea.bottom when PrecipAxis is missing', () => {
+    const p = createPrecipLabelPlugin({
+      config: baseConfig, data: { precip: [1.5] },
+      precipUnit: 'mm', precipPerBarColor: ['#0066cc'], precipColor: '#0066cc',
+      textColor: '#000', backgroundColor: '#fff',
+    });
+    const chart = precipMockChart({ barCount: 1, hasPrecipAxis: false });
+    p.afterDatasetsDraw(chart);
+    expect(chart.ctx.fillText).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses bar.options.borderColor for the box stroke when available', () => {
+    const p = createPrecipLabelPlugin({
+      config: baseConfig, data: { precip: [1.5] },
+      precipUnit: 'mm', precipPerBarColor: ['#fallback'], precipColor: '#globalFallback',
+      textColor: '#000', backgroundColor: '#fff',
+    });
+    const chart = precipMockChart({ barCount: 1 });
+    p.afterDatasetsDraw(chart);
+    // The mock bar has options.borderColor: '#abcdef' — that should win.
+    expect(chart.ctx.strokeStyle).toBe('#abcdef');
+  });
+
+  it('honours chartTextColor override for text fill', () => {
+    const p = createPrecipLabelPlugin({
+      config: baseConfig, data: { precip: [1.5] },
+      precipUnit: 'mm', precipPerBarColor: ['#0066cc'], precipColor: '#0066cc',
+      textColor: '#000', backgroundColor: '#fff',
+      chartTextColor: '#custom',
+    });
+    const chart = precipMockChart({ barCount: 1 });
+    p.afterDatasetsDraw(chart);
+    expect(chart.ctx.fillStyle).toBe('#custom');
   });
 });
