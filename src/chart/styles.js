@@ -122,6 +122,39 @@ export function cardStyles({
      * card. -16px would land flush with the ha-card outer edge. */
     .scroll-indicator-left { left: -14px; }
     .scroll-indicator-right { right: -14px; }
+    /* Mode-toggle (daily↔hourly) and jump-to-now — overlaid on the
+     * forecast-scroll-block at the precipitation-baseline level (near
+     * the chart's bottom edge). Out of the way of the .scroll-date
+     * overlays at the top of the chart, and visually aligned with the
+     * precip labels. Vertical centring uses chartHeight - 15 so the
+     * 30 px button sits centred on Chart.js's precip-axis 0-line
+     * (chartArea.bottom ≈ chartHeight - 10 due to layout.padding.bottom). */
+    .mode-toggle, .jump-to-now {
+      position: absolute;
+      top: ${chartHeight - 30}px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: var(--card-background-color);
+      border: 1px solid var(--divider-color);
+      color: var(--primary-text-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 3;
+      opacity: 0.9;
+      padding: 0;
+      transition: opacity 120ms ease;
+    }
+    .mode-toggle:hover, .jump-to-now:hover { opacity: 1; }
+    .mode-toggle ha-icon, .jump-to-now ha-icon { --mdc-icon-size: 18px; }
+    .mode-toggle { left: -14px; }
+    .jump-to-now {
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    .jump-to-now[hidden] { display: none; }
     /* Edge date stamps at hourly: which day are the leftmost / rightmost
      * visible bars on. Styled to match the chart's own midnight-tick
      * date marker (plain text in --secondary-text-color, no pill or

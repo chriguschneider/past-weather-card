@@ -2856,6 +2856,39 @@ function cardStyles({
      * card. -16px would land flush with the ha-card outer edge. */
     .scroll-indicator-left { left: -14px; }
     .scroll-indicator-right { right: -14px; }
+    /* Mode-toggle (daily↔hourly) and jump-to-now — overlaid on the
+     * forecast-scroll-block at the precipitation-baseline level (near
+     * the chart's bottom edge). Out of the way of the .scroll-date
+     * overlays at the top of the chart, and visually aligned with the
+     * precip labels. Vertical centring uses chartHeight - 15 so the
+     * 30 px button sits centred on Chart.js's precip-axis 0-line
+     * (chartArea.bottom ≈ chartHeight - 10 due to layout.padding.bottom). */
+    .mode-toggle, .jump-to-now {
+      position: absolute;
+      top: ${chartHeight - 30}px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: var(--card-background-color);
+      border: 1px solid var(--divider-color);
+      color: var(--primary-text-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 3;
+      opacity: 0.9;
+      padding: 0;
+      transition: opacity 120ms ease;
+    }
+    .mode-toggle:hover, .jump-to-now:hover { opacity: 1; }
+    .mode-toggle ha-icon, .jump-to-now ha-icon { --mdc-icon-size: 18px; }
+    .mode-toggle { left: -14px; }
+    .jump-to-now {
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    .jump-to-now[hidden] { display: none; }
     /* Edge date stamps at hourly: which day are the leftmost / rightmost
      * visible bars on. Styled to match the chart's own midnight-tick
      * date marker (plain text in --secondary-text-color, no pill or
@@ -20267,7 +20300,15 @@ _setupActionHandler() {
     if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
   };
 
-  const onPointerDown = () => {
+  // Pointer events that originate on a card-internal control button
+  // (mode-toggle, jump-to-now, scroll indicators) are part of that
+  // control's own gesture — they must NOT trigger the card-level
+  // tap/hold/double-tap action.
+  const isCardControl = (target) =>
+    target && target.closest && target.closest('button, ha-icon-button, [role="button"]') !== null;
+
+  const onPointerDown = (ev) => {
+    if (isCardControl(ev.target)) return;
     holdFired = false;
     clearHold();
     holdTimer = setTimeout(() => {
@@ -20279,7 +20320,8 @@ _setupActionHandler() {
     }, HOLD_MS);
   };
 
-  const onPointerUp = () => {
+  const onPointerUp = (ev) => {
+    if (isCardControl(ev.target)) return;
     clearHold();
     if (holdFired) return;
     // Drag-to-scroll consumed this gesture; suppress the trailing tap.
@@ -20830,12 +20872,17 @@ updateChart({ forecasts, forecastChart } = this) {
                 ${this.renderWind()}
               </div>
             </div>
+            ${this.renderModeToggle()}
             ${scrolling ? x`
               <button class="scroll-indicator scroll-indicator-left" aria-label="Scroll left" hidden>
                 <ha-icon icon="mdi:chevron-left"></ha-icon>
               </button>
               <button class="scroll-indicator scroll-indicator-right" aria-label="Scroll right" hidden>
                 <ha-icon icon="mdi:chevron-right"></ha-icon>
+              </button>
+              <button class="jump-to-now" aria-label="Jump to now" title="Jump to now" hidden
+                @click=${this._onJumpToNowClick}>
+                <ha-icon icon="mdi:crosshairs-gps"></ha-icon>
               </button>
             ` : ''}
             ${scrolling && config.forecast.type === 'hourly' ? x`
@@ -21269,10 +21316,17 @@ _convertWindSpeed(raw) {
     const leftBtn = block && block.querySelector('.scroll-indicator-left');
     const rightBtn = block && block.querySelector('.scroll-indicator-right');
 
-    // ── Mouse-drag-to-scroll ──────────────────────────────────────────
-    // Touch falls through to the native overflow:auto scroll; we only
-    // capture mouse pointers so swipe gestures on phones / tablets keep
-    // working as users expect.
+    // ── Drag-to-scroll + tap suppression ──────────────────────────────
+    // We listen to ALL pointer types so a swipe / drag — whether mouse
+    // or touch — sets `this._dragMoved`, which the action handler on
+    // ha-card checks before firing tap_action / hold_action. Without
+    // that gate, a horizontal touch-swipe to scroll the chart on mobile
+    // would also fire the configured tap action on pointerup.
+    //
+    // The actual scrollLeft manipulation (and pointer capture) is still
+    // mouse-only — touch falls through to the native `overflow-x: auto`
+    // scroll, and calling preventDefault or capturing the pointer
+    // would interfere with that native gesture.
     const DRAG_THRESHOLD = 5;
     let isDown = false;
     let dragMoved = false;
@@ -21281,13 +21335,14 @@ _convertWindSpeed(raw) {
     let activePointerId = null;
 
     const onPointerDown = (ev) => {
-      if (ev.pointerType !== 'mouse') return;
       isDown = true;
       dragMoved = false;
       activePointerId = ev.pointerId;
       startX = ev.clientX;
       startScrollLeft = wrapper.scrollLeft;
-      try { wrapper.setPointerCapture(ev.pointerId); } catch (_) { /* not always supported */ }
+      if (ev.pointerType === 'mouse') {
+        try { wrapper.setPointerCapture(ev.pointerId); } catch (_) { /* not always supported */ }
+      }
     };
 
     const onPointerMove = (ev) => {
@@ -21295,12 +21350,12 @@ _convertWindSpeed(raw) {
       const dx = ev.clientX - startX;
       if (!dragMoved && Math.abs(dx) > DRAG_THRESHOLD) {
         dragMoved = true;
-        // Shared with the action handler so that a drag-on-chart
+        // Shared with the action handler so that a drag/swipe gesture
         // doesn't also fire a tap_action on pointerup.
         this._dragMoved = true;
         wrapper.classList.add('dragging');
       }
-      if (dragMoved) {
+      if (dragMoved && ev.pointerType === 'mouse') {
         wrapper.scrollLeft = startScrollLeft - dx;
         ev.preventDefault();
       }
@@ -21311,11 +21366,23 @@ _convertWindSpeed(raw) {
       isDown = false;
       activePointerId = null;
       wrapper.classList.remove('dragging');
+      // pointercancel from the browser claiming the gesture for native
+      // scroll counts as a drag, even if our pointermove threshold
+      // wasn't crossed yet — any pointerup that may bubble up to the
+      // ha-card afterwards must skip its tap-detection branch.
+      if (ev && ev.type === 'pointercancel') {
+        dragMoved = true;
+        this._dragMoved = true;
+      }
       if (dragMoved) {
-        // Reset on the next microtask so the action handler's pointerup
-        // (which bubbles up after this listener) still sees the flag and
-        // skips its tap-detection branch.
-        Promise.resolve().then(() => { this._dragMoved = false; });
+        // Reset via setTimeout(0) — a macrotask, not a microtask. The
+        // ha-card's pointerup listener bubbles up AFTER this one in the
+        // same event dispatch, and microtasks flush between listener
+        // invocations in V8/Blink, so a Promise.resolve().then(reset)
+        // would fire before the action handler reads the flag and the
+        // tap would still trigger. setTimeout(0) defers the reset to
+        // the next macrotask, after the entire event dispatch is done.
+        setTimeout(() => { this._dragMoved = false; }, 0);
       }
     };
 
@@ -21385,7 +21452,76 @@ _convertWindSpeed(raw) {
       if (wrapper.scrollLeft < max - slop) right.removeAttribute('hidden');
       else right.setAttribute('hidden', '');
     }
+    // Jump-to-now visibility — hidden when current scrollLeft is within
+    // ~10% of one viewport width of the canonical "now" position. The
+    // threshold is relative so it scales with display size; phones get a
+    // tighter band than desktops in absolute pixels.
+    const jump = block.querySelector('.jump-to-now');
+    if (jump) {
+      const target = computeInitialScrollLeft({
+        stationCount: this._stationCount || 0,
+        forecastCount: this._forecastCount || 0,
+        contentWidth: wrapper.scrollWidth,
+        viewportWidth: wrapper.clientWidth,
+      });
+      const offset = Math.abs(wrapper.scrollLeft - target);
+      const threshold = Math.max(20, wrapper.clientWidth * 0.1);
+      if (offset > threshold) jump.removeAttribute('hidden');
+      else jump.setAttribute('hidden', '');
+    }
     this._updateScrollDateStamps(block, wrapper);
+  }
+
+  // Renders the daily ↔ hourly mode toggle as a small circular button
+  // overlaid at the top-left of the forecast-scroll-block. Only visible
+  // when there's a forecast block to switch (otherwise the toggle has
+  // no effect — the station block alone runs at the configured forecast
+  // type but the user can't see the difference without forecast data
+  // to compare against).
+  renderModeToggle() {
+    const cfg = this.config || {};
+    // forecast.type drives both MeasuredDataSource (period: hour|day)
+    // and ForecastDataSource (forecast_type) — toggling is meaningful
+    // whenever ANY block renders, including station-only.
+    const showsStation = cfg.show_station !== false;
+    const showsForecast = cfg.show_forecast === true && !!cfg.weather_entity;
+    if (!showsStation && !showsForecast) return '';
+    const isHourly = (cfg.forecast || {}).type === 'hourly';
+    const icon = isHourly ? 'mdi:calendar-month-outline' : 'mdi:clock-time-eight-outline';
+    const label = isHourly ? 'Switch to daily forecast' : 'Switch to hourly forecast';
+    return x`
+      <button class="mode-toggle" aria-label="${label}" title="${label}"
+              @click=${this._onModeToggleClick}>
+        <ha-icon icon=${icon}></ha-icon>
+      </button>
+    `;
+  }
+
+  // Toggle between daily and hourly via the same setConfig path the
+  // editor uses. _invalidateStaleSources picks up the forecast.type
+  // change and rebuilds both station and forecast data sources, so
+  // hourly station aggregates load on demand. The mutation does NOT
+  // persist to the user's saved YAML — refresh resets to whatever
+  // they configured. For permanent changes, the editor's radio.
+  _onModeToggleClick(ev) {
+    if (ev) ev.stopPropagation();
+    const cfg = this.config || {};
+    const fcfg = cfg.forecast || {};
+    const next = fcfg.type === 'hourly' ? 'daily' : 'hourly';
+    this.setConfig({ ...cfg, forecast: { ...fcfg, type: next } });
+  }
+
+  _onJumpToNowClick(ev) {
+    if (ev) ev.stopPropagation();
+    const wrapper = this.shadowRoot && this.shadowRoot.querySelector('.forecast-scroll.scrolling');
+    if (!wrapper) return;
+    const target = computeInitialScrollLeft({
+      stationCount: this._stationCount || 0,
+      forecastCount: this._forecastCount || 0,
+      contentWidth: wrapper.scrollWidth,
+      viewportWidth: wrapper.clientWidth,
+    });
+    wrapper.scrollTo({ left: target, behavior: 'smooth' });
   }
 
   // At hourly: surface the date of the leftmost and rightmost visible

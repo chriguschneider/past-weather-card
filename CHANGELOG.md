@@ -4,6 +4,65 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] — 2026-05-05
+
+### Added
+
+- **Mode-toggle button** overlaid on the chart at the precipitation-
+  baseline level (left edge of the forecast block): one click
+  switches between daily and hourly resolution. Goes through the
+  same `setConfig` path the editor uses, so station and forecast
+  data sources rebuild on the new period immediately. Visible
+  whenever any chart block renders (station-only, forecast-only, or
+  combination) — `forecast.type` drives both `MeasuredDataSource`
+  (`period: hour|day`) and `ForecastDataSource` (`forecast_type`).
+  The change does **not** persist to the saved YAML — refresh
+  resets to whatever the editor configured.
+- **Jump-to-now button** centred at the precipitation-baseline,
+  visible only when the user has scrolled the viewport away from
+  the canonical "now" position by more than ~10 % of one viewport
+  width. Click smooth-scrolls back to the same position the card
+  lands on at first paint (combination → boundary centred;
+  station-only → right edge; forecast-only → left edge).
+
+### Fixed
+
+- Touch-swipe scrolling no longer fires `tap_action`. The drag
+  detection in `_setupScrollUx` previously bailed out on non-mouse
+  pointer types, so a horizontal touch-swipe to scroll the chart
+  on mobile would also fire the configured tap action on pointerup.
+  Movement detection now runs for all pointer types — actual
+  `scrollLeft` manipulation and pointer capture stay mouse-only so
+  native touch overflow scrolling continues to work. `pointercancel`
+  (browser claiming the gesture for native scroll) is also treated
+  as a drag. Closes
+  [#9](https://github.com/chriguschneider/weather-station-card/issues/9).
+- Mouse drag-to-scroll on desktop no longer fires `tap_action` after
+  the gesture ends. The `_dragMoved` flag was reset via a Promise
+  microtask, but V8/Blink flushes microtasks between event-listener
+  invocations in the same dispatch — so the wrapper's `pointerup`
+  scheduled the reset, the microtask fired before the ha-card's
+  `pointerup` listener bubbled up, and the action handler saw
+  `_dragMoved = false`. Switched to `setTimeout(0)` (a macrotask)
+  so the reset deterministically happens after the entire event
+  dispatch completes.
+- Card-internal control buttons (mode-toggle, jump-to-now, scroll
+  indicators) no longer trigger the card-level `tap_action` /
+  `hold_action` / `double_tap_action`. The action handler now
+  ignores pointer events that originate inside any
+  `button` / `ha-icon-button` / `[role="button"]` descendant —
+  fixes the latent issue where clicking a scroll-indicator chevron
+  would also fire `tap_action` after the 250 ms double-tap window.
+
+### Internal
+
+- Plugin unit tests for `createSeparatorPlugin` (daily + hourly
+  modes, bail-out branches) and `createDailyTickLabelsPlugin`
+  (hourly early-return, doubled-today seam handling, `show_date`
+  toggle). Closes the README "Plugin tests" optional-improvement
+  note.
+- 128 vitest tests pass (+12 plugin tests since v0.8.1).
+
 ## [0.8.1] — 2026-05-05
 
 ### Changed
