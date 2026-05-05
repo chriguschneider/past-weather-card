@@ -4,7 +4,14 @@ A Lovelace card that shows **past weather-station measurements** in the same
 per-day layout as `weather-chart-card`, plus a live "current condition" main
 panel — both driven entirely by your sensor history.
 
-Unlike the upstream `weather-chart-card`, this card does not need a
+Since v0.5 the card can also render an **optional forecast block** alongside
+the station-history block: past N days from your sensors on the left, today
+as a doubled column (measured aggregate + forecast), forecast N days on the
+right. Forecast bars are drawn at lower opacity and forecast temperature
+lines are dashed so predicted values read distinctly from measured ones.
+Both blocks are independently toggleable.
+
+Unlike the upstream `weather-chart-card`, this card does not require a
 `weather.*` entity. It reads daily aggregates from
 `recorder/statistics_during_period` for whichever sensors you configure
 (temperature, humidity, illuminance, precipitation, pressure, wind, gust,

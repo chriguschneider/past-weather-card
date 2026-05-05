@@ -30,13 +30,39 @@ Conditions are derived by a deterministic, meteorologically-grounded
 classifier (see [How conditions are determined](#how-conditions-are-determined)
 below — every threshold is tied to a WMO / NWS / AMS / IES source).
 
-## Sibling card for forecasts
+## Combining station history and forecast (v0.5+)
 
-The same chart layout for *future* weather is available as
+Since v0.5 this card can render both blocks **in a single chart**: past
+N days from your sensors on the left, today as a doubled column
+(measured aggregate + forecast), forecast N days on the right.
+
+```yaml
+type: custom:weather-station-card
+days: 7
+sensors:
+  temperature: sensor.pool_weather_station_temperature
+  # … (rest as in the minimal config below)
+weather_entity: weather.home   # any weather.* entity that supports daily forecast
+forecast_days: 7
+show_forecast: true            # turn the forecast block on
+show_station: true             # default; flip to false for forecast-only
+```
+
+The doubled-today column ("Soll vs. Ist") is framed by two vertical
+separators with no line between them. Forecast temperature lines are
+dashed and forecast precipitation bars use ~45 % opacity so predicted
+values read distinctly from measured ones at a glance. Both blocks can
+be toggled independently — leave `show_forecast: false` (the default)
+for the original station-only experience, or set `show_station: false`
+to hide the historical block.
+
+## Sibling card for forecast-only setups
+
+If you want a *standalone* forecast chart in the same visual style (no
+station block, no doubled-today), use
 [`chriguschneider/weather-chart-card`](https://github.com/chriguschneider/weather-chart-card)
 — a fork of `mlamberts78/weather-chart-card` with the visuals from this
-card ported across, so a station chart and a forecast chart can sit next
-to each other panel-for-panel:
+card ported across:
 
 ![Station and forecast side by side](images/sibling-comparison.png)
 
@@ -106,7 +132,11 @@ classifier inputs.
 | --- | --- | --- | --- |
 | `type` | string | — | Always `custom:weather-station-card`. |
 | `title` | string | _none_ | Card header. Omit for a header-less card. |
-| `days` | integer | `7` | Number of past days to display in the chart. |
+| `days` | integer | `7` | Number of past days (station block) to display in the chart. |
+| `weather_entity` | string | _none_ | `weather.*` entity used for the optional forecast block (v0.5+). Required when `show_forecast: true`. |
+| `forecast_days` | integer | `days` | Number of forecast columns; defaults to the same span as `days`. |
+| `show_station` | bool | `true` | Render the past station-history block on the left. |
+| `show_forecast` | bool | `false` | Render the forecast block on the right (requires `weather_entity`). |
 | `locale` | string | HA's selected language | Override locale (e.g. `de`, `fr`). Falls back to English for missing keys. |
 | `use_12hour_format` | bool | `false` | Use 12-hour clock in the main panel. |
 | `autoscroll` | bool | `false` | Scroll forecast columns once per hour to keep "now" centred. |
@@ -179,11 +209,12 @@ classifier, and (where relevant) the attribute readouts.
 | --- | --- | --- | --- |
 | `forecast.style` | `'style1' \| 'style2'` | `'style1'` | Chart visual style. |
 | `forecast.type` | `'daily' \| 'hourly'` | `'daily'` | Aggregation. (Hourly is upstream-compatible but not yet wired in this fork.) |
-| `forecast.number_of_forecasts` | integer | `0` (= `days`) | Number of forecast columns; 0 = match `days`. |
+| `forecast.number_of_forecasts` | integer | `0` (= every merged column) | Number of columns to display; `0` shows all merged station + forecast columns (no auto-fit cropping). |
 | `forecast.round_temp` | bool | `false` | Round temperature labels to integers. |
 | `forecast.show_probability` | bool | `false` | Show precipitation-probability labels (forecast-source only — not used by sensor history). |
 | `forecast.show_wind_forecast` | bool | `true` | Show wind row under chart. |
 | `forecast.condition_icons` | bool | `true` | Show condition icons row above the chart. |
+| `forecast.show_date` | bool | `true` | Show the `dd/mm` date row in the X-axis. When off, only the weekday is rendered and the chart reclaims the freed line of tick height (v0.5+). |
 | `forecast.disable_animation` | bool | `false` | Disable chart redraw animation. |
 | `forecast.precipitation_type` | `'rainfall' \| 'probability'` | `'rainfall'` | Series displayed for the precipitation bars. |
 | `forecast.labels_font_size` | number | `11` | Font size for axis tick labels (px). |

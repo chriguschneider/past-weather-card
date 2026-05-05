@@ -38,13 +38,23 @@ A missing translation never crashes the card; it just falls through.
 ```bash
 npm install
 npm run lint         # eslint over src/
-npm run rollup       # one-shot build
-npm run build        # lint + build
+npm run test         # vitest run (see TESTING.md)
+npm run rollup       # one-shot bundle
+npm run build        # lint + test + bundle
 npm start            # rollup --watch + dev server
 ```
 
 Built artefact: `dist/weather-station-card.js`. **Always commit the rebuilt
 bundle alongside source changes** — HACS serves it directly from the tag.
+
+## Tests
+
+Pure-function unit tests live under `tests/` and run via Vitest. See
+[TESTING.md](TESTING.md) for the conventions on what is in scope (data
+layer, classifier, formatting helpers) and what is intentionally not
+covered (Lit lifecycle, Chart.js drawing, editor DOM). New PRs that touch
+`src/condition-classifier.js`, `src/data-source.js`, or
+`src/format-utils.js` should extend the corresponding test file.
 
 ## Code style
 

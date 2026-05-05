@@ -4,6 +4,82 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-05
+
+### Added
+
+- **Optional forecast block** alongside the existing station-history block,
+  driven by a `weather.*` entity via `weather/subscribe_forecast`. New config
+  keys: `weather_entity`, `forecast_days`, `show_forecast`, `show_station`.
+  Both blocks can be toggled independently. Today appears as a doubled
+  column ("Soll vs. Ist"): the station's measured aggregate on the left,
+  the forecast on the right, framed by two vertical separators with no
+  line in between.
+- **Forecast lines dashed** (6 / 4 px) so predicted values don't visually
+  flow into measured values; the line segment between station-today and
+  forecast-today is suppressed entirely, markers stay visible.
+- **Forecast precipitation bars at ~45 % opacity**, station bars stay full
+  colour, so "less certain" data reads as such at a glance.
+- **Centered today label** above the doubled-today column when both blocks
+  are active — the weekday (and date row, when enabled) renders once
+  centred between the two today columns instead of twice.
+- **`forecast.show_date` toggle** for the chart's date row. When off, the
+  X-axis reclaims the freed line of tick height.
+- **`ForecastDataSource`** in `data-source.js` mirroring the
+  `MeasuredDataSource` lifecycle (`subscribe(cb) → unsubscribe`, event
+  shape `{forecast, error?}`). The render layer stays source-agnostic.
+- **Custom precipitation-label renderer** so the unit ("mm" / "in") draws
+  at ~50 % of the value's font size next to the number, instead of full
+  size — fits narrow cards without dropping the unit.
+- **Vitest test suite** covering `condition-classifier` (full decision
+  tree), `data-source` (`dailyPrecipitation` state-class paths,
+  `_buildForecast` shape, `ForecastDataSource` subscribe/error/dispose),
+  and `format-utils`. 58 tests, ~80 % statement coverage on those
+  modules. CI runs `npm test` between lint and build; failure blocks
+  the release pipeline. See `TESTING.md`.
+
+### Changed
+
+- Outer chart borders (TempAxis left, PrecipAxis right) are no longer
+  drawn. Today's framing is carried by the block-separator plugin alone.
+- `forecast.number_of_forecasts: 0` now expands to the merged
+  station + forecast column count instead of an auto-fit width
+  calculation. Necessary so the doubled-today layout doesn't get cropped.
+- Card-bottom precipitation labels are centred on the precip-axis
+  baseline (zero line) rather than the variable bar tops, matching the
+  pre-MVP look across both station and forecast columns.
+- Editor: new "Forecast block" section under "Card" with weather-entity
+  picker, `forecast_days` field, `show_station` / `show_forecast`
+  toggles, and the `forecast.show_date` switch.
+
+### Fixed
+
+- **Race condition** between the asynchronous statistics fetch and the
+  immediate forecast subscription: the chart used to render station-only
+  whenever forecast events arrived first and a `ResizeObserver` tick set
+  `forecastItems` before the merge.
+- **ResizeObserver storm** when a Sections-grid card was resized: the
+  observer now coalesces ticks via `requestAnimationFrame`, so layout
+  changes can't trigger dozens of synchronous `Chart.destroy + new Chart`
+  cycles within one frame.
+- **Null `shadowRoot` crash** when a data callback fires before the
+  first Lit render. `measureCard` now bails out cleanly; the next
+  `firstUpdated` tick redraws.
+- **Card vanishing on config edits** (e.g. toggling `forecast.round_temp`):
+  the legacy `updated()` lifecycle used to overwrite `this.forecasts`
+  with station-only and re-throw on stale Chart.js state. The hook now
+  reads the changed-key set, tears down only the affected data sources,
+  and routes through `_refreshForecasts` inside a `try/catch`. `drawChart`
+  is wrapped end-to-end so a Chart.js failure can no longer drop the
+  whole card from the render tree.
+
+### Internal
+
+- Extracted `lightenColor` and `computeBlockSeparatorPositions` to
+  `src/format-utils.js` (pure module, unit-tested).
+- Extracted `dailyPrecipitation` from `MeasuredDataSource` as a free
+  exported function (no `this` dependency).
+
 ## [0.4.0] — 2025-05
 
 ### Breaking changes
