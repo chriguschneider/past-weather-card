@@ -2,6 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 [![hacs](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
+[![coverage ≥ 80%](https://img.shields.io/badge/coverage-%E2%89%A580%25-brightgreen.svg)](TESTING.md)
 
 A Lovelace card that shows **past weather-station measurements** in the same
 per-day layout as [`weather-chart-card`](https://github.com/mlamberts78/weather-chart-card),

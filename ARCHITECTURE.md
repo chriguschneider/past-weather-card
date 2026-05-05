@@ -259,3 +259,24 @@ Things that would require structural work:
   `bucketPrecipitation` and likely a different chart layout — Chart.js
   category-scale runs out of horizontal pixels around ~200 columns
   even with scrolling.
+
+## v1.1+ planned work
+
+Tracked as a sequence of release-tracking issues so each step ships
+independently:
+
+- [#12](https://github.com/chriguschneider/weather-station-card/issues/12) **v1.1 — Architecture refactor**: split `main.js` (currently
+  ~2.2k LOC) into `scroll-ux.js`, `action-handler.js`,
+  `chart/orchestrator.js`; split the monolithic editor into 5 render
+  partials; introduce a `TeardownRegistry` pattern.
+- [#13](https://github.com/chriguschneider/weather-station-card/issues/13) **v1.2 — TypeScript migration**: full `.ts` migration in
+  dependency order, Lit `@property` decorators.
+- [#14](https://github.com/chriguschneider/weather-station-card/issues/14) **v1.3 — Playwright E2E + visual regression**: closes the
+  test-coverage gap for `main.js`, editor click-paths, and Chart.js
+  rendering — the surfaces excluded from the v1.0 80 % unit-test gate.
+- [#15](https://github.com/chriguschneider/weather-station-card/issues/15) **v1.4 — Mode-toggle perf** (closes [#10](https://github.com/chriguschneider/weather-station-card/issues/10)):
+  parallel data-sources or lazy cache so the daily ↔ hourly toggle
+  is instant instead of a 1–3 s teardown + re-subscribe.
+
+Each release is independently shippable; the maintainer can pause
+between any two without leaving the codebase in a half-state.

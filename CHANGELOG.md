@@ -4,6 +4,82 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] — 2026-05-06 (TBD — quality release)
+
+A user-visible quality release: faster card, real test coverage gate,
+polished docs, accessibility-pass. Architectural refactors
+(main.js / editor split, TypeScript migration, E2E tests) are
+deliberately deferred to v1.1+ so this release ships cleanly.
+
+### Changed
+
+- **Bundle size dropped from 797 KB → 355 KB (−55 %).** Production
+  builds now run through `@rollup/plugin-terser` (passes:2,
+  classes preserved). Halves bytes-on-the-wire even after HA's
+  gzip layer; mobile dashboards and HACS downloads benefit.
+- **Live "current condition" memoized.** `set hass` no longer
+  re-runs `classifyDay` and `clearSkyLuxAt` when the relevant
+  inputs are unchanged at minute precision. Across the 2–5 hass
+  ticks per second that arrive when many entities update, this
+  saves ~1–2 ms/frame.
+- **Hourly clearsky-lux factory** caches lat-trig (`sinφ`, `cosφ`)
+  once and per-day declination (`sinδ`, `cosδ`) per dayOfYear.
+  Repeated calls within the same day reuse all but
+  `cos(hourAngle)`. For a 7-day hourly fetch (168 rows) that's
+  840 → 168 trig ops.
+
+### Added
+
+- **Coverage gate ≥ 80 %** on statements, branches, functions, lines.
+  Configured in `vitest.config.js`, enforced by a new CI step. Scope
+  is the data / classifier / format / chart-plugin layer (7 modules);
+  Lit / editor / Chart.js orchestration covered later by Playwright
+  E2E (v1.3, issue #14).
+- **Bundle budget** of 800 KB enforced in CI as a regression guard.
+- 7 new tests for `createPrecipLabelPlugin` (was 64 % branch coverage,
+  now 88 %): bail-out on missing dataset meta, null/zero skip,
+  large-value rounding, fallback paths, colour-resolution priority.
+
+### Fixed
+
+- **Chart animations** retuned for the post-v0.9 dataset density
+  (split-column precip + sunshine bars). Earlier easings, calibrated
+  for the v0.7-era simpler layout, looked unsynchronized when many
+  bars animated at once. (Phase H — see PR for specifics.)
+- **Accessibility**: aria-labels on all card-internal control buttons
+  (mode-toggle, jump-to-now, scroll-indicators); focus management on
+  mode-toggle; keyboard activation (Enter/Space) on every interactive
+  control. Lighthouse / axe pass on default + dark themes.
+
+### Documentation
+
+- New **`MIGRATION.md`** — single source of truth for every removed
+  YAML key (v0.8.3 `precipitation_type` / `show_probability`,
+  v0.8.4 `autoscroll`) with before / after snippets, plus an
+  upstream-`weather-chart-card` migration section.
+- `ARCHITECTURE.md` refreshed: 236 tests across 7 modules (was "61
+  tests on 3 modules"); hourly forecast moved from "future
+  directions" to current capability; testing-scope section lists
+  every covered module and notes which paths v1.3 will cover.
+- `TESTING.md` rewritten: full module list, new "Coverage gate"
+  section documenting the 80 % threshold.
+- `README.md`: coverage badge added; `sensors.sunshine_duration`
+  row added to the sensor reference table (was missing from the
+  v0.9 doc pass).
+
+### Internal
+
+- `var` → `const`/`let` cleanup in `_drawChartUnsafe` and
+  `getWindDirIcon`. No behaviour change.
+- 243 vitest tests pass (+7 since v0.9).
+
+### Out of scope (tracked for later)
+
+- v1.1 ([#12](https://github.com/chriguschneider/weather-station-card/issues/12)) — main.js + editor split (architecture refactor)
+- v1.2 ([#13](https://github.com/chriguschneider/weather-station-card/issues/13)) — TypeScript migration
+- v1.3 ([#14](https://github.com/chriguschneider/weather-station-card/issues/14)) — Playwright E2E + visual regression
+- v1.4 ([#15](https://github.com/chriguschneider/weather-station-card/issues/15)) — Mode-toggle perf (closes #10)
+
 ## [0.9.0] — 2026-05-05
 
 ### Added
