@@ -4,6 +4,37 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] — 2026-05-06
+
+### Fixed
+
+- **Midnight-transition phantom column.** Just past local midnight in
+  combination mode (especially with HA's Open-Meteo integration), the
+  chart sometimes rendered an extra unlabelled column between the
+  station-today and forecast-today columns. Two HA-side mismatches
+  combined to produce it:
+  1. The forecast array still carried yesterday's daily entry. HA
+     weather integrations refresh on their own cadence (Open-Meteo
+     a few times per day), so for some minutes after midnight the
+     array can lead with a date that is now yesterday.
+  2. The station array's "today" daily bucket was empty —
+     temperature / templow / precipitation all null because the
+     recorder hadn't aggregated anything for the new day yet. The
+     Open-Meteo sunshine overlay then filled `sunshine` from today's
+     forecast, producing a hybrid entry: sunshine bar visible, no
+     temperature line, no date label.
+
+  Both filters now run in `_refreshForecasts`:
+  `filterMidnightStaleForecast` drops forecast entries dated before
+  today, and `dropEmptyStationToday` drops the trailing station entry
+  if it's today AND has no recorded data yet.
+
+  Test coverage: +15 unit tests in `tests/forecast-utils.test.js`
+  for the new helpers (entry filtering, idempotency on clean inputs,
+  defensive paths for malformed datetime / non-array inputs, the
+  offline-historical-day case where a null-fields entry must NOT be
+  dropped).
+
 ## [1.0.1] — 2026-05-06
 
 ### Fixed
