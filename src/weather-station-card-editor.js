@@ -1,5 +1,6 @@
 import { LitElement, html } from 'lit';
 import locale from './locale.js';
+import { readCachedAvailability } from './openmeteo-source.js';
 
 // Per-metric sensor field list. Most filter by `device_class`; wind
 // direction has no canonical class but a stable unit (degrees) so it
@@ -221,6 +222,43 @@ class WeatherStationCardEditor extends LitElement {
     this.requestUpdate();
   }
 
+  // Render an inline hint under the forecast_days field showing what
+  // Open-Meteo currently has cached for this location — and a warning
+  // when the configured forecast_days exceeds what's actually
+  // available. Only relevant when the sunshine row is enabled (no other
+  // editor field depends on this cache).
+  _renderSunshineAvailabilityHint(cfg, t) {
+    if (!cfg || !cfg.forecast || cfg.forecast.show_sunshine !== true) return '';
+    const hass = this.hass;
+    const lat = hass && hass.config ? hass.config.latitude : null;
+    const lon = hass && hass.config ? hass.config.longitude : null;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return '';
+
+    const av = readCachedAvailability(lat, lon);
+    if (!av) {
+      // Cache empty — fetch hasn't completed yet (or localStorage is
+      // disabled). Don't show stale or misleading numbers.
+      return html`<div class="hint" style="margin-top:4px;">
+        ${t('sunshine_availability_pending')}
+      </div>`;
+    }
+
+    const requested = parseInt(cfg.forecast_days != null ? cfg.forecast_days : (cfg.days || 7), 10);
+    const overshoots = Number.isFinite(requested) && av.forecastDays > 0 && requested > av.forecastDays;
+    const baseLine = (t('sunshine_availability') || 'Sunshine: {past} past, {future} forecast days available')
+      .replace('{past}', String(av.pastDays))
+      .replace('{future}', String(av.forecastDays));
+
+    return html`
+      <div class="hint" style="margin-top:4px; ${overshoots ? 'color: var(--warning-color);' : ''}">
+        ${baseLine}
+        ${overshoots ? html`<br/>${(t('sunshine_availability_warning') || 'Configured forecast_days ({req}) exceeds available — last {gap} columns will have empty sunshine bars.')
+          .replace('{req}', String(requested))
+          .replace('{gap}', String(requested - av.forecastDays))}` : ''}
+      </div>
+    `;
+  }
+
   // ha-selector with the ui_action selector returns either an action
   // config object or undefined (when the picker is reset). Persist the
   // value as-is so HA's standard handle-action helper can read it back
@@ -386,6 +424,7 @@ class WeatherStationCardEditor extends LitElement {
               ></ha-textfield>
             ` : ''}
           </div>
+          ${this._renderSunshineAvailabilityHint(cfg, t)}
           ${showsForecast ? html`
             <ha-entity-picker
               .hass=${this.hass}
@@ -627,6 +666,18 @@ class WeatherStationCardEditor extends LitElement {
           ></ha-switch>
           <label class="switch-label">${t('show_chart_date')}</label>
         </div>
+        <div class="switch-container">
+          <ha-switch
+            @change="${(e) => this._valueChanged(e, 'forecast.show_sunshine')}"
+            .checked="${fcfg.show_sunshine === true}"
+          ></ha-switch>
+          <label class="switch-label">${t('show_chart_sunshine')}</label>
+        </div>
+        ${fcfg.show_sunshine === true ? html`
+          <div class="hint" style="padding-left:20px; margin-bottom:8px;">
+            ${t('show_chart_sunshine_hint')}
+          </div>
+        ` : ''}
 
         <!-- ─── D. Style & Colours ──────────────────────────────────── -->
         <h3 class="section">${t('style_heading')}</h3>
@@ -772,6 +823,12 @@ class WeatherStationCardEditor extends LitElement {
               .value="${fcfg.precipitation_color || ''}"
               placeholder="rgba(132, 209, 253, 1.0)"
               @change="${(e) => this._valueChanged(e, 'forecast.precipitation_color')}"
+            ></ha-textfield>
+            <ha-textfield
+              label="${t('sunshine_color')}"
+              .value="${fcfg.sunshine_color || ''}"
+              placeholder="rgba(255, 193, 7, 1.0)"
+              @change="${(e) => this._valueChanged(e, 'forecast.sunshine_color')}"
             ></ha-textfield>
             <ha-textfield
               label="${t('chart_text_color')}"

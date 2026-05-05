@@ -8,3 +8,7 @@ CLAUDE.md
 # regenerates .gz on its own — those are leftovers from local pushes
 # to a Home Assistant instance and should never be committed.
 dist/*.gz
+# Local-only research / calibration scratchpad. Issue-comment drafts,
+# data dumps, calibration scripts. Each release iteration leaves a few
+# files here that aren't part of the shipped card.
+scratch/

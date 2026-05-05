@@ -4,6 +4,46 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] — 2026-05-05
+
+### Added
+
+- **Sunshine-duration row in the chart** (issue #6). Off by default;
+  enable with `forecast.show_sunshine: true`. The chart splits each
+  column in half — precipitation keeps the left half, a new yellow
+  sunshine bar fills the right half. **Zero setup beyond the toggle**:
+  the card fetches `daily=sunshine_duration` (and `hourly=…` in hourly
+  chart mode) directly from Open-Meteo using the Home Assistant
+  `latitude`/`longitude`, refreshes hourly, and caches in
+  `localStorage` so reloads don't repeat the round-trip. Past + forecast
+  data covered in one call via `past_days` + `forecast_days`.
+  - **Daily mode**: per-column `Xh` box at the top with the day's total
+    in hours (matched against the daily array by local date).
+  - **Hourly mode**: bar-only — the height of each bar is the fraction
+    of that hour spent in sun (matched against the hourly array by
+    local YYYY-MM-DDTHH:00). Empty bar = night or fully overcast.
+  - `forecast.sunshine_color` — bar colour, default Material amber
+    `rgba(255, 193, 7, 1.0)`.
+
+  Users who'd rather wire up their own data path will find a brief
+  decision history in
+  [issue #6](https://github.com/chriguschneider/weather-station-card/issues/6) —
+  the v0.9 implementation deliberately drops user-configurable sensor
+  slots in favour of "one toggle, no YAML".
+- **Editor availability hint**: when sunshine is on, the editor reads
+  the cached Open-Meteo response from `localStorage` and shows
+  "Sunshine available: N past, M forecast days" under the
+  `forecast_days` field. If the configured forecast_days exceeds the
+  available data, a warning makes clear that the trailing columns will
+  render as empty bars (e.g. when Open-Meteo's model only delivers
+  5 days but the card is configured for 7).
+
+### Changed
+
+- **No behaviour change** for users who don't enable the new row. The
+  chart layout is byte-identical to v0.8.4 when `forecast.show_sunshine`
+  is unset / `false`.
+
 ## [0.8.4] — 2026-05-05
 
 ### Changed

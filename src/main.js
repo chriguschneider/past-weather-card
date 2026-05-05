@@ -11,11 +11,14 @@ import { MeasuredDataSource, ForecastDataSource } from './data-source.js';
 import { classifyDay, clearSkyLuxAt } from './condition-classifier.js';
 import { lightenColor, computeInitialScrollLeft } from './format-utils.js';
 import { hourlyTempSeries, normalizeForecastMode } from './forecast-utils.js';
+import { overlayFromOpenMeteo, sunshineFractions } from './sunshine-source.js';
+import { OpenMeteoSunshineSource } from './openmeteo-source.js';
 import { cardStyles } from './chart/styles.js';
 import {
   createSeparatorPlugin,
   createDailyTickLabelsPlugin,
   createPrecipLabelPlugin,
+  createSunshineLabelPlugin,
 } from './chart/plugins.js';
 import { buildChart } from './chart/draw.js';
 import { property } from 'lit/decorators.js';
@@ -104,6 +107,11 @@ static getStubConfig(hass, unusedEntities, allEntities) {
       type: 'daily',
       number_of_forecasts: 8,
       disable_animation: false,
+      // v0.9 sunshine duration. Off by default. When enabled, the card
+      // fetches daily sunshine_duration from Open-Meteo directly using
+      // hass.config.latitude / longitude — no extra sensor setup.
+      show_sunshine: false,
+      sunshine_color: 'rgba(255, 193, 7, 1.0)',
     },
   };
 }
@@ -153,6 +161,10 @@ setConfig(config) {
       temperature1_color: 'rgba(255, 152, 0, 1.0)',
       temperature2_color: 'rgba(68, 115, 158, 1.0)',
       precipitation_color: 'rgba(132, 209, 253, 1.0)',
+      // v0.9 sunshine. Off by default to keep the chart unchanged for
+      // users who upgrade without configuring a sunshine sensor.
+      show_sunshine: false,
+      sunshine_color: 'rgba(255, 193, 7, 1.0)',
       condition_icons: true,
       show_wind_forecast: true,
       show_wind_arrow: true,
@@ -369,6 +381,10 @@ set hass(hass) {
     this._teardownStation();
     this._teardownForecast();
     this._teardownInitialScrollObserver();
+    if (this._sunshineSource) {
+      this._sunshineSource.abort();
+      this._sunshineSource = null;
+    }
     if (this._scrollUxTeardown) {
       this._scrollUxTeardown();
       this._scrollUxTeardown = null;
@@ -402,7 +418,14 @@ set hass(hass) {
     }
     this._stationCount = station.length;
     this._forecastCount = forecast.length;
-    this.forecasts = [...station, ...forecast];
+    this._ensureSunshineSource(effectiveCfg);
+    const granularity = effectiveCfg.forecast.type === 'hourly' ? 'hourly' : 'daily';
+    this.forecasts = overlayFromOpenMeteo(
+      [...station, ...forecast],
+      this._hass,
+      this._sunshineSource,
+      granularity,
+    );
     this.requestUpdate();
     // measureCard() recomputes forecastItems from the new this.forecasts
     // length and then redraws. Going through it (instead of calling
@@ -413,6 +436,58 @@ set hass(hass) {
     // shadow root. Skip the redraw in that window — firstUpdated() will
     // call measureCard() once the DOM is in place.
     if (this.shadowRoot) this.measureCard();
+  }
+
+  // Lazy-init the Open-Meteo source on first use, tear it down when the
+  // user toggles sunshine off, and trigger a fetch when the cache is
+  // stale (no-op if a fetch is already in flight). The source's
+  // listener calls _refreshForecasts again so the chart redraws once
+  // the data lands.
+  _ensureSunshineSource(effectiveCfg) {
+    const enabled = effectiveCfg && effectiveCfg.forecast
+      && effectiveCfg.forecast.show_sunshine === true;
+    if (!enabled) {
+      if (this._sunshineSource) {
+        this._sunshineSource.abort();
+        this._sunshineSource = null;
+      }
+      return;
+    }
+    const cfg = this._hass && this._hass.config;
+    const lat = cfg && Number.isFinite(cfg.latitude) ? cfg.latitude : null;
+    const lon = cfg && Number.isFinite(cfg.longitude) ? cfg.longitude : null;
+    if (lat == null || lon == null) return;
+
+    const includeHourly = effectiveCfg.forecast.type === 'hourly';
+
+    // Re-create when location or hourly-mode flag changes — the
+    // includeHourly flag determines whether the request URL carries
+    // `hourly=…`, so flipping it requires a fresh fetch.
+    const same = this._sunshineSource
+      && this._sunshineSource.latitude === lat
+      && this._sunshineSource.longitude === lon
+      && this._sunshineSource.includeHourly === includeHourly;
+    if (!same) {
+      if (this._sunshineSource) this._sunshineSource.abort();
+      const days = parseInt(effectiveCfg.days, 10) || 7;
+      const fcDays = parseInt(effectiveCfg.forecast_days, 10) || days;
+      this._sunshineSource = new OpenMeteoSunshineSource({
+        latitude: lat,
+        longitude: lon,
+        // +1 covers today's column when station block ends at today's
+        // local midnight (the entry has datetime today 00:00).
+        pastDays: Math.min(92, days + 1),
+        forecastDays: Math.min(16, fcDays + 1),
+        includeHourly,
+      });
+      this._sunshineSource.setListener((event) => {
+        // On a successful refresh, recompute the forecasts so the new
+        // sunshine values land on the entries — and redraw the chart.
+        if (event && event.ok) this._refreshForecasts();
+      });
+    }
+    // Fire-and-forget — the listener handles the redraw on completion.
+    this._sunshineSource.ensureFresh();
   }
 
   attachResizeObserver() {
@@ -888,6 +963,30 @@ _drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this)
             : precipColor,
   );
 
+  // Sunshine row toggle. Works in both daily and hourly modes — the
+  // OpenMeteoSunshineSource fetches `daily=…` and (when in hourly mode)
+  // also `hourly=…` from Open-Meteo in a single call, and
+  // attachSunshine matches each entry's datetime against the right
+  // array. The chart adds a second bar dataset; Chart.js auto-groups
+  // precip + sunshine side-by-side per column (precip left half,
+  // sunshine right half).
+  const isHourlyChart = config.forecast.type === 'hourly';
+  const showSunshine = config.forecast.show_sunshine === true;
+  // Per-column "Xh" / "0.5h" labels only in daily mode — at hourly the
+  // 168 narrow columns over a 7-day window can't fit a label per bar,
+  // and the bar height itself encodes the value.
+  const showSunshineLabels = showSunshine && !isHourlyChart;
+  const sunshineColor = config.forecast.sunshine_color || 'rgba(255, 193, 7, 1.0)';
+  const sunshineColorLight = lightenColor(sunshineColor);
+  const sunshinePerBarColor = (data.sunshine || []).map(
+    (_, i) => (hasBothBlocks && i >= stationCountForGap) ? sunshineColorLight
+            : (!hasBothBlocks && stationCountForGap === 0) ? sunshineColorLight
+            : sunshineColor,
+  );
+  // Convert raw hours into 0..1 fractions of day length. Null values
+  // pass through so the bar slot stays empty for missing data.
+  const sunshineFractionData = sunshineFractions(data.sunshine, data.dayLength);
+
   var datasets = [
     {
       label: this.ll('tempHi'),
@@ -935,6 +1034,23 @@ _drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this)
       },
     },
   ];
+
+  if (showSunshine) {
+    datasets.push({
+      label: this.ll('sunshine'),
+      type: 'bar',
+      data: sunshineFractionData,
+      yAxisID: 'SunshineAxis',
+      borderColor: sunshinePerBarColor,
+      backgroundColor: sunshinePerBarColor,
+      barPercentage: 1.0,
+      categoryPercentage: 1.0,
+      // Hours label is drawn by createSunshineLabelPlugin at the top of
+      // the column — suppress chartjs-datalabels for this dataset so the
+      // bar itself stays clean.
+      datalabels: { display: function () { return false; } },
+    });
+  }
 
   const chart_text_color = (config.forecast.chart_text_color === 'auto') ? textColor : config.forecast.chart_text_color;
 
@@ -989,22 +1105,40 @@ _drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this)
   // doubled-today only makes sense at daily — at hourly station and
   // forecast meet at "now" with a single separator line.
   const doubledToday = !isHourly && stationCount > 0 && forecastCount > 0;
+  // When sunshine is on, draw.js grows the x-axis box by sunshineLabelBand
+  // pixels via afterFit. dailyTickLabelsPlugin then shifts weekday + date
+  // up by that amount so the new bottom strip is free for the sunshine
+  // box. When sunshine is off, sunshineLabelBand stays 0 and chart
+  // layout is byte-identical to v0.8.
+  const labelsBaseSize = parseInt(config.forecast.labels_font_size) || 11;
+  const sunshineLabelBand = showSunshineLabels ? Math.max(16, labelsBaseSize + 6) : 0;
   const separatorPlugin = createSeparatorPlugin({
     stationCount, forecastCount, style, dividerColor,
     mode: isHourly ? 'hourly' : 'daily',
   });
   const dailyTickLabelsPlugin = createDailyTickLabelsPlugin({
     config, language, data, textColor, backgroundColor, style, stationCount, doubledToday,
+    sunshineLabelBand,
   });
   const precipLabelPlugin = createPrecipLabelPlugin({
     config, data, precipUnit, precipPerBarColor, precipColor, textColor, backgroundColor,
     chartTextColor: chart_text_color,
   });
 
+  const plugins = [separatorPlugin, dailyTickLabelsPlugin, precipLabelPlugin];
+  if (showSunshineLabels) {
+    plugins.push(createSunshineLabelPlugin({
+      config, data, textColor, backgroundColor,
+      chartTextColor: chart_text_color,
+      sunshineColor, sunshinePerBarColor,
+      bandHeight: sunshineLabelBand,
+    }));
+  }
+
   this._chartPhase = 'init';
   this.forecastChart = buildChart(ctx, {
     datasets,
-    plugins: [separatorPlugin, dailyTickLabelsPlugin, precipLabelPlugin],
+    plugins,
     data,
     config,
     language,
@@ -1018,6 +1152,7 @@ _drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this)
     doubledToday,
     stationCount,
     style,
+    sunshineLabelBand,
   });
   this._chartPhase = null;
 }
@@ -1029,6 +1164,10 @@ computeForecastData({ config, forecastItems } = this) {
     roundTemp: config.forecast.round_temp == true,
   });
   const precip = forecast.map((d) => d.precipitation);
+  // Sunshine columns. Each entry has a normalized hours value (or null
+  // when no source resolved) and a day_length the bar is scaled against.
+  const sunshine = forecast.map((d) => (d.sunshine != null ? d.sunshine : null));
+  const dayLength = forecast.map((d) => (d.day_length != null ? d.day_length : null));
 
   return {
     forecast,
@@ -1044,6 +1183,8 @@ computeForecastData({ config, forecastItems } = this) {
     // single-line, otherwise daily / two-line.
     tempLowAvailable: tempLow !== null,
     precip,
+    sunshine,
+    dayLength,
   };
 }
 
@@ -1059,6 +1200,12 @@ updateChart({ forecasts, forecastChart } = this) {
     forecastChart.data.datasets[0].data = data.tempHigh;
     forecastChart.data.datasets[1].data = data.tempLow;
     forecastChart.data.datasets[2].data = data.precip;
+    // Sunshine dataset is appended at index 3 only when the toggle is
+    // on — gate the update so we don't write into a non-existent slot
+    // for users who haven't enabled it.
+    if (forecastChart.data.datasets[3]) {
+      forecastChart.data.datasets[3].data = sunshineFractions(data.sunshine, data.dayLength);
+    }
     forecastChart.update();
   }
 }

@@ -265,6 +265,7 @@ ON; in YAML the sub-keys are evaluated regardless.
 | `forecast.show_wind_forecast` | bool | `true` | Wind row below the chart. |
 | `forecast.show_wind_arrow` | bool | `true` | Show the per-day wind-direction arrow inside the wind row. When the arrow is on and a column is too narrow to fit the arrow + speed side-by-side, the speed wraps onto a second line below the arrow. |
 | `forecast.show_date` | bool | `true` | `dd/mm` date row in the X-axis. When off, only the weekday is rendered. |
+| `forecast.show_sunshine` | bool | `false` | Sunshine-duration column inside the chart — half-bar in yellow on the right of every column (precipitation keeps the left half), with the day's hours rendered as a small "Xh" label at the top of the column. Off by default; turning it on without configuring at least one of the sunshine sensors below renders empty bars and labels (no warning, no banner). See the [Sunshine duration](#sunshine-duration) section for setup recipes. |
 
 </details>
 
@@ -306,6 +307,7 @@ ON; in YAML the sub-keys are evaluated regardless.
 | `forecast.temperature1_color` | CSS colour | `rgba(255, 152, 0, 1.0)` | High-temperature curve. |
 | `forecast.temperature2_color` | CSS colour | `rgba(68, 115, 158, 1.0)` | Low-temperature curve. |
 | `forecast.precipitation_color` | CSS colour | `rgba(132, 209, 253, 1.0)` | Precipitation bars. Forecast bars (combination mode) render at ~45 % of this colour's alpha. |
+| `forecast.sunshine_color` | CSS colour | `rgba(255, 193, 7, 1.0)` | Sunshine bars. Same forecast-side alpha treatment as precipitation. |
 | `forecast.chart_datetime_color` | CSS colour or `'auto'` | _none_ | X-axis weekday / date colour. |
 | `forecast.chart_text_color` | CSS colour or `'auto'` | _none_ | All other chart text colour. |
 
@@ -417,6 +419,48 @@ in mm — plug it into `sensors.precipitation` and the daily values come
 out right. The data layer also accepts `total` counters and `measurement`
 sensors that already represent "today's rain" (e.g. via a daily
 `utility_meter`).
+
+## Sunshine duration
+
+Set `forecast.show_sunshine: true` and you're done. The card adds a
+yellow half-bar on the right of every column (precipitation keeps the
+left half) and a small "Xh" label at the top of the column. Sunshine
+values come directly from
+[Open-Meteo](https://open-meteo.com/)'s `daily=sunshine_duration`
+endpoint — no extra sensors, no YAML, nothing to set up.
+
+```yaml
+forecast:
+  show_sunshine: true
+```
+
+The card uses your Home Assistant location (`hass.config.latitude`
+/ `longitude`) to query Open-Meteo, fetches once on first render, and
+re-fetches at most once an hour. The response covers the past N days
+plus the next N forecast days in a single call. The bar colour is
+`forecast.sunshine_color` (default Material amber).
+
+**Privacy note**: enabling sunshine sends your latitude / longitude to
+`api.open-meteo.com` from each browser that renders the dashboard. The
+data is fetched client-side, so it's not centralised on your HA server.
+Open-Meteo's privacy policy is at
+[open-meteo.com/en/terms](https://open-meteo.com/en/terms). If you'd
+rather not have any browser call out, leave `show_sunshine` off
+(default).
+
+In hourly mode the bars are per-hour fractions (full bar = full hour
+of sun, empty bar = night or fully overcast). The numeric "Xh" box is
+suppressed at hourly because 168 narrow columns over a 7-day window
+can't fit a label per bar — the bar height alone encodes the value.
+
+### Limitations
+
+- **Lux-derived sunshine** (use your own illuminance sensor instead of
+  the Open-Meteo model) — calibration data in
+  [issue #6](https://github.com/chriguschneider/weather-station-card/issues/6).
+- **PV-output-derived sunshine** for users with a solar inverter — same
+  issue.
+- **Local-network-only operation** — the Open-Meteo path needs internet.
 
 ## How conditions are determined
 

@@ -24,6 +24,7 @@ export function buildChart(ctx, {
   doubledToday,
   stationCount,
   style,
+  sunshineLabelBand,
 }) {
   return new Chart(ctx, {
     type: 'bar',
@@ -39,6 +40,16 @@ export function buildChart(ctx, {
       scales: {
         x: {
           position: 'top',
+          // sunshineLabelBand > 0 grows the x-axis box by that many
+          // pixels — afterFit runs after Chart.js has measured the
+          // weekday/date label height, so adding to scale.height
+          // pushes chartArea.top down without overlapping the labels.
+          // The sunshineLabel plugin then draws the "Xh" label in
+          // that newly-reserved bottom strip, between the weekday/date
+          // row and the start of the data area.
+          afterFit: sunshineLabelBand > 0
+            ? (scale) => { scale.height += sunshineLabelBand; }
+            : undefined,
           border: { width: 0 },
           grid: {
             drawTicks: false,
@@ -115,6 +126,21 @@ export function buildChart(ctx, {
             width: 0,
             color: style.getPropertyValue('--secondary-text-color') || dividerColor,
           },
+          grid: { display: false, drawTicks: false },
+          ticks: { display: false },
+        },
+        // Hidden axis used by the sunshine bar dataset. Values are in
+        // 0..1 (= sunshine_hours / day_length_hours); a clear day fills
+        // the chart's vertical range like a max-precip day does. Hidden
+        // because we already show the numeric "Xh" label per column —
+        // a redundant axis would just steal horizontal space.
+        SunshineAxis: {
+          position: 'right',
+          display: false,
+          min: 0,
+          suggestedMax: 1,
+          beginAtZero: true,
+          border: { width: 0 },
           grid: { display: false, drawTicks: false },
           ticks: { display: false },
         },

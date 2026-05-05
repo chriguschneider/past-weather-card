@@ -19,6 +19,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   createSeparatorPlugin,
   createDailyTickLabelsPlugin,
+  createSunshineLabelPlugin,
 } from '../src/chart/plugins.js';
 
 function mockCtx() {
@@ -211,5 +212,166 @@ describe('createDailyTickLabelsPlugin', () => {
     p.afterDraw(chart);
     // 3 ticks, weekday only → 3 fillText calls (no date row).
     expect(chart.ctx.fillText).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe('createSunshineLabelPlugin', () => {
+  // Mock chart that mimics what draw.js's afterFit produces: x-axis at
+  // top with the bottom strip reserved for the sunshine label.
+  // xScale.bottom is the bottom of the (now taller) axis; we draw at
+  // xScale.bottom - bandHeight/2.
+  function sunshineMockChart({ tickCount = 3 }) {
+    return {
+      ctx: mockCtx(),
+      chartArea: { top: 50, bottom: 200, left: 0, right: 700 },
+      scales: {
+        x: {
+          ticks: Array.from({ length: tickCount }, (_, i) => ({ value: i })),
+          getPixelForTick: (i) => i * 50,
+          width: tickCount * 50,
+          top: 0,
+          bottom: 50, // bottom of the (afterFit-grown) axis box
+        },
+      },
+    };
+  }
+
+  const baseConfig = { forecast: { labels_font_size: 11 } };
+
+  it('returns a plugin object with id and afterDraw hook', () => {
+    const p = createSunshineLabelPlugin({
+      config: baseConfig, data: { sunshine: [], dayLength: [] },
+      textColor: '#000', backgroundColor: '#fff', bandHeight: 18,
+    });
+    expect(p.id).toBe('sunshineLabel');
+    expect(typeof p.afterDraw).toBe('function');
+  });
+
+  it('bails out when xScale is missing (layout not ready)', () => {
+    const p = createSunshineLabelPlugin({
+      config: baseConfig, data: { sunshine: [5], dayLength: [10] },
+      textColor: '#000', backgroundColor: '#fff', bandHeight: 18,
+    });
+    const chart = { ctx: mockCtx(), chartArea: { top: 50, bottom: 200 }, scales: {} };
+    expect(() => p.afterDraw(chart)).not.toThrow();
+    expect(chart.ctx.fillText).not.toHaveBeenCalled();
+  });
+
+  it('paints a background pill and the "Xh" text per non-null column', () => {
+    const p = createSunshineLabelPlugin({
+      config: baseConfig, data: {
+        sunshine: [7, null, 2.5, 0],
+        dayLength: [13, 13, 13, 13],
+      },
+      textColor: '#000', backgroundColor: '#fff', bandHeight: 18,
+    });
+    const chart = sunshineMockChart({ tickCount: 4 });
+    p.afterDraw(chart);
+    // 7 → "7h", 2.5 → "2.5h" → 2 labels. null and 0 are skipped.
+    expect(chart.ctx.fillText).toHaveBeenCalledTimes(2);
+    expect(chart.ctx.fillRect).toHaveBeenCalledTimes(2);
+    expect(chart.ctx.fillText).toHaveBeenNthCalledWith(1, '7h', expect.any(Number), expect.any(Number));
+    expect(chart.ctx.fillText).toHaveBeenNthCalledWith(2, '2.5h', expect.any(Number), expect.any(Number));
+  });
+
+  it('rounds large values to integer hours (no decimal noise above 9 h)', () => {
+    const p = createSunshineLabelPlugin({
+      config: baseConfig, data: {
+        sunshine: [9.7, 11.4, 1.7],
+        dayLength: [13, 13, 13],
+      },
+      textColor: '#000', backgroundColor: '#fff', bandHeight: 18,
+    });
+    const chart = sunshineMockChart({ tickCount: 3 });
+    p.afterDraw(chart);
+    expect(chart.ctx.fillText).toHaveBeenCalledWith('10h', expect.any(Number), expect.any(Number));
+    expect(chart.ctx.fillText).toHaveBeenCalledWith('11h', expect.any(Number), expect.any(Number));
+    // Sub-10 stays one-decimal: 1.7 → "1.7h".
+    expect(chart.ctx.fillText).toHaveBeenCalledWith('1.7h', expect.any(Number), expect.any(Number));
+  });
+
+  it('strips trailing .0 below 10 h (e.g. exact integer 7.0 → "7h", not "7.0h")', () => {
+    const p = createSunshineLabelPlugin({
+      config: baseConfig, data: {
+        sunshine: [7, 8.0],
+        dayLength: [13, 13],
+      },
+      textColor: '#000', backgroundColor: '#fff', bandHeight: 18,
+    });
+    const chart = sunshineMockChart({ tickCount: 2 });
+    p.afterDraw(chart);
+    expect(chart.ctx.fillText).toHaveBeenCalledWith('7h', expect.any(Number), expect.any(Number));
+    expect(chart.ctx.fillText).toHaveBeenCalledWith('8h', expect.any(Number), expect.any(Number));
+  });
+
+  it('renders sub-1h values as "0.Xh" decimals', () => {
+    const p = createSunshineLabelPlugin({
+      config: baseConfig, data: { sunshine: [0.4], dayLength: [13] },
+      textColor: '#000', backgroundColor: '#fff', bandHeight: 18,
+    });
+    const chart = sunshineMockChart({ tickCount: 1 });
+    p.afterDraw(chart);
+    expect(chart.ctx.fillText).toHaveBeenCalledWith('0.4h', expect.any(Number), expect.any(Number));
+  });
+
+  it('does not throw when data.sunshine is missing entirely', () => {
+    const p = createSunshineLabelPlugin({
+      config: baseConfig, data: {},
+      textColor: '#000', backgroundColor: '#fff', bandHeight: 18,
+    });
+    const chart = sunshineMockChart({ tickCount: 3 });
+    expect(() => p.afterDraw(chart)).not.toThrow();
+    expect(chart.ctx.fillText).not.toHaveBeenCalled();
+  });
+
+  it('positions labels via xScale.getPixelForTick (column-centred)', () => {
+    const p = createSunshineLabelPlugin({
+      config: baseConfig, data: { sunshine: [7], dayLength: [13] },
+      textColor: '#000', backgroundColor: '#fff', bandHeight: 20,
+    });
+    const chart = sunshineMockChart({ tickCount: 1 });
+    p.afterDraw(chart);
+    // Column at index 0 is at x=0 (getPixelForTick(0)). labelY =
+    // xScale.bottom (50) - bandHeight (20) / 2 = 40.
+    expect(chart.ctx.fillText).toHaveBeenCalledWith('7h', 0, 40);
+  });
+
+  it('uses per-column border colour (light alpha for forecast columns)', () => {
+    // Mirror precipLabelPlugin: the box stroke for each column comes
+    // from the sunshinePerBarColor array, so forecast columns get the
+    // 45 %-alpha tone matching their bar fill.
+    const p = createSunshineLabelPlugin({
+      config: baseConfig,
+      data: { sunshine: [7, 5], dayLength: [13, 13] },
+      textColor: '#000', backgroundColor: '#fff', bandHeight: 18,
+      sunshineColor: 'rgba(255, 193, 7, 1.0)',
+      sunshinePerBarColor: [
+        'rgba(255, 193, 7, 1.0)',     // station — full alpha
+        'rgba(255, 193, 7, 0.45)',    // forecast — light
+      ],
+    });
+    const chart = sunshineMockChart({ tickCount: 2 });
+    p.afterDraw(chart);
+    // Two strokeRect calls, one per column. Each one's strokeStyle
+    // must have been the per-column color when the call happened.
+    // The plugin assigns to ctx.strokeStyle before strokeRect, so we
+    // can't read history directly — instead, we verify by stubbing
+    // both calls and checking that the recorded strokeStyle property
+    // moved through the expected values via mock invocation order.
+    expect(chart.ctx.strokeRect).toHaveBeenCalledTimes(2);
+    // Final assignment is the last column's color.
+    expect(chart.ctx.strokeStyle).toBe('rgba(255, 193, 7, 0.45)');
+  });
+
+  it('falls back to the global sunshineColor when no per-bar array is supplied', () => {
+    const p = createSunshineLabelPlugin({
+      config: baseConfig,
+      data: { sunshine: [7], dayLength: [13] },
+      textColor: '#000', backgroundColor: '#fff', bandHeight: 18,
+      sunshineColor: 'rgba(1, 2, 3, 1.0)',
+    });
+    const chart = sunshineMockChart({ tickCount: 1 });
+    p.afterDraw(chart);
+    expect(chart.ctx.strokeStyle).toBe('rgba(1, 2, 3, 1.0)');
   });
 });

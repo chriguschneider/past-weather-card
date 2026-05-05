@@ -1,0 +1,450 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {
+  buildOpenMeteoUrl,
+  parseDailySunshine,
+  parseHourlySunshine,
+  OpenMeteoSunshineSource,
+  readCachedAvailability,
+} from '../src/openmeteo-source.js';
+
+describe('buildOpenMeteoUrl', () => {
+  it('hits the forecast endpoint with daily=sunshine_duration', () => {
+    const url = buildOpenMeteoUrl(46.91, 7.42, 7, 7);
+    expect(url).toContain('https://api.open-meteo.com/v1/forecast');
+    expect(url).toContain('daily=sunshine_duration');
+    expect(url).toContain('timezone=auto');
+    expect(url).toContain('latitude=46.91');
+    expect(url).toContain('longitude=7.42');
+    expect(url).toContain('past_days=7');
+    expect(url).toContain('forecast_days=7');
+  });
+
+  it('omits the hourly param by default', () => {
+    const url = buildOpenMeteoUrl(46.91, 7.42, 7, 7);
+    expect(url).not.toContain('hourly=');
+  });
+
+  it('adds hourly=sunshine_duration alongside daily when includeHourly=true', () => {
+    const url = buildOpenMeteoUrl(46.91, 7.42, 7, 7, true);
+    expect(url).toContain('daily=sunshine_duration');
+    expect(url).toContain('hourly=sunshine_duration');
+  });
+
+  it('encodes coordinates as strings (decimal points preserved)', () => {
+    const url = buildOpenMeteoUrl(-34.6, -58.38, 14, 8);
+    // URLSearchParams encodes '-' as '-' (not URL-encoded)
+    expect(url).toContain('latitude=-34.6');
+    expect(url).toContain('longitude=-58.38');
+  });
+});
+
+describe('parseDailySunshine', () => {
+  it('maps Open-Meteo two-array shape into {date, value} pairs', () => {
+    const response = {
+      daily: {
+        time: ['2026-04-29', '2026-04-30', '2026-05-01'],
+        sunshine_duration: [43296.27, 48214.79, 48495.05],
+      },
+    };
+    expect(parseDailySunshine(response)).toEqual([
+      { date: '2026-04-29', value: 43296.27 },
+      { date: '2026-04-30', value: 48214.79 },
+      { date: '2026-05-01', value: 48495.05 },
+    ]);
+  });
+
+  it('skips null entries (missing data days from a partial response)', () => {
+    const response = {
+      daily: {
+        time: ['2026-04-29', '2026-04-30', '2026-05-01'],
+        sunshine_duration: [43296, null, 48495],
+      },
+    };
+    expect(parseDailySunshine(response)).toEqual([
+      { date: '2026-04-29', value: 43296 },
+      { date: '2026-05-01', value: 48495 },
+    ]);
+  });
+
+  it('returns [] for malformed / empty responses', () => {
+    expect(parseDailySunshine(null)).toEqual([]);
+    expect(parseDailySunshine({})).toEqual([]);
+    expect(parseDailySunshine({ daily: null })).toEqual([]);
+    expect(parseDailySunshine({ daily: { time: [] } })).toEqual([]);
+  });
+});
+
+describe('parseHourlySunshine', () => {
+  it('maps the hourly two-array shape into {datetime, value} pairs', () => {
+    const response = {
+      hourly: {
+        time: ['2026-05-05T12:00', '2026-05-05T13:00', '2026-05-05T14:00'],
+        sunshine_duration: [3600, 1800, 0],
+      },
+    };
+    expect(parseHourlySunshine(response)).toEqual([
+      { datetime: '2026-05-05T12:00', value: 3600 },
+      { datetime: '2026-05-05T13:00', value: 1800 },
+      { datetime: '2026-05-05T14:00', value: 0 },
+    ]);
+  });
+
+  it('skips null hourly entries', () => {
+    const response = {
+      hourly: {
+        time: ['2026-05-05T12:00', '2026-05-05T13:00'],
+        sunshine_duration: [3600, null],
+      },
+    };
+    expect(parseHourlySunshine(response)).toEqual([
+      { datetime: '2026-05-05T12:00', value: 3600 },
+    ]);
+  });
+
+  it('returns [] for malformed / missing hourly section', () => {
+    expect(parseHourlySunshine(null)).toEqual([]);
+    expect(parseHourlySunshine({})).toEqual([]);
+    expect(parseHourlySunshine({ hourly: null })).toEqual([]);
+    expect(parseHourlySunshine({ daily: { time: [] } })).toEqual([]);
+  });
+});
+
+// Tiny in-memory localStorage stand-in. Has the .getItem / .setItem
+// surface OpenMeteoSunshineSource needs; survives a single test run.
+function makeStorage(seed = {}) {
+  const data = { ...seed };
+  return {
+    getItem: (k) => (k in data ? data[k] : null),
+    setItem: (k, v) => { data[k] = String(v); },
+    _data: data,
+  };
+}
+
+function makeFetchOk(response) {
+  return vi.fn(async () => ({
+    ok: true,
+    status: 200,
+    json: async () => response,
+  }));
+}
+
+function makeFetchFail(status = 503) {
+  return vi.fn(async () => ({
+    ok: false,
+    status,
+    json: async () => ({ error: 'simulated' }),
+  }));
+}
+
+describe('OpenMeteoSunshineSource', () => {
+  const lat = 46.91;
+  const lon = 7.42;
+  const sampleResponse = {
+    daily: {
+      time: ['2026-04-29', '2026-04-30', '2026-05-01'],
+      sunshine_duration: [43296, 48214, 48495],
+    },
+  };
+
+  let nowMs;
+  beforeEach(() => { nowMs = 1_700_000_000_000; });
+  const now = () => nowMs;
+
+  it('starts with empty values when no cache and no fetch yet', () => {
+    const src = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon,
+      fetchImpl: makeFetchOk(sampleResponse),
+      storage: makeStorage(),
+      now,
+    });
+    expect(src.getDailyValues()).toEqual([]);
+    expect(src.getHourlyValues()).toEqual([]);
+  });
+
+  it('exposes hourly values when includeHourly:true', async () => {
+    const fetchSpy = makeFetchOk({
+      ...sampleResponse,
+      hourly: {
+        time: ['2026-05-05T12:00', '2026-05-05T13:00'],
+        sunshine_duration: [3600, 1800],
+      },
+    });
+    const src = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon, includeHourly: true,
+      fetchImpl: fetchSpy, storage: makeStorage(), now,
+    });
+    await src.ensureFresh();
+    // Only one HTTP call — Open-Meteo returns daily + hourly together.
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const url = fetchSpy.mock.calls[0][0];
+    expect(url).toContain('hourly=sunshine_duration');
+    expect(src.getDailyValues()).toHaveLength(3);
+    expect(src.getHourlyValues()).toHaveLength(2);
+  });
+
+  it('does not request hourly when includeHourly:false', async () => {
+    const fetchSpy = makeFetchOk(sampleResponse);
+    const src = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon, // includeHourly defaults false
+      fetchImpl: fetchSpy, storage: makeStorage(), now,
+    });
+    await src.ensureFresh();
+    const url = fetchSpy.mock.calls[0][0];
+    expect(url).not.toContain('hourly=');
+    expect(src.getHourlyValues()).toEqual([]);
+  });
+
+  it('populates values via ensureFresh and reports via listener', async () => {
+    const fetchSpy = makeFetchOk(sampleResponse);
+    const listener = vi.fn();
+    const src = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon,
+      fetchImpl: fetchSpy, storage: makeStorage(), now,
+    });
+    src.setListener(listener);
+    await src.ensureFresh();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(src.getDailyValues()).toHaveLength(3);
+    expect(listener).toHaveBeenCalledWith({ ok: true });
+  });
+
+  it('does not refire when a fetch is already in flight (de-dup)', async () => {
+    let resolveFetch;
+    const fetchSpy = vi.fn(() => new Promise((resolve) => { resolveFetch = resolve; }));
+    const src = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon,
+      fetchImpl: fetchSpy, storage: makeStorage(), now,
+    });
+    const p1 = src.ensureFresh();
+    const p2 = src.ensureFresh();
+    // Both calls hit the same in-flight pipeline — fetch only fires once.
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    resolveFetch({ ok: true, status: 200, json: async () => sampleResponse });
+    await Promise.all([p1, p2]);
+  });
+
+  it('skips refresh when cache is fresh (within TTL)', async () => {
+    const fetchSpy = makeFetchOk(sampleResponse);
+    const src = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon,
+      fetchImpl: fetchSpy, storage: makeStorage(), now,
+    });
+    await src.ensureFresh();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    // Time has not advanced — should be a no-op.
+    await src.ensureFresh();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshes again once TTL has elapsed (1h)', async () => {
+    const fetchSpy = makeFetchOk(sampleResponse);
+    const src = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon,
+      fetchImpl: fetchSpy, storage: makeStorage(), now,
+    });
+    await src.ensureFresh();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    nowMs += 60 * 60 * 1000 + 1; // tick past 1h
+    await src.ensureFresh();
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('persists to storage and rehydrates on a fresh instance', async () => {
+    const storage = makeStorage();
+    const fetchSpy = makeFetchOk(sampleResponse);
+    const src = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon,
+      fetchImpl: fetchSpy, storage, now,
+    });
+    await src.ensureFresh();
+    // Second instance — should pick up the stored cache without fetching.
+    const fetchSpy2 = makeFetchOk(sampleResponse);
+    const src2 = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon,
+      fetchImpl: fetchSpy2, storage, now,
+    });
+    expect(src2.getDailyValues()).toHaveLength(3);
+    expect(src2.isStale()).toBe(false);
+    await src2.ensureFresh();
+    expect(fetchSpy2).not.toHaveBeenCalled();
+  });
+
+  it('persists hourly values too and rehydrates them', async () => {
+    const storage = makeStorage();
+    const fetchSpy = makeFetchOk({
+      ...sampleResponse,
+      hourly: {
+        time: ['2026-05-05T12:00', '2026-05-05T13:00'],
+        sunshine_duration: [3600, 1800],
+      },
+    });
+    const src = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon, includeHourly: true,
+      fetchImpl: fetchSpy, storage, now,
+    });
+    await src.ensureFresh();
+    const src2 = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon, includeHourly: true,
+      fetchImpl: vi.fn(), storage, now,
+    });
+    expect(src2.getDailyValues()).toHaveLength(3);
+    expect(src2.getHourlyValues()).toHaveLength(2);
+    expect(src2.isStale()).toBe(false);
+  });
+
+  it('considers cache stale when hourly is requested but not in cache', async () => {
+    const storage = makeStorage();
+    // Warm the cache without hourly first.
+    const dailyOnly = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon, includeHourly: false,
+      fetchImpl: makeFetchOk(sampleResponse), storage, now,
+    });
+    await dailyOnly.ensureFresh();
+    // New instance now requests hourly — the daily-only cache is
+    // insufficient, must re-fetch.
+    const fetchSpy = makeFetchOk({
+      ...sampleResponse,
+      hourly: {
+        time: ['2026-05-05T12:00'],
+        sunshine_duration: [3600],
+      },
+    });
+    const withHourly = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon, includeHourly: true,
+      fetchImpl: fetchSpy, storage, now,
+    });
+    expect(withHourly.isStale()).toBe(true);
+    await withHourly.ensureFresh();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(withHourly.getHourlyValues()).toHaveLength(1);
+  });
+
+  it('keeps the previous cache and notifies listener on HTTP failure', async () => {
+    const storage = makeStorage();
+    // First call: warm the cache.
+    const ok = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon,
+      fetchImpl: makeFetchOk(sampleResponse), storage, now,
+    });
+    await ok.ensureFresh();
+    // Second source with a different fetch that fails — should not
+    // wipe the on-disk cache, and should notify the listener.
+    nowMs += 60 * 60 * 1000 + 1;
+    const fetchSpy = makeFetchFail(503);
+    const fail = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon,
+      fetchImpl: fetchSpy, storage, now,
+    });
+    const listener = vi.fn();
+    fail.setListener(listener);
+    await fail.ensureFresh();
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
+    // Old values still readable.
+    expect(fail.getDailyValues()).toHaveLength(3);
+  });
+
+  it('skips fetch when latitude / longitude are non-finite', async () => {
+    const fetchSpy = makeFetchOk(sampleResponse);
+    const src = new OpenMeteoSunshineSource({
+      latitude: NaN, longitude: undefined,
+      fetchImpl: fetchSpy, storage: makeStorage(), now,
+    });
+    await src.ensureFresh();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('abort() cancels the in-flight fetch and the listener does NOT see ok:false', async () => {
+    let receivedSignal = null;
+    const fetchSpy = vi.fn((url, opts) => {
+      receivedSignal = opts && opts.signal;
+      return new Promise((_, reject) => {
+        if (receivedSignal) {
+          receivedSignal.addEventListener('abort', () => {
+            const e = new Error('aborted');
+            e.name = 'AbortError';
+            reject(e);
+          });
+        }
+      });
+    });
+    const src = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon,
+      fetchImpl: fetchSpy, storage: makeStorage(), now,
+    });
+    const listener = vi.fn();
+    src.setListener(listener);
+    const p = src.ensureFresh();
+    src.abort();
+    await p;
+    expect(listener).not.toHaveBeenCalled();
+  });
+});
+
+describe('readCachedAvailability', () => {
+  const lat = 46.91;
+  const lon = 7.42;
+  // Pin a Today so the past/forecast split is deterministic.
+  const today = new Date(2026, 4, 5, 12, 0, 0); // 2026-05-05 noon
+  const todayMidnightMs = (() => {
+    const d = new Date(today); d.setHours(0, 0, 0, 0); return d.getTime();
+  })();
+
+  it('returns null when nothing is cached for that location', () => {
+    expect(readCachedAvailability(lat, lon, makeStorage())).toBe(null);
+  });
+
+  it('returns null on non-finite coordinates or no storage', () => {
+    expect(readCachedAvailability(NaN, lon, makeStorage())).toBe(null);
+    expect(readCachedAvailability(lat, lon, null)).toBe(null);
+  });
+
+  it('counts past + forecast days from a cached daily array', () => {
+    const storage = makeStorage({
+      [`wsc_sunshine_${lat.toFixed(2)}_${lon.toFixed(2)}`]: JSON.stringify({
+        daily: [
+          { date: '2026-05-03', value: 28800 }, // -2 (past)
+          { date: '2026-05-04', value: 30000 }, // -1 (past)
+          { date: '2026-05-05', value: 32000 }, // today (forecast bucket)
+          { date: '2026-05-06', value: 25000 }, // +1 (forecast)
+          { date: '2026-05-07', value: 18000 }, // +2 (forecast)
+        ],
+        hourly: [],
+        lastFetchMs: todayMidnightMs,
+      }),
+    });
+    const result = readCachedAvailability(lat, lon, storage, today.getTime());
+    expect(result.pastDays).toBe(2);
+    expect(result.forecastDays).toBe(3);
+    expect(result.lastFetchMs).toBe(todayMidnightMs);
+  });
+
+  it('handles a daily array with malformed / undated entries', () => {
+    const storage = makeStorage({
+      [`wsc_sunshine_${lat.toFixed(2)}_${lon.toFixed(2)}`]: JSON.stringify({
+        daily: [
+          null,
+          { value: 100 }, // no date
+          { date: 'not-a-date', value: 200 },
+          { date: '2026-05-06', value: 25000 },
+        ],
+        lastFetchMs: 0,
+      }),
+    });
+    const result = readCachedAvailability(lat, lon, storage, today.getTime());
+    expect(result.pastDays).toBe(0);
+    expect(result.forecastDays).toBe(1);
+  });
+
+  it('returns zeros for an empty cached payload (post-failure fallback)', () => {
+    const storage = makeStorage({
+      [`wsc_sunshine_${lat.toFixed(2)}_${lon.toFixed(2)}`]: JSON.stringify({
+        daily: [],
+        hourly: [],
+        lastFetchMs: 0,
+      }),
+    });
+    const result = readCachedAvailability(lat, lon, storage, today.getTime());
+    expect(result.pastDays).toBe(0);
+    expect(result.forecastDays).toBe(0);
+  });
+});

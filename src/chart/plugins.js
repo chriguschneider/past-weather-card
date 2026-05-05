@@ -76,6 +76,7 @@ export function createDailyTickLabelsPlugin({
   style,
   stationCount,
   doubledToday,
+  sunshineLabelBand = 0,
 }) {
   const showDateRow = config.forecast.show_date !== false;
   return {
@@ -114,17 +115,22 @@ export function createDailyTickLabelsPlugin({
           : x;
 
         c.font = `${fontSize}px Helvetica, Arial, sans-serif`;
+        // sunshineLabelBand reserves a strip at the bottom of the
+        // axis area for the sunshine "Xh" box to draw into. Date and
+        // weekday move UP by the band height so the order from top to
+        // bottom stays: weekday → date → sunshine box → chart data.
+        const dateBaseY = xScale.bottom - 2 - sunshineLabelBand;
         if (showDateRow) {
           const dateLabel = d.toLocaleDateString(language, {
             day: '2-digit',
             month: '2-digit',
           });
           c.fillStyle = dateColor;
-          c.fillText(dateLabel, labelX, xScale.bottom - 2);
+          c.fillText(dateLabel, labelX, dateBaseY);
         }
         c.font = `${isToday ? 'bold ' : ''}${fontSize}px Helvetica, Arial, sans-serif`;
         c.fillStyle = weekdayColor;
-        const weekdayY = showDateRow ? xScale.bottom - 2 - lineH : xScale.bottom - 2;
+        const weekdayY = showDateRow ? dateBaseY - lineH : dateBaseY;
         c.fillText(weekday, labelX, weekdayY);
       }
       c.restore();
@@ -176,6 +182,12 @@ export function createPrecipLabelPlugin({
       const baselineY = precipAxis ? precipAxis.getPixelForValue(0) : chart.chartArea.bottom;
       c.save();
       c.textBaseline = 'middle';
+      // Centre the box on the COLUMN, not on the bar — when sunshine is
+      // enabled, chart.js auto-groups precip into the left half of the
+      // column and we still want the mm label visually centered under
+      // the whole column. Falls back to bar.x if the x-scale isn't
+      // ready (defensive — chart-internal callers always have one).
+      const xScale = chart.scales.x;
       meta.data.forEach((bar, i) => {
         const value = data.precip[i];
         if (value == null || value <= 0) return;
@@ -190,7 +202,9 @@ export function createPrecipLabelPlugin({
         const lineH = baseSize;
         const boxW = lineW + 2 * padX;
         const boxH = lineH + 2 * padY;
-        const cx = bar.x;
+        const cx = xScale && typeof xScale.getPixelForTick === 'function'
+          ? xScale.getPixelForTick(i)
+          : bar.x;
         const boxLeft = cx - boxW / 2;
         // Centre the box on the precip-axis baseline so the zero-line
         // runs through the middle of every label.
@@ -213,6 +227,103 @@ export function createPrecipLabelPlugin({
         c.font = `${smallSize}px ${fontFamily}`;
         c.fillText(precipUnit, numberX + numberW + gap, lineCenterY);
       });
+      c.restore();
+    },
+  };
+}
+
+// Renders the sunshine-hours label per column at the top of the chart,
+// just below the weekday/date row in the x-axis area. Standalone from
+// chartjs-plugin-datalabels (which we already use for temperature) so
+// the label can sit OUTSIDE the data area — between xScale.bottom and
+// chartArea.top — without being clipped by the plot region.
+//
+// Reads from `data.sunshine` (hours, may be null) and `data.dayLength`
+// (hours, may be null). Skips columns where either is missing — the
+// dataset still draws an empty (zero-height) bar there silently.
+//
+// `Xh` rendered as the integer hours followed by 'h' at the same font
+// size as the precip number/unit pair, but as a single token so it stays
+// compact even on narrow columns.
+export function createSunshineLabelPlugin({
+  config,
+  data,
+  textColor,
+  backgroundColor,
+  chartTextColor,
+  sunshineColor,
+  sunshinePerBarColor,
+  bandHeight,
+}) {
+  return {
+    id: 'sunshineLabel',
+    // afterDraw (not afterDatasetsDraw) so this runs *after* the
+    // dailyTickLabelsPlugin's afterDraw — that plugin fills the entire
+    // x-axis area with backgroundColor to mask Chart.js's default tick
+    // labels, which would otherwise clobber our "Xh" labels here.
+    afterDraw(chart) {
+      const xScale = chart.scales.x;
+      if (!xScale || !xScale.ticks) return;
+      const c = chart.ctx;
+      const baseSize = parseInt(config.forecast.labels_font_size) || 11;
+      const fontFamily = 'Helvetica, Arial, sans-serif';
+      // Draw inside the bottom strip of the x-axis box that draw.js's
+      // afterFit reserved for us. Vertically centred in that strip;
+      // horizontally on the column tick.
+      const reservedH = Number.isFinite(bandHeight) && bandHeight > 0
+        ? bandHeight
+        : Math.max(14, baseSize + 4);
+      // Centre the box on the bottom strip of the now-extended axis
+      // box (where dailyTickLabelsPlugin has reserved this band by
+      // shifting weekday + date upward).
+      const labelY = xScale.bottom - reservedH / 2;
+      c.save();
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      const padX = 3;
+      const padY = 1;
+      const lineH = baseSize;
+      for (let i = 0; i < xScale.ticks.length; i++) {
+        const value = data.sunshine ? data.sunshine[i] : null;
+        if (value == null) continue;
+        // Skip zero-sun days so the band stays calm (the bar is empty
+        // there too).
+        if (value <= 0) continue;
+        // ≥ 9.5 h: round to integer (decimals are noise at that magnitude,
+        // and "13.0h" is uglier than "13h" in a narrow column).
+        // < 9.5 h: one decimal, but strip a trailing .0 so "8.0h" → "8h".
+        const text = (() => {
+          if (value > 9) return `${Math.round(value)}h`;
+          const rounded = Math.round(value * 10) / 10;
+          return rounded % 1 === 0
+            ? `${Math.round(rounded)}h`
+            : `${rounded.toFixed(1)}h`;
+        })();
+
+        const x = xScale.getPixelForTick(i);
+        c.font = `${baseSize}px ${fontFamily}`;
+        const textW = c.measureText(text).width;
+        const boxW = textW + 2 * padX;
+        const boxH = lineH + 2 * padY;
+        const boxLeft = x - boxW / 2;
+        const boxTop = labelY - boxH / 2;
+
+        // Same boxed look as the precipitation label: chart-bg fill
+        // with the accent-colour border (sunshineColor here, precipColor
+        // in precipLabelPlugin). Per-column colour mirrors the bar so
+        // forecast columns get the lightened (45 %-alpha) tone, matching
+        // how precipLabelPlugin handles its own forecast colouring.
+        const stroke = (Array.isArray(sunshinePerBarColor) && sunshinePerBarColor[i])
+          || sunshineColor || textColor;
+        c.fillStyle = backgroundColor;
+        c.strokeStyle = stroke;
+        c.lineWidth = 1.5;
+        c.fillRect(boxLeft, boxTop, boxW, boxH);
+        c.strokeRect(boxLeft, boxTop, boxW, boxH);
+
+        c.fillStyle = chartTextColor || textColor;
+        c.fillText(text, x, labelY);
+      }
       c.restore();
     },
   };

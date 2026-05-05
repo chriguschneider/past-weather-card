@@ -5,6 +5,7 @@ const locale = {
     'tempHi': 'Teplota',
     'tempLo': 'Teplota v noci',
     'precip': 'Srážky',
+    'sunshine': 'Slunce',
     'feelsLike': 'Pocitová teplota',
     'units': {
       'km/h': 'km/h',
@@ -39,6 +40,7 @@ const locale = {
     'tempHi': 'Teplota',
     'tempLo': 'Teplota v noci',
     'precip': 'Zrážky',
+    'sunshine': 'Slunce',
     'feelsLike': 'Pocitová teplota',
     'units': {
       'km/h': 'km/h',
@@ -73,6 +75,7 @@ const locale = {
     'tempHi': 'Temperatur',
     'tempLo': 'Nachttemperatur',
     'precip': 'Niederschlag',
+    'sunshine': 'Sonne',
     'feelsLike': 'Gefühlt',
     'units': {
       'km/h': 'km/h',
@@ -164,6 +167,12 @@ const locale = {
       'show_chart_wind': 'Wind-Zeile',
       'show_chart_wind_arrow': 'Windrichtungs-Pfeil in der Wind-Zeile',
       'show_chart_date': 'Datum in der x-Achse',
+      'show_chart_sunshine': 'Sonnenstunden-Zeile',
+      'show_chart_sunshine_hint': 'Holt Sonnenscheindauer direkt von Open-Meteo (Standort aus Home Assistant). Keine zusätzlichen Sensoren nötig. In der Tagesansicht mit "Xh"-Beschriftung, im Stundenmodus nur als Balken (volle Höhe = volle Stunde Sonne).',
+      'sunshine_availability': 'Sonnenstunden-Daten verfügbar: {past} Tage Vergangenheit, {future} Tage Vorhersage (Open-Meteo).',
+      'sunshine_availability_pending': 'Sonnenstunden: Daten werden geladen — speichere und öffne den Editor erneut.',
+      'sunshine_availability_warning': 'Konfigurierte Vorhersage-Tage ({req}) übersteigen Open-Meteo-Verfügbarkeit — die letzten {gap} Spalten zeigen leere Sonnenstunden-Balken.',
+      'sunshine_color': 'Sonnenstunden-Farbe',
       'chart_style': 'Diagramm-Stil',
       'chart_style_without_boxes': 'Ohne Boxen (Standard)',
       'chart_style_with_boxes': 'Mit Boxen',
@@ -197,6 +206,7 @@ const locale = {
     'tempHi': 'Temperatuur',
     'tempLo': 'Nachttemperatuur',
     'precip': 'Neerslag',
+    'sunshine': 'Zon',
     'feelsLike': 'Voelt als',
     'units': {
       'km/h': 'km/h',
@@ -231,6 +241,7 @@ const locale = {
     'tempHi': 'Temperature',
     'tempLo': 'Temperature night',
     'precip': 'Precipitations',
+    'sunshine': 'Sunshine',
     'feelsLike': 'Feels like',
     'units': {
       'km/h': 'km/h',
@@ -333,6 +344,12 @@ const locale = {
       'show_chart_wind': 'Wind row',
       'show_chart_wind_arrow': 'Wind direction arrow in wind row',
       'show_chart_date': 'Date in chart x-axis',
+      'show_chart_sunshine': 'Sunshine row',
+      'show_chart_sunshine_hint': 'Fetches sunshine duration directly from Open-Meteo (using Home Assistant\'s configured location). No additional sensors required. Daily mode shows "Xh" labels per column; hourly mode shows bars only (full bar = full hour of sun).',
+      'sunshine_availability': 'Sunshine data available: {past} past days, {future} forecast days (Open-Meteo).',
+      'sunshine_availability_pending': 'Sunshine: data still loading — save and reopen the editor.',
+      'sunshine_availability_warning': 'Configured forecast_days ({req}) exceeds Open-Meteo availability — the last {gap} columns will show empty sunshine bars.',
+      'sunshine_color': 'Sunshine colour',
       // Style fields
       'chart_style': 'Chart style',
       'chart_style_without_boxes': 'Without boxes (standard)',
@@ -368,6 +385,7 @@ const locale = {
     'tempHi': 'Temperatura máxima',
     'tempLo': 'Temperatura mínima',
     'precip': 'Precipitación',
+    'sunshine': 'Sol',
     'feelsLike': 'Sensación térmica',
     'units': {
       'km/h': 'km/h',
@@ -402,6 +420,7 @@ const locale = {
     'tempHi': 'Lämpötila ylin',
     'tempLo': 'Lämpötila alin',
     'precip': 'Sademäärä',
+    'sunshine': 'Aurinko',
     'feelsLike': 'Tuntuu kuin',
     'units': {
       'km/h': 'km/h',
@@ -436,6 +455,7 @@ const locale = {
     'tempHi': 'Max. hőmérséklet',
     'tempLo': 'Min. hőmérséklet',
     'precip': 'Csapadék',
+    'sunshine': 'Nap',
     'feelsLike': 'Hőérzet',
     'units': {
       'km/h': 'km/h',
@@ -470,6 +490,7 @@ const locale = {
     'tempHi': 'Температура',
     'tempLo': 'Температура ночью',
     'precip': 'Осадки',
+    'sunshine': 'Солнце',
     'feelsLike': 'Ощущается как',
     'units': {
       'km/h': 'км/ч',
@@ -504,6 +525,7 @@ const locale = {
     'tempHi': 'Temperatur max',
     'tempLo': 'Temperatur min',
     'precip': 'Nederbörd',
+    'sunshine': 'Sol',
     'feelsLike': 'Känns som',
     'units': {
         'km/h': 'km/h',
@@ -538,6 +560,7 @@ const locale = {
     'tempHi': 'Température max',
     'tempLo': 'Température min',
     'precip': 'Précipitations',
+    'sunshine': 'Soleil',
     'feelsLike': 'Ressenti',
     'units': {
       'km/h': 'km/h',
@@ -572,6 +595,7 @@ const locale = {
     'tempHi': 'Temperatura',
     'tempLo': 'Temperatura w nocy',
     'precip': 'Opady',
+    'sunshine': 'Słońce',
     'feelsLike': 'Odczuwalna',
     'units': {
       'km/h': 'km/h',
@@ -606,6 +630,7 @@ const locale = {
     'tempHi': 'Maksimumstemperatur',
     'tempLo': 'Minimumstemperatur',
     'precip': 'Nedbør',
+    'sunshine': 'Sol',
     'feelsLike': 'Føles som',
     'units': {
       'km/h': 'km/t',
@@ -640,6 +665,7 @@ const locale = {
     'tempHi': 'Temperatur',
     'tempLo': 'Nattemperatur',
     'precip': 'Nedbør',
+    'sunshine': 'Sol',
     'feelsLike': 'Føles som',
     'units': {
       'km/h': 'km/h',
@@ -674,6 +700,7 @@ const locale = {
     'tempHi': 'Temperatura massima',
     'tempLo': 'Temperatura notte',
     'precip': 'Precipitazioni',
+    'sunshine': 'Sole',
     'feelsLike': 'Percepito come',
     'units': {
       'km/h': 'km/h',
@@ -708,6 +735,7 @@ const locale = {
     'tempHi': 'Temperatura máxima',
     'tempLo': 'Temperatura noite',
     'precip': 'Precipitação',
+    'sunshine': 'Sol',
     'feelsLike': 'Sensação Térmica',
     'units': {
       'km/h': 'km/h',
@@ -742,6 +770,7 @@ const locale = {
     'tempHi': 'Μέγιστη θερμοκρασία',
     'tempLo': 'Ελάχιστη θερμοκρασία νύχτας',
     'precip': 'Υετός',
+    'sunshine': 'Ήλιος',
     'feelsLike': 'Αίσθηση σαν',
     'units': {
       'km/h': 'χλμ/ώρα',
@@ -776,6 +805,7 @@ const locale = {
     'tempHi': 'Максимална температура',
     'tempLo': 'Минимална температура',
     'precip': 'Валежи',
+    'sunshine': 'Солнце',
     'feelsLike': 'Усеща се като',
     'units': {
       'km/h': 'км/ч',
@@ -810,6 +840,7 @@ const locale = {
     'tempHi': 'Dieną',
     'tempLo': 'Naktį',
     'precip': 'Krituliai',
+    'sunshine': 'Saulė',
     'feelsLike': 'Jaučiama',
     'units': {
       'km/h': 'km/h',
@@ -844,6 +875,7 @@ const locale = {
     'tempHi': 'Temperatura màxima',
     'tempLo': 'Temperatura mínima',
     'precip': 'Precipitació',
+    'sunshine': 'Sol',
     'feelsLike': 'Sensació tèrmica',
     'units': {
       'km/h': 'km/h',
@@ -878,6 +910,7 @@ const locale = {
     'tempHi': 'Temperatură',
     'tempLo': 'Temperatură noaptea',
     'precip': 'Precipitații',
+    'sunshine': 'Soare',
     'feelsLike': 'Se simte ca',
     'units': {
       'km/h': 'km/h',
@@ -912,6 +945,7 @@ const locale = {
     'tempHi': 'Температура',
     'tempLo': 'Температура вночі',
     'precip': 'Опади',
+    'sunshine': 'Солнце',
     'feelsLike': 'Відчувається як',
     'units': {
       'km/h': 'км/год',
@@ -946,6 +980,7 @@ const locale = {
     'tempHi': '최고 기온',
     'tempLo': '최저 기온',
     'precip': '강수',
+    'sunshine': '햇빛',
     'feelsLike': '체감',
     'units': {
       'km/h': 'km/h',
@@ -1055,6 +1090,282 @@ var t;const i=window,s$1=i.trustedTypes,e=s$1?s$1.createPolicy("lit-html",{creat
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */var l,o;class s extends u$1{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0;}createRenderRoot(){var t,e;const i=super.createRenderRoot();return null!==(t=(e=this.renderOptions).renderBefore)&&void 0!==t||(e.renderBefore=i.firstChild),i}update(t){const i=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(t),this._$Do=D(i,this.renderRoot,this.renderOptions);}connectedCallback(){var t;super.connectedCallback(),null===(t=this._$Do)||void 0===t||t.setConnected(true);}disconnectedCallback(){var t;super.disconnectedCallback(),null===(t=this._$Do)||void 0===t||t.setConnected(false);}render(){return T}}s.finalized=true,s._$litElement$=true,null===(l=globalThis.litElementHydrateSupport)||void 0===l||l.call(globalThis,{LitElement:s});const n$1=globalThis.litElementPolyfillSupport;null==n$1||n$1({LitElement:s});(null!==(o=globalThis.litElementVersions)&&void 0!==o?o:globalThis.litElementVersions=[]).push("3.3.3");
+
+// Open-Meteo daily-sunshine fetcher.
+//
+// The card calls Open-Meteo's Forecast endpoint with `past_days` covering
+// the visible station window plus `forecast_days` for the upcoming
+// columns — one HTTP round-trip per refresh, no Archive call needed
+// (Forecast supports up to past_days=92, well beyond the card's
+// typical days=7..14 window).
+//
+// All fetch logic lives behind a class so the lifecycle (lazy load on
+// first use, in-flight de-dup, abortable on disconnect, opaque retry)
+// stays out of the render path.
+//
+// Unit-tested against a mocked fetch — see tests/openmeteo-source.test.js.
+
+const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
+
+// Refresh once per hour. Open-Meteo's free tier is 10 000 calls/day per
+// IP — at most 24 calls/day per active dashboard tab, which is far
+// below the threshold even for a household with several screens. The
+// Forecast endpoint updates a few times per day, so an hourly poll
+// catches new model runs without hammering the API.
+const REFRESH_TTL_MS = 60 * 60 * 1000;
+
+// LocalStorage key prefix. Keyed by lat/lon-rounded-to-2 so two
+// dashboards at the same location share the cache, but a dashboard at
+// a different location doesn't accidentally see stale far-away data.
+const STORAGE_PREFIX = 'wsc_sunshine_';
+
+// ── Pure helpers (testable without instantiating the source class) ──
+
+// Builds the Forecast-endpoint URL. `includeHourly` adds the
+// `hourly=sunshine_duration` parameter alongside `daily=…`, so a
+// single call returns both granularities — used in hourly chart mode
+// where the card renders one bar per hour.
+function buildOpenMeteoUrl(latitude, longitude, pastDays, forecastDays, includeHourly = false) {
+  const p = new URLSearchParams({
+    latitude: String(latitude),
+    longitude: String(longitude),
+    daily: 'sunshine_duration',
+    timezone: 'auto',
+    past_days: String(pastDays),
+    forecast_days: String(forecastDays),
+  });
+  if (includeHourly) p.set('hourly', 'sunshine_duration');
+  return `${FORECAST_URL}?${p.toString()}`;
+}
+
+// Open-Meteo emits two parallel arrays (`time`, `sunshine_duration`).
+// Reshape into the {date, value} array attachSunshine consumes — same
+// shape we'd accept from a user-built REST sensor, so the data layer
+// downstream doesn't know or care which way the values arrived.
+//
+// Values come back in seconds; normalizeSunshineValue (in
+// sunshine-source.js) does the sec→hours conversion at lookup time.
+function parseDailySunshine(response) {
+  if (!response || !response.daily) return [];
+  const t = response.daily.time || [];
+  const v = response.daily.sunshine_duration || [];
+  const out = [];
+  for (let i = 0; i < t.length; i++) {
+    if (v[i] != null) out.push({ date: t[i], value: v[i] });
+  }
+  return out;
+}
+
+// Hourly counterpart. Open-Meteo's hourly time strings are
+// "YYYY-MM-DDTHH:MM" in the requested timezone (we use timezone=auto,
+// matching the user's HA location). attachSunshine consumes these via
+// localHourString matching.
+//
+// Values are seconds of sunshine within that hour, capped at 3600.
+function parseHourlySunshine(response) {
+  if (!response || !response.hourly) return [];
+  const t = response.hourly.time || [];
+  const v = response.hourly.sunshine_duration || [];
+  const out = [];
+  for (let i = 0; i < t.length; i++) {
+    if (v[i] != null) out.push({ datetime: t[i], value: v[i] });
+  }
+  return out;
+}
+
+function storageKey(lat, lon) {
+  return `${STORAGE_PREFIX}${lat.toFixed(2)}_${lon.toFixed(2)}`;
+}
+
+// Best-effort persistence so a page reload doesn't always re-fetch.
+// Returns null on any error (private mode, quota, JSON corruption, …).
+function loadFromStorage(storage, lat, lon) {
+  if (!storage) return null;
+  try {
+    const raw = storage.getItem(storageKey(lat, lon));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed;
+  } catch (_) {
+    return null;
+  }
+}
+
+function saveToStorage(storage, lat, lon, payload) {
+  if (!storage) return;
+  try {
+    storage.setItem(storageKey(lat, lon), JSON.stringify(payload));
+  } catch (_) { /* quota / private-mode — silent */ }
+}
+
+// Read the cached daily array and count past vs forecast days. Used by
+// the editor to surface "Open-Meteo currently has N forecast days for
+// your location" so the user knows when their `forecast_days` setting
+// outruns the available data (Open-Meteo's free Forecast endpoint
+// returns 5–16 days depending on model and location).
+//
+// Returns null when nothing is cached for that location yet.
+function readCachedAvailability(latitude, longitude, storage, now = Date.now()) {
+  const store = (typeof window !== 'undefined' && window.localStorage ? window.localStorage : null);
+  if (!store) return null;
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  const cached = loadFromStorage(store, latitude, longitude);
+  if (!cached) return null;
+
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const todayMs = today.getTime();
+
+  const daily = Array.isArray(cached.daily) ? cached.daily : [];
+  let pastDays = 0;
+  let forecastDays = 0;
+  for (const item of daily) {
+    if (!item || !item.date) continue;
+    const d = new Date(item.date);
+    d.setHours(0, 0, 0, 0);
+    const t = d.getTime();
+    if (Number.isNaN(t)) continue;
+    if (t < todayMs) pastDays += 1;
+    else forecastDays += 1;
+  }
+  return {
+    pastDays,
+    forecastDays,
+    lastFetchMs: Number(cached.lastFetchMs) || 0,
+  };
+}
+
+// ── Source class ────────────────────────────────────────────────────
+
+class OpenMeteoSunshineSource {
+  constructor({
+    latitude,
+    longitude,
+    pastDays = 14,
+    forecastDays = 8,
+    includeHourly = false,
+    fetchImpl,
+    storage,
+    now,
+  } = {}) {
+    this.latitude = latitude;
+    this.longitude = longitude;
+    this.pastDays = pastDays;
+    this.forecastDays = forecastDays;
+    this.includeHourly = includeHourly === true;
+    // Allow overriding the fetch and storage implementations so the
+    // tests can run in a Node environment without polluting globals.
+    this._fetch = fetchImpl
+      || (typeof fetch === 'function' ? fetch.bind(globalThis) : null);
+    this._storage = storage !== undefined
+      ? storage
+      : (typeof window !== 'undefined' && window.localStorage ? window.localStorage : null);
+    this._now = now || (() => Date.now());
+
+    this._daily = [];
+    this._hourly = [];
+    this._lastFetchMs = 0;
+    this._inFlight = null;
+    this._abort = null;
+    this._listener = null;
+
+    if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+      const cached = loadFromStorage(this._storage, latitude, longitude);
+      if (cached) {
+        if (Array.isArray(cached.daily)) this._daily = cached.daily;
+        if (Array.isArray(cached.hourly)) this._hourly = cached.hourly;
+        this._lastFetchMs = Number(cached.lastFetchMs) || 0;
+      }
+    }
+  }
+
+  // Synchronous accessors — return whatever's in cache (may be empty
+  // until ensureFresh resolves). attachSunshine picks the right one
+  // based on the chart's granularity (daily vs hourly).
+  getDailyValues() {
+    return this._daily;
+  }
+  getHourlyValues() {
+    return this._hourly;
+  }
+
+  // True when we should kick off a refresh (cache empty for the
+  // currently-requested granularity, or stale).
+  isStale(now = this._now()) {
+    if (!this._daily.length) return true;
+    if (this.includeHourly && !this._hourly.length) return true;
+    return now - this._lastFetchMs >= REFRESH_TTL_MS;
+  }
+
+  // Subscribe a one-shot callback for refresh completion. Used by
+  // main.js to call requestUpdate / measureCard once the data lands.
+  setListener(cb) {
+    this._listener = cb;
+  }
+
+  // Abort any in-flight fetch — call this on disconnectedCallback.
+  abort() {
+    if (this._abort) {
+      try { this._abort.abort(); } catch (_) { /* aborted twice */ }
+      this._abort = null;
+    }
+  }
+
+  // Trigger a refresh if stale and none is already running. Returns the
+  // in-flight promise so callers can await if they want to (most don't —
+  // the listener handles "data arrived" notifications).
+  async ensureFresh() {
+    if (this._inFlight) return this._inFlight;
+    if (!this.isStale()) return Promise.resolve();
+    if (!this._fetch) return Promise.resolve();
+    if (!Number.isFinite(this.latitude) || !Number.isFinite(this.longitude)) {
+      return Promise.resolve();
+    }
+
+    this._abort = (typeof AbortController === 'function') ? new AbortController() : null;
+    const signal = this._abort ? this._abort.signal : undefined;
+
+    const url = buildOpenMeteoUrl(
+      this.latitude, this.longitude, this.pastDays, this.forecastDays,
+      this.includeHourly,
+    );
+
+    this._inFlight = (async () => {
+      try {
+        const res = await this._fetch(url, signal ? { signal } : undefined);
+        if (!res || !res.ok) {
+          throw new Error(`Open-Meteo HTTP ${res ? res.status : '<no response>'}`);
+        }
+        const json = await res.json();
+        this._daily = parseDailySunshine(json);
+        this._hourly = this.includeHourly ? parseHourlySunshine(json) : [];
+        this._lastFetchMs = this._now();
+        saveToStorage(this._storage, this.latitude, this.longitude, {
+          daily: this._daily,
+          hourly: this._hourly,
+          lastFetchMs: this._lastFetchMs,
+        });
+        if (this._listener) this._listener({ ok: true });
+      } catch (err) {
+        // AbortError (disconnect) is expected — don't surface as a
+        // problem. Anything else, log and notify the listener so the
+        // chart can stay rendering with whatever stale cache it has.
+        const isAbort = err && (err.name === 'AbortError' || err.code === 20);
+        if (!isAbort) {
+          // eslint-disable-next-line no-console
+          console.warn('[weather-station-card] Open-Meteo fetch failed:', err);
+          if (this._listener) this._listener({ ok: false, error: String(err) });
+        }
+      } finally {
+        this._inFlight = null;
+        this._abort = null;
+      }
+    })();
+
+    return this._inFlight;
+  }
+}
 
 // Per-metric sensor field list. Most filter by `device_class`; wind
 // direction has no canonical class but a stable unit (degrees) so it
@@ -1276,6 +1587,43 @@ class WeatherStationCardEditor extends s {
     this.requestUpdate();
   }
 
+  // Render an inline hint under the forecast_days field showing what
+  // Open-Meteo currently has cached for this location — and a warning
+  // when the configured forecast_days exceeds what's actually
+  // available. Only relevant when the sunshine row is enabled (no other
+  // editor field depends on this cache).
+  _renderSunshineAvailabilityHint(cfg, t) {
+    if (!cfg || !cfg.forecast || cfg.forecast.show_sunshine !== true) return '';
+    const hass = this.hass;
+    const lat = hass && hass.config ? hass.config.latitude : null;
+    const lon = hass && hass.config ? hass.config.longitude : null;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return '';
+
+    const av = readCachedAvailability(lat, lon);
+    if (!av) {
+      // Cache empty — fetch hasn't completed yet (or localStorage is
+      // disabled). Don't show stale or misleading numbers.
+      return x`<div class="hint" style="margin-top:4px;">
+        ${t('sunshine_availability_pending')}
+      </div>`;
+    }
+
+    const requested = parseInt(cfg.forecast_days != null ? cfg.forecast_days : (cfg.days || 7), 10);
+    const overshoots = Number.isFinite(requested) && av.forecastDays > 0 && requested > av.forecastDays;
+    const baseLine = (t('sunshine_availability') || 'Sunshine: {past} past, {future} forecast days available')
+      .replace('{past}', String(av.pastDays))
+      .replace('{future}', String(av.forecastDays));
+
+    return x`
+      <div class="hint" style="margin-top:4px; ${overshoots ? 'color: var(--warning-color);' : ''}">
+        ${baseLine}
+        ${overshoots ? x`<br/>${(t('sunshine_availability_warning') || 'Configured forecast_days ({req}) exceeds available — last {gap} columns will have empty sunshine bars.')
+          .replace('{req}', String(requested))
+          .replace('{gap}', String(requested - av.forecastDays))}` : ''}
+      </div>
+    `;
+  }
+
   // ha-selector with the ui_action selector returns either an action
   // config object or undefined (when the picker is reset). Persist the
   // value as-is so HA's standard handle-action helper can read it back
@@ -1441,6 +1789,7 @@ class WeatherStationCardEditor extends s {
               ></ha-textfield>
             ` : ''}
           </div>
+          ${this._renderSunshineAvailabilityHint(cfg, t)}
           ${showsForecast ? x`
             <ha-entity-picker
               .hass=${this.hass}
@@ -1682,6 +2031,18 @@ class WeatherStationCardEditor extends s {
           ></ha-switch>
           <label class="switch-label">${t('show_chart_date')}</label>
         </div>
+        <div class="switch-container">
+          <ha-switch
+            @change="${(e) => this._valueChanged(e, 'forecast.show_sunshine')}"
+            .checked="${fcfg.show_sunshine === true}"
+          ></ha-switch>
+          <label class="switch-label">${t('show_chart_sunshine')}</label>
+        </div>
+        ${fcfg.show_sunshine === true ? x`
+          <div class="hint" style="padding-left:20px; margin-bottom:8px;">
+            ${t('show_chart_sunshine_hint')}
+          </div>
+        ` : ''}
 
         <!-- ─── D. Style & Colours ──────────────────────────────────── -->
         <h3 class="section">${t('style_heading')}</h3>
@@ -1827,6 +2188,12 @@ class WeatherStationCardEditor extends s {
               .value="${fcfg.precipitation_color || ''}"
               placeholder="rgba(132, 209, 253, 1.0)"
               @change="${(e) => this._valueChanged(e, 'forecast.precipitation_color')}"
+            ></ha-textfield>
+            <ha-textfield
+              label="${t('sunshine_color')}"
+              .value="${fcfg.sunshine_color || ''}"
+              placeholder="rgba(255, 193, 7, 1.0)"
+              @change="${(e) => this._valueChanged(e, 'forecast.sunshine_color')}"
             ></ha-textfield>
             <ha-textfield
               label="${t('chart_text_color')}"
@@ -1989,7 +2356,7 @@ const HOURLY_PRECIP_OVERRIDES = Object.freeze({
 
 // Solar declination in degrees (Cooper 1969 — accurate to ~0.5°, plenty for
 // a ratio-based cloud check).
-function declinationDeg(dayOfYear) {
+function declinationDeg$1(dayOfYear) {
   return 23.45 * Math.sin(((360 * (284 + dayOfYear)) / 365) * Math.PI / 180);
 }
 
@@ -1999,7 +2366,7 @@ function declinationDeg(dayOfYear) {
 // the 110 000 lx clear-sky maximum at perpendicular incidence.
 function clearSkyNoonLux(latDeg, dayOfYear) {
   if (!Number.isFinite(latDeg) || !Number.isFinite(dayOfYear)) return 110000;
-  const zenith = Math.abs(latDeg - declinationDeg(dayOfYear));
+  const zenith = Math.abs(latDeg - declinationDeg$1(dayOfYear));
   if (zenith >= 90) return 0;
   return 110000 * Math.cos(zenith * Math.PI / 180);
 }
@@ -2014,7 +2381,7 @@ function clearSkyLuxAt(latDeg, lonDeg, date) {
   if (!Number.isFinite(latDeg) || !Number.isFinite(lonDeg)) return 110000;
   const start = new Date(d.getFullYear(), 0, 0);
   const dayOfYear = Math.floor((d - start) / (24 * 60 * 60 * 1000));
-  const decl = declinationDeg(dayOfYear) * Math.PI / 180;
+  const decl = declinationDeg$1(dayOfYear) * Math.PI / 180;
   const lat = latDeg * Math.PI / 180;
   const utcHours = d.getUTCHours() + d.getUTCMinutes() / 60 + d.getUTCSeconds() / 3600;
   const solarHour = utcHours + lonDeg / 15;
@@ -2107,12 +2474,12 @@ function classifyDay(day, overrides = {}, period = 'day') {
 
 
 const POLL_INTERVAL_MS = 60 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
+const DAY_MS$1 = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 
 function dayOfYearFromDate(date) {
   const start = new Date(date.getFullYear(), 0, 0);
-  return Math.floor((date - start) / DAY_MS);
+  return Math.floor((date - start) / DAY_MS$1);
 }
 
 // Bucket-relative rainfall extraction that adapts to the sensor's
@@ -2276,7 +2643,7 @@ class MeasuredDataSource {
       const dayStart = new Date(start);
       dayStart.setDate(start.getDate() + i);
       const dayKey = dayMs(dayStart);
-      const prevKey = dayKey - DAY_MS;
+      const prevKey = dayKey - DAY_MS$1;
 
       const at = (eid, field) => {
         const m = byDate[eid];
@@ -2740,6 +3107,284 @@ function normalizeForecastMode(rawConfig) {
   return { config, warnings };
 }
 
+// Pure helpers for the sunshine-duration row.
+//
+// No DOM, no Home Assistant — just data shaping. The card calls these from
+// data-source.js (past tier) and main.js (post-processing pass that overlays
+// history / forecast attributes onto the merged forecast array).
+//
+// The decisions encoded here come from issue #6 (decision A1 = Variant A:
+// Methods F + C only; A2 = two slots; A3 = F2 forecast tier; A6 naming).
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Solar declination in degrees (Cooper 1969). Same approximation the
+// classifier uses — accurate to ~0.5°, enough for a day-length estimate.
+function declinationDeg(dayOfYear) {
+  return 23.45 * Math.sin(((360 * (284 + dayOfYear)) / 365) * Math.PI / 180);
+}
+
+function dayOfYearOf(date) {
+  const start = new Date(date.getFullYear(), 0, 0);
+  return Math.floor((date - start) / DAY_MS);
+}
+
+// Astronomical day length in hours for a given latitude and date. Uses
+// the standard sunrise-equation: cos(H₀) = -tan(φ) tan(δ), day length =
+// 2 H₀ / 15° per hour. No atmospheric-refraction correction (~6 min at
+// horizon — negligible at the 0.1 h granularity we care about for the
+// "fraction of day" scaling).
+//
+// Edge cases:
+//   - polar night (sun never rises): returns 0
+//   - midnight sun (sun never sets):  returns 24
+//   - non-finite latitude:            returns 12 (equinox fallback)
+function dayLengthHours(latDeg, date) {
+  if (!Number.isFinite(latDeg)) return 12;
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return 12;
+  const decl = declinationDeg(dayOfYearOf(d)) * Math.PI / 180;
+  const lat = latDeg * Math.PI / 180;
+  const cosH = -Math.tan(lat) * Math.tan(decl);
+  if (cosH <= -1) return 24; // midnight sun
+  if (cosH >= 1) return 0;   // polar night
+  const H = Math.acos(cosH); // half-day-length, radians
+  return (2 * H * 180 / Math.PI) / 15;
+}
+
+// Auto-detect whether a sensor reports sunshine duration in hours or
+// seconds, return hours either way.
+//
+// The heuristic: a calendar day cannot exceed 24 hours of sunshine, but
+// any non-trivial daily total in seconds will exceed 30 (= 0.5 min). So
+// values ≥ 30 are interpreted as seconds and divided by 3600. Values
+// below 30 are kept as hours. The cut-off is conservative on both sides
+// — at 30 s/day a sensor in seconds-mode would still flip correctly,
+// and a real "0.5 h" reading (rare; would correspond to deep winter
+// twilight) is preserved.
+//
+// Returns null for non-finite / non-numeric inputs.
+function normalizeSunshineValue(raw) {
+  if (raw == null) return null;
+  const n = typeof raw === 'number' ? raw : parseFloat(raw);
+  if (!Number.isFinite(n)) return null;
+  if (n < 0) return 0; // clamp negative noise to zero
+  return n >= 30 ? n / 3600 : n;
+}
+
+// Local-date string YYYY-MM-DD for matching daily attribute entries.
+// Open-Meteo's `daily=…` response uses local civil dates (with
+// `timezone=auto`), so matching has to be done in the user's local
+// timezone — not UTC.
+function localDateString(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// Local-hour string YYYY-MM-DDTHH:MM for matching hourly attribute
+// entries against Open-Meteo's hourly=sunshine_duration response.
+// Minutes are forced to :00 since the chart's hourly entries align to
+// the hour and Open-Meteo emits one value per full hour.
+function localHourString(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  return `${y}-${m}-${day}T${h}:00`;
+}
+
+// Find an entry by hourly key in an array of {datetime, value} items
+// (the shape parseHourlySunshine emits). Open-Meteo's datetime strings
+// are "YYYY-MM-DDTHH:MM" — we slice to the first 13 chars
+// ("YYYY-MM-DDTHH") so a :30 minute mismatch (very rare; would only
+// happen if Chart.js entries drift off the hour) still aligns.
+function findInHourArray(arr, hourKey) {
+  if (!Array.isArray(arr) || !hourKey) return null;
+  const k = hourKey.slice(0, 13);
+  for (const item of arr) {
+    if (!item || typeof item !== 'object') continue;
+    const itemKey = item.datetime != null ? String(item.datetime).slice(0, 13) : null;
+    if (itemKey === k) return normalizeSunshineValue(item.value);
+  }
+  return null;
+}
+
+// Look up a sunshine value in a date-keyed array attribute. Accepts a
+// few shapes since "the right format" depends on what the user's REST
+// template outputs:
+//
+//   1. [{date: "YYYY-MM-DD", value: <number>}, …]      (preferred)
+//   2. [{datetime: "YYYY-MM-DD…", value: <number>}, …]
+//   3. {<YYYY-MM-DD>: <number>, …}                     (object map)
+//   4. ["YYYY-MM-DD", <number>] tuples                 (rare but used in HA examples)
+//
+// `arr` may also carry an envelope — { history: [...] } or
+// { forecast: [...] } — which the caller normally peels off first; we
+// peel here too for ergonomics.
+//
+// Returns the matched value normalized via normalizeSunshineValue, or
+// null if no match.
+function findInDateArray(arr, dateString) {
+  if (!arr || !dateString) return null;
+
+  // Envelope unwrap.
+  if (!Array.isArray(arr) && typeof arr === 'object') {
+    if (Array.isArray(arr.history)) return findInDateArray(arr.history, dateString);
+    if (Array.isArray(arr.forecast)) return findInDateArray(arr.forecast, dateString);
+    // Fallthrough: treat as object-map (case 3).
+    if (Object.prototype.hasOwnProperty.call(arr, dateString)) {
+      return normalizeSunshineValue(arr[dateString]);
+    }
+    return null;
+  }
+
+  if (!Array.isArray(arr)) return null;
+
+  for (const item of arr) {
+    if (!item) continue;
+
+    // Case 4: tuple [date, value].
+    if (Array.isArray(item) && item.length >= 2) {
+      const k = String(item[0] || '').slice(0, 10);
+      if (k === dateString) return normalizeSunshineValue(item[1]);
+      continue;
+    }
+
+    if (typeof item !== 'object') continue;
+
+    // Cases 1 & 2: object with `date` or `datetime`.
+    const k = item.date != null
+      ? String(item.date).slice(0, 10)
+      : (item.datetime != null ? String(item.datetime).slice(0, 10) : null);
+    if (!k) continue;
+    if (k === dateString) {
+      const v = item.value != null ? item.value
+              : item.sunshine != null ? item.sunshine
+              : item.duration != null ? item.duration
+              : item.sunshine_duration;
+      return normalizeSunshineValue(v);
+    }
+  }
+  return null;
+}
+
+// Compose the sunshine field on each forecast entry. Non-destructive —
+// returns a NEW array; the input forecasts are read-only.
+//
+// Two modes, picked via opts.granularity:
+//
+//   - 'daily' (default): match each entry against `dailyValues` by
+//     local YYYY-MM-DD. day_length comes from astronomical sunrise-eq;
+//     bar fractions later are sunshine_h / day_length.
+//
+//   - 'hourly': match against `hourlyValues` by local YYYY-MM-DDTHH:00.
+//     day_length is fixed at 1h (one bar = one hour), and a value
+//     normalizes against that — a fully sunny hour fills the bar.
+//
+// Always caps at the appropriate maximum (no negative noise, no
+// 70-minute hours) and normalizes seconds → hours via
+// normalizeSunshineValue at lookup time.
+function attachSunshine(forecasts, opts) {
+  if (!Array.isArray(forecasts)) return [];
+  if (!opts) return forecasts.map((f) => ({ ...f }));
+
+  const { dailyValues, hourlyValues, latitude, granularity = 'daily' } = opts;
+  const isHourly = granularity === 'hourly';
+
+  return forecasts.map((entry) => {
+    const out = { ...entry };
+    const dt = entry.datetime ? new Date(entry.datetime) : null;
+    if (!dt || Number.isNaN(dt.getTime())) {
+      out.sunshine = null;
+      out.day_length = null;
+      return out;
+    }
+
+    let value;
+    let cap;
+    if (isHourly) {
+      const hourKey = localHourString(dt);
+      value = findInHourArray(hourlyValues, hourKey);
+      // One bar = one hour. The fraction calculation downstream uses
+      // value / day_length, so day_length = 1 keeps a fully sunny hour
+      // at fraction 1.0.
+      out.day_length = 1;
+      cap = 1;
+    } else {
+      const entryMidnight = new Date(dt);
+      entryMidnight.setHours(0, 0, 0, 0);
+      const dateKey = localDateString(entryMidnight);
+      out.day_length = dayLengthHours(latitude, entryMidnight);
+      value = findInDateArray(dailyValues, dateKey);
+      cap = out.day_length;
+    }
+
+    if (value != null) {
+      // Cap at the appropriate max so a misconfigured / over-long
+      // reading doesn't break the bar-fraction scaling downstream.
+      if (cap > 0 && value > cap) value = cap;
+      if (value < 0) value = 0;
+    }
+    out.sunshine = value;
+    return out;
+  });
+}
+
+// Convert (sunshine_h, dayLength_h) pairs into the 0..1 fractions that
+// the SunshineAxis bar dataset uses. Out-of-range pairs (null sunshine,
+// missing/zero day length) come out as null so Chart.js draws a gap
+// instead of a 0-height bar that would visually be a thin baseline
+// stripe.
+//
+// Used both at chart construction (drawChart) and on every data refresh
+// (updateChart) — extracted so the same logic doesn't drift between the
+// two call sites.
+function sunshineFractions(sunshineHours, dayLengthHoursArr) {
+  if (!Array.isArray(sunshineHours)) return [];
+  return sunshineHours.map((v, i) => {
+    if (v == null) return null;
+    const dl = Array.isArray(dayLengthHoursArr) ? dayLengthHoursArr[i] : null;
+    if (!Number.isFinite(dl) || dl <= 0) return null;
+    return Math.max(0, Math.min(1, v / dl));
+  });
+}
+
+// Compose the overlay opts from a Home Assistant `hass` object and an
+// OpenMeteo source instance, then run attachSunshine. Pure — testable
+// without instantiating LitElement / a real card.
+//
+// Inputs:
+//   - forecasts: pre-merged station+forecast array (each entry already
+//     has datetime).
+//   - hass: { config: { latitude } }.
+//   - source: an object exposing getDailyValues() / getHourlyValues().
+//     Typically an OpenMeteoSunshineSource instance.
+//   - granularity: 'daily' (default) or 'hourly'. Picks which array
+//     attachSunshine matches against.
+//
+// Output: new forecasts array with sunshine + day_length attached.
+function overlayFromOpenMeteo(forecasts, hass, source, granularity = 'daily') {
+  const lat = hass && hass.config ? hass.config.latitude : null;
+  const dailyValues = source && typeof source.getDailyValues === 'function'
+    ? source.getDailyValues()
+    : null;
+  const hourlyValues = source && typeof source.getHourlyValues === 'function'
+    ? source.getHourlyValues()
+    : null;
+  return attachSunshine(forecasts, {
+    dailyValues,
+    hourlyValues,
+    latitude: Number.isFinite(lat) ? lat : null,
+    granularity,
+  });
+}
+
 // Returns the CSS string for the card's <style> block. Pulled out of the
 // main render() template so render() stays readable. The handful of
 // values that depend on config (icon sizes, font sizes, chart height) are
@@ -3072,6 +3717,7 @@ function createDailyTickLabelsPlugin({
   style,
   stationCount,
   doubledToday,
+  sunshineLabelBand = 0,
 }) {
   const showDateRow = config.forecast.show_date !== false;
   return {
@@ -3110,17 +3756,22 @@ function createDailyTickLabelsPlugin({
           : x;
 
         c.font = `${fontSize}px Helvetica, Arial, sans-serif`;
+        // sunshineLabelBand reserves a strip at the bottom of the
+        // axis area for the sunshine "Xh" box to draw into. Date and
+        // weekday move UP by the band height so the order from top to
+        // bottom stays: weekday → date → sunshine box → chart data.
+        const dateBaseY = xScale.bottom - 2 - sunshineLabelBand;
         if (showDateRow) {
           const dateLabel = d.toLocaleDateString(language, {
             day: '2-digit',
             month: '2-digit',
           });
           c.fillStyle = dateColor;
-          c.fillText(dateLabel, labelX, xScale.bottom - 2);
+          c.fillText(dateLabel, labelX, dateBaseY);
         }
         c.font = `${isToday ? 'bold ' : ''}${fontSize}px Helvetica, Arial, sans-serif`;
         c.fillStyle = weekdayColor;
-        const weekdayY = showDateRow ? xScale.bottom - 2 - lineH : xScale.bottom - 2;
+        const weekdayY = showDateRow ? dateBaseY - lineH : dateBaseY;
         c.fillText(weekday, labelX, weekdayY);
       }
       c.restore();
@@ -3172,6 +3823,12 @@ function createPrecipLabelPlugin({
       const baselineY = precipAxis ? precipAxis.getPixelForValue(0) : chart.chartArea.bottom;
       c.save();
       c.textBaseline = 'middle';
+      // Centre the box on the COLUMN, not on the bar — when sunshine is
+      // enabled, chart.js auto-groups precip into the left half of the
+      // column and we still want the mm label visually centered under
+      // the whole column. Falls back to bar.x if the x-scale isn't
+      // ready (defensive — chart-internal callers always have one).
+      const xScale = chart.scales.x;
       meta.data.forEach((bar, i) => {
         const value = data.precip[i];
         if (value == null || value <= 0) return;
@@ -3186,7 +3843,9 @@ function createPrecipLabelPlugin({
         const lineH = baseSize;
         const boxW = lineW + 2 * padX;
         const boxH = lineH + 2 * padY;
-        const cx = bar.x;
+        const cx = xScale && typeof xScale.getPixelForTick === 'function'
+          ? xScale.getPixelForTick(i)
+          : bar.x;
         const boxLeft = cx - boxW / 2;
         // Centre the box on the precip-axis baseline so the zero-line
         // runs through the middle of every label.
@@ -3209,6 +3868,103 @@ function createPrecipLabelPlugin({
         c.font = `${smallSize}px ${fontFamily}`;
         c.fillText(precipUnit, numberX + numberW + gap, lineCenterY);
       });
+      c.restore();
+    },
+  };
+}
+
+// Renders the sunshine-hours label per column at the top of the chart,
+// just below the weekday/date row in the x-axis area. Standalone from
+// chartjs-plugin-datalabels (which we already use for temperature) so
+// the label can sit OUTSIDE the data area — between xScale.bottom and
+// chartArea.top — without being clipped by the plot region.
+//
+// Reads from `data.sunshine` (hours, may be null) and `data.dayLength`
+// (hours, may be null). Skips columns where either is missing — the
+// dataset still draws an empty (zero-height) bar there silently.
+//
+// `Xh` rendered as the integer hours followed by 'h' at the same font
+// size as the precip number/unit pair, but as a single token so it stays
+// compact even on narrow columns.
+function createSunshineLabelPlugin({
+  config,
+  data,
+  textColor,
+  backgroundColor,
+  chartTextColor,
+  sunshineColor,
+  sunshinePerBarColor,
+  bandHeight,
+}) {
+  return {
+    id: 'sunshineLabel',
+    // afterDraw (not afterDatasetsDraw) so this runs *after* the
+    // dailyTickLabelsPlugin's afterDraw — that plugin fills the entire
+    // x-axis area with backgroundColor to mask Chart.js's default tick
+    // labels, which would otherwise clobber our "Xh" labels here.
+    afterDraw(chart) {
+      const xScale = chart.scales.x;
+      if (!xScale || !xScale.ticks) return;
+      const c = chart.ctx;
+      const baseSize = parseInt(config.forecast.labels_font_size) || 11;
+      const fontFamily = 'Helvetica, Arial, sans-serif';
+      // Draw inside the bottom strip of the x-axis box that draw.js's
+      // afterFit reserved for us. Vertically centred in that strip;
+      // horizontally on the column tick.
+      const reservedH = Number.isFinite(bandHeight) && bandHeight > 0
+        ? bandHeight
+        : Math.max(14, baseSize + 4);
+      // Centre the box on the bottom strip of the now-extended axis
+      // box (where dailyTickLabelsPlugin has reserved this band by
+      // shifting weekday + date upward).
+      const labelY = xScale.bottom - reservedH / 2;
+      c.save();
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      const padX = 3;
+      const padY = 1;
+      const lineH = baseSize;
+      for (let i = 0; i < xScale.ticks.length; i++) {
+        const value = data.sunshine ? data.sunshine[i] : null;
+        if (value == null) continue;
+        // Skip zero-sun days so the band stays calm (the bar is empty
+        // there too).
+        if (value <= 0) continue;
+        // ≥ 9.5 h: round to integer (decimals are noise at that magnitude,
+        // and "13.0h" is uglier than "13h" in a narrow column).
+        // < 9.5 h: one decimal, but strip a trailing .0 so "8.0h" → "8h".
+        const text = (() => {
+          if (value > 9) return `${Math.round(value)}h`;
+          const rounded = Math.round(value * 10) / 10;
+          return rounded % 1 === 0
+            ? `${Math.round(rounded)}h`
+            : `${rounded.toFixed(1)}h`;
+        })();
+
+        const x = xScale.getPixelForTick(i);
+        c.font = `${baseSize}px ${fontFamily}`;
+        const textW = c.measureText(text).width;
+        const boxW = textW + 2 * padX;
+        const boxH = lineH + 2 * padY;
+        const boxLeft = x - boxW / 2;
+        const boxTop = labelY - boxH / 2;
+
+        // Same boxed look as the precipitation label: chart-bg fill
+        // with the accent-colour border (sunshineColor here, precipColor
+        // in precipLabelPlugin). Per-column colour mirrors the bar so
+        // forecast columns get the lightened (45 %-alpha) tone, matching
+        // how precipLabelPlugin handles its own forecast colouring.
+        const stroke = (Array.isArray(sunshinePerBarColor) && sunshinePerBarColor[i])
+          || sunshineColor;
+        c.fillStyle = backgroundColor;
+        c.strokeStyle = stroke;
+        c.lineWidth = 1.5;
+        c.fillRect(boxLeft, boxTop, boxW, boxH);
+        c.strokeRect(boxLeft, boxTop, boxW, boxH);
+
+        c.fillStyle = chartTextColor || textColor;
+        c.fillText(text, x, labelY);
+      }
       c.restore();
     },
   };
@@ -18177,6 +18933,7 @@ function buildChart(ctx, {
   doubledToday,
   stationCount,
   style,
+  sunshineLabelBand,
 }) {
   return new Chart(ctx, {
     type: 'bar',
@@ -18192,6 +18949,16 @@ function buildChart(ctx, {
       scales: {
         x: {
           position: 'top',
+          // sunshineLabelBand > 0 grows the x-axis box by that many
+          // pixels — afterFit runs after Chart.js has measured the
+          // weekday/date label height, so adding to scale.height
+          // pushes chartArea.top down without overlapping the labels.
+          // The sunshineLabel plugin then draws the "Xh" label in
+          // that newly-reserved bottom strip, between the weekday/date
+          // row and the start of the data area.
+          afterFit: sunshineLabelBand > 0
+            ? (scale) => { scale.height += sunshineLabelBand; }
+            : undefined,
           border: { width: 0 },
           grid: {
             drawTicks: false,
@@ -18268,6 +19035,21 @@ function buildChart(ctx, {
             width: 0,
             color: style.getPropertyValue('--secondary-text-color') || dividerColor,
           },
+          grid: { display: false, drawTicks: false },
+          ticks: { display: false },
+        },
+        // Hidden axis used by the sunshine bar dataset. Values are in
+        // 0..1 (= sunshine_hours / day_length_hours); a clear day fills
+        // the chart's vertical range like a max-precip day does. Hidden
+        // because we already show the numeric "Xh" label per column —
+        // a redundant axis would just steal horizontal space.
+        SunshineAxis: {
+          position: 'right',
+          display: false,
+          min: 0,
+          suggestedMax: 1,
+          beginAtZero: true,
+          border: { width: 0 },
           grid: { display: false, drawTicks: false },
           ticks: { display: false },
         },
@@ -19745,6 +20527,11 @@ static getStubConfig(hass, unusedEntities, allEntities) {
       type: 'daily',
       number_of_forecasts: 8,
       disable_animation: false,
+      // v0.9 sunshine duration. Off by default. When enabled, the card
+      // fetches daily sunshine_duration from Open-Meteo directly using
+      // hass.config.latitude / longitude — no extra sensor setup.
+      show_sunshine: false,
+      sunshine_color: 'rgba(255, 193, 7, 1.0)',
     },
   };
 }
@@ -19794,6 +20581,10 @@ setConfig(config) {
       temperature1_color: 'rgba(255, 152, 0, 1.0)',
       temperature2_color: 'rgba(68, 115, 158, 1.0)',
       precipitation_color: 'rgba(132, 209, 253, 1.0)',
+      // v0.9 sunshine. Off by default to keep the chart unchanged for
+      // users who upgrade without configuring a sunshine sensor.
+      show_sunshine: false,
+      sunshine_color: 'rgba(255, 193, 7, 1.0)',
       condition_icons: true,
       show_wind_forecast: true,
       show_wind_arrow: true,
@@ -20010,6 +20801,10 @@ set hass(hass) {
     this._teardownStation();
     this._teardownForecast();
     this._teardownInitialScrollObserver();
+    if (this._sunshineSource) {
+      this._sunshineSource.abort();
+      this._sunshineSource = null;
+    }
     if (this._scrollUxTeardown) {
       this._scrollUxTeardown();
       this._scrollUxTeardown = null;
@@ -20043,7 +20838,14 @@ set hass(hass) {
     }
     this._stationCount = station.length;
     this._forecastCount = forecast.length;
-    this.forecasts = [...station, ...forecast];
+    this._ensureSunshineSource(effectiveCfg);
+    const granularity = effectiveCfg.forecast.type === 'hourly' ? 'hourly' : 'daily';
+    this.forecasts = overlayFromOpenMeteo(
+      [...station, ...forecast],
+      this._hass,
+      this._sunshineSource,
+      granularity,
+    );
     this.requestUpdate();
     // measureCard() recomputes forecastItems from the new this.forecasts
     // length and then redraws. Going through it (instead of calling
@@ -20054,6 +20856,58 @@ set hass(hass) {
     // shadow root. Skip the redraw in that window — firstUpdated() will
     // call measureCard() once the DOM is in place.
     if (this.shadowRoot) this.measureCard();
+  }
+
+  // Lazy-init the Open-Meteo source on first use, tear it down when the
+  // user toggles sunshine off, and trigger a fetch when the cache is
+  // stale (no-op if a fetch is already in flight). The source's
+  // listener calls _refreshForecasts again so the chart redraws once
+  // the data lands.
+  _ensureSunshineSource(effectiveCfg) {
+    const enabled = effectiveCfg && effectiveCfg.forecast
+      && effectiveCfg.forecast.show_sunshine === true;
+    if (!enabled) {
+      if (this._sunshineSource) {
+        this._sunshineSource.abort();
+        this._sunshineSource = null;
+      }
+      return;
+    }
+    const cfg = this._hass && this._hass.config;
+    const lat = cfg && Number.isFinite(cfg.latitude) ? cfg.latitude : null;
+    const lon = cfg && Number.isFinite(cfg.longitude) ? cfg.longitude : null;
+    if (lat == null || lon == null) return;
+
+    const includeHourly = effectiveCfg.forecast.type === 'hourly';
+
+    // Re-create when location or hourly-mode flag changes — the
+    // includeHourly flag determines whether the request URL carries
+    // `hourly=…`, so flipping it requires a fresh fetch.
+    const same = this._sunshineSource
+      && this._sunshineSource.latitude === lat
+      && this._sunshineSource.longitude === lon
+      && this._sunshineSource.includeHourly === includeHourly;
+    if (!same) {
+      if (this._sunshineSource) this._sunshineSource.abort();
+      const days = parseInt(effectiveCfg.days, 10) || 7;
+      const fcDays = parseInt(effectiveCfg.forecast_days, 10) || days;
+      this._sunshineSource = new OpenMeteoSunshineSource({
+        latitude: lat,
+        longitude: lon,
+        // +1 covers today's column when station block ends at today's
+        // local midnight (the entry has datetime today 00:00).
+        pastDays: Math.min(92, days + 1),
+        forecastDays: Math.min(16, fcDays + 1),
+        includeHourly,
+      });
+      this._sunshineSource.setListener((event) => {
+        // On a successful refresh, recompute the forecasts so the new
+        // sunshine values land on the entries — and redraw the chart.
+        if (event && event.ok) this._refreshForecasts();
+      });
+    }
+    // Fire-and-forget — the listener handles the redraw on completion.
+    this._sunshineSource.ensureFresh();
   }
 
   attachResizeObserver() {
@@ -20529,6 +21383,30 @@ _drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this)
             : precipColor,
   );
 
+  // Sunshine row toggle. Works in both daily and hourly modes — the
+  // OpenMeteoSunshineSource fetches `daily=…` and (when in hourly mode)
+  // also `hourly=…` from Open-Meteo in a single call, and
+  // attachSunshine matches each entry's datetime against the right
+  // array. The chart adds a second bar dataset; Chart.js auto-groups
+  // precip + sunshine side-by-side per column (precip left half,
+  // sunshine right half).
+  const isHourlyChart = config.forecast.type === 'hourly';
+  const showSunshine = config.forecast.show_sunshine === true;
+  // Per-column "Xh" / "0.5h" labels only in daily mode — at hourly the
+  // 168 narrow columns over a 7-day window can't fit a label per bar,
+  // and the bar height itself encodes the value.
+  const showSunshineLabels = showSunshine && !isHourlyChart;
+  const sunshineColor = config.forecast.sunshine_color || 'rgba(255, 193, 7, 1.0)';
+  const sunshineColorLight = lightenColor(sunshineColor);
+  const sunshinePerBarColor = (data.sunshine || []).map(
+    (_, i) => (hasBothBlocks && i >= stationCountForGap) ? sunshineColorLight
+            : (!hasBothBlocks && stationCountForGap === 0) ? sunshineColorLight
+            : sunshineColor,
+  );
+  // Convert raw hours into 0..1 fractions of day length. Null values
+  // pass through so the bar slot stays empty for missing data.
+  const sunshineFractionData = sunshineFractions(data.sunshine, data.dayLength);
+
   var datasets = [
     {
       label: this.ll('tempHi'),
@@ -20576,6 +21454,23 @@ _drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this)
       },
     },
   ];
+
+  if (showSunshine) {
+    datasets.push({
+      label: this.ll('sunshine'),
+      type: 'bar',
+      data: sunshineFractionData,
+      yAxisID: 'SunshineAxis',
+      borderColor: sunshinePerBarColor,
+      backgroundColor: sunshinePerBarColor,
+      barPercentage: 1.0,
+      categoryPercentage: 1.0,
+      // Hours label is drawn by createSunshineLabelPlugin at the top of
+      // the column — suppress chartjs-datalabels for this dataset so the
+      // bar itself stays clean.
+      datalabels: { display: function () { return false; } },
+    });
+  }
 
   const chart_text_color = (config.forecast.chart_text_color === 'auto') ? textColor : config.forecast.chart_text_color;
 
@@ -20630,22 +21525,40 @@ _drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this)
   // doubled-today only makes sense at daily — at hourly station and
   // forecast meet at "now" with a single separator line.
   const doubledToday = !isHourly && stationCount > 0 && forecastCount > 0;
+  // When sunshine is on, draw.js grows the x-axis box by sunshineLabelBand
+  // pixels via afterFit. dailyTickLabelsPlugin then shifts weekday + date
+  // up by that amount so the new bottom strip is free for the sunshine
+  // box. When sunshine is off, sunshineLabelBand stays 0 and chart
+  // layout is byte-identical to v0.8.
+  const labelsBaseSize = parseInt(config.forecast.labels_font_size) || 11;
+  const sunshineLabelBand = showSunshineLabels ? Math.max(16, labelsBaseSize + 6) : 0;
   const separatorPlugin = createSeparatorPlugin({
     stationCount, forecastCount, style, dividerColor,
     mode: isHourly ? 'hourly' : 'daily',
   });
   const dailyTickLabelsPlugin = createDailyTickLabelsPlugin({
     config, language, data, textColor, backgroundColor, style, stationCount, doubledToday,
+    sunshineLabelBand,
   });
   const precipLabelPlugin = createPrecipLabelPlugin({
     config, data, precipUnit, precipPerBarColor, precipColor, textColor, backgroundColor,
     chartTextColor: chart_text_color,
   });
 
+  const plugins = [separatorPlugin, dailyTickLabelsPlugin, precipLabelPlugin];
+  if (showSunshineLabels) {
+    plugins.push(createSunshineLabelPlugin({
+      config, data, textColor, backgroundColor,
+      chartTextColor: chart_text_color,
+      sunshineColor, sunshinePerBarColor,
+      bandHeight: sunshineLabelBand,
+    }));
+  }
+
   this._chartPhase = 'init';
   this.forecastChart = buildChart(ctx, {
     datasets,
-    plugins: [separatorPlugin, dailyTickLabelsPlugin, precipLabelPlugin],
+    plugins,
     data,
     config,
     language,
@@ -20659,6 +21572,7 @@ _drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this)
     doubledToday,
     stationCount,
     style,
+    sunshineLabelBand,
   });
   this._chartPhase = null;
 }
@@ -20670,6 +21584,10 @@ computeForecastData({ config, forecastItems } = this) {
     roundTemp: config.forecast.round_temp == true,
   });
   const precip = forecast.map((d) => d.precipitation);
+  // Sunshine columns. Each entry has a normalized hours value (or null
+  // when no source resolved) and a day_length the bar is scaled against.
+  const sunshine = forecast.map((d) => (d.sunshine != null ? d.sunshine : null));
+  const dayLength = forecast.map((d) => (d.day_length != null ? d.day_length : null));
 
   return {
     forecast,
@@ -20685,6 +21603,8 @@ computeForecastData({ config, forecastItems } = this) {
     // single-line, otherwise daily / two-line.
     tempLowAvailable: tempLow !== null,
     precip,
+    sunshine,
+    dayLength,
   };
 }
 
@@ -20700,6 +21620,12 @@ updateChart({ forecasts, forecastChart } = this) {
     forecastChart.data.datasets[0].data = data.tempHigh;
     forecastChart.data.datasets[1].data = data.tempLow;
     forecastChart.data.datasets[2].data = data.precip;
+    // Sunshine dataset is appended at index 3 only when the toggle is
+    // on — gate the update so we don't write into a non-existent slot
+    // for users who haven't enabled it.
+    if (forecastChart.data.datasets[3]) {
+      forecastChart.data.datasets[3].data = sunshineFractions(data.sunshine, data.dayLength);
+    }
     forecastChart.update();
   }
 }

@@ -3,6 +3,7 @@ const locale = {
     'tempHi': 'Teplota',
     'tempLo': 'Teplota v noci',
     'precip': 'Srážky',
+    'sunshine': 'Slunce',
     'feelsLike': 'Pocitová teplota',
     'units': {
       'km/h': 'km/h',
@@ -37,6 +38,7 @@ const locale = {
     'tempHi': 'Teplota',
     'tempLo': 'Teplota v noci',
     'precip': 'Zrážky',
+    'sunshine': 'Slunce',
     'feelsLike': 'Pocitová teplota',
     'units': {
       'km/h': 'km/h',
@@ -71,6 +73,7 @@ const locale = {
     'tempHi': 'Temperatur',
     'tempLo': 'Nachttemperatur',
     'precip': 'Niederschlag',
+    'sunshine': 'Sonne',
     'feelsLike': 'Gefühlt',
     'units': {
       'km/h': 'km/h',
@@ -162,6 +165,12 @@ const locale = {
       'show_chart_wind': 'Wind-Zeile',
       'show_chart_wind_arrow': 'Windrichtungs-Pfeil in der Wind-Zeile',
       'show_chart_date': 'Datum in der x-Achse',
+      'show_chart_sunshine': 'Sonnenstunden-Zeile',
+      'show_chart_sunshine_hint': 'Holt Sonnenscheindauer direkt von Open-Meteo (Standort aus Home Assistant). Keine zusätzlichen Sensoren nötig. In der Tagesansicht mit "Xh"-Beschriftung, im Stundenmodus nur als Balken (volle Höhe = volle Stunde Sonne).',
+      'sunshine_availability': 'Sonnenstunden-Daten verfügbar: {past} Tage Vergangenheit, {future} Tage Vorhersage (Open-Meteo).',
+      'sunshine_availability_pending': 'Sonnenstunden: Daten werden geladen — speichere und öffne den Editor erneut.',
+      'sunshine_availability_warning': 'Konfigurierte Vorhersage-Tage ({req}) übersteigen Open-Meteo-Verfügbarkeit — die letzten {gap} Spalten zeigen leere Sonnenstunden-Balken.',
+      'sunshine_color': 'Sonnenstunden-Farbe',
       'chart_style': 'Diagramm-Stil',
       'chart_style_without_boxes': 'Ohne Boxen (Standard)',
       'chart_style_with_boxes': 'Mit Boxen',
@@ -195,6 +204,7 @@ const locale = {
     'tempHi': 'Temperatuur',
     'tempLo': 'Nachttemperatuur',
     'precip': 'Neerslag',
+    'sunshine': 'Zon',
     'feelsLike': 'Voelt als',
     'units': {
       'km/h': 'km/h',
@@ -229,6 +239,7 @@ const locale = {
     'tempHi': 'Temperature',
     'tempLo': 'Temperature night',
     'precip': 'Precipitations',
+    'sunshine': 'Sunshine',
     'feelsLike': 'Feels like',
     'units': {
       'km/h': 'km/h',
@@ -331,6 +342,12 @@ const locale = {
       'show_chart_wind': 'Wind row',
       'show_chart_wind_arrow': 'Wind direction arrow in wind row',
       'show_chart_date': 'Date in chart x-axis',
+      'show_chart_sunshine': 'Sunshine row',
+      'show_chart_sunshine_hint': 'Fetches sunshine duration directly from Open-Meteo (using Home Assistant\'s configured location). No additional sensors required. Daily mode shows "Xh" labels per column; hourly mode shows bars only (full bar = full hour of sun).',
+      'sunshine_availability': 'Sunshine data available: {past} past days, {future} forecast days (Open-Meteo).',
+      'sunshine_availability_pending': 'Sunshine: data still loading — save and reopen the editor.',
+      'sunshine_availability_warning': 'Configured forecast_days ({req}) exceeds Open-Meteo availability — the last {gap} columns will show empty sunshine bars.',
+      'sunshine_color': 'Sunshine colour',
       // Style fields
       'chart_style': 'Chart style',
       'chart_style_without_boxes': 'Without boxes (standard)',
@@ -366,6 +383,7 @@ const locale = {
     'tempHi': 'Temperatura máxima',
     'tempLo': 'Temperatura mínima',
     'precip': 'Precipitación',
+    'sunshine': 'Sol',
     'feelsLike': 'Sensación térmica',
     'units': {
       'km/h': 'km/h',
@@ -400,6 +418,7 @@ const locale = {
     'tempHi': 'Lämpötila ylin',
     'tempLo': 'Lämpötila alin',
     'precip': 'Sademäärä',
+    'sunshine': 'Aurinko',
     'feelsLike': 'Tuntuu kuin',
     'units': {
       'km/h': 'km/h',
@@ -434,6 +453,7 @@ const locale = {
     'tempHi': 'Max. hőmérséklet',
     'tempLo': 'Min. hőmérséklet',
     'precip': 'Csapadék',
+    'sunshine': 'Nap',
     'feelsLike': 'Hőérzet',
     'units': {
       'km/h': 'km/h',
@@ -468,6 +488,7 @@ const locale = {
     'tempHi': 'Температура',
     'tempLo': 'Температура ночью',
     'precip': 'Осадки',
+    'sunshine': 'Солнце',
     'feelsLike': 'Ощущается как',
     'units': {
       'km/h': 'км/ч',
@@ -502,6 +523,7 @@ const locale = {
     'tempHi': 'Temperatur max',
     'tempLo': 'Temperatur min',
     'precip': 'Nederbörd',
+    'sunshine': 'Sol',
     'feelsLike': 'Känns som',
     'units': {
         'km/h': 'km/h',
@@ -536,6 +558,7 @@ const locale = {
     'tempHi': 'Température max',
     'tempLo': 'Température min',
     'precip': 'Précipitations',
+    'sunshine': 'Soleil',
     'feelsLike': 'Ressenti',
     'units': {
       'km/h': 'km/h',
@@ -570,6 +593,7 @@ const locale = {
     'tempHi': 'Temperatura',
     'tempLo': 'Temperatura w nocy',
     'precip': 'Opady',
+    'sunshine': 'Słońce',
     'feelsLike': 'Odczuwalna',
     'units': {
       'km/h': 'km/h',
@@ -604,6 +628,7 @@ const locale = {
     'tempHi': 'Maksimumstemperatur',
     'tempLo': 'Minimumstemperatur',
     'precip': 'Nedbør',
+    'sunshine': 'Sol',
     'feelsLike': 'Føles som',
     'units': {
       'km/h': 'km/t',
@@ -638,6 +663,7 @@ const locale = {
     'tempHi': 'Temperatur',
     'tempLo': 'Nattemperatur',
     'precip': 'Nedbør',
+    'sunshine': 'Sol',
     'feelsLike': 'Føles som',
     'units': {
       'km/h': 'km/h',
@@ -672,6 +698,7 @@ const locale = {
     'tempHi': 'Temperatura massima',
     'tempLo': 'Temperatura notte',
     'precip': 'Precipitazioni',
+    'sunshine': 'Sole',
     'feelsLike': 'Percepito come',
     'units': {
       'km/h': 'km/h',
@@ -706,6 +733,7 @@ const locale = {
     'tempHi': 'Temperatura máxima',
     'tempLo': 'Temperatura noite',
     'precip': 'Precipitação',
+    'sunshine': 'Sol',
     'feelsLike': 'Sensação Térmica',
     'units': {
       'km/h': 'km/h',
@@ -740,6 +768,7 @@ const locale = {
     'tempHi': 'Μέγιστη θερμοκρασία',
     'tempLo': 'Ελάχιστη θερμοκρασία νύχτας',
     'precip': 'Υετός',
+    'sunshine': 'Ήλιος',
     'feelsLike': 'Αίσθηση σαν',
     'units': {
       'km/h': 'χλμ/ώρα',
@@ -774,6 +803,7 @@ const locale = {
     'tempHi': 'Максимална температура',
     'tempLo': 'Минимална температура',
     'precip': 'Валежи',
+    'sunshine': 'Солнце',
     'feelsLike': 'Усеща се като',
     'units': {
       'km/h': 'км/ч',
@@ -808,6 +838,7 @@ const locale = {
     'tempHi': 'Dieną',
     'tempLo': 'Naktį',
     'precip': 'Krituliai',
+    'sunshine': 'Saulė',
     'feelsLike': 'Jaučiama',
     'units': {
       'km/h': 'km/h',
@@ -842,6 +873,7 @@ const locale = {
     'tempHi': 'Temperatura màxima',
     'tempLo': 'Temperatura mínima',
     'precip': 'Precipitació',
+    'sunshine': 'Sol',
     'feelsLike': 'Sensació tèrmica',
     'units': {
       'km/h': 'km/h',
@@ -876,6 +908,7 @@ const locale = {
     'tempHi': 'Temperatură',
     'tempLo': 'Temperatură noaptea',
     'precip': 'Precipitații',
+    'sunshine': 'Soare',
     'feelsLike': 'Se simte ca',
     'units': {
       'km/h': 'km/h',
@@ -910,6 +943,7 @@ const locale = {
     'tempHi': 'Температура',
     'tempLo': 'Температура вночі',
     'precip': 'Опади',
+    'sunshine': 'Солнце',
     'feelsLike': 'Відчувається як',
     'units': {
       'km/h': 'км/год',
@@ -944,6 +978,7 @@ const locale = {
     'tempHi': '최고 기온',
     'tempLo': '최저 기온',
     'precip': '강수',
+    'sunshine': '햇빛',
     'feelsLike': '체감',
     'units': {
       'km/h': 'km/h',
