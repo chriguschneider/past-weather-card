@@ -30,11 +30,25 @@ Conditions are derived by a deterministic, meteorologically-grounded
 classifier (see [How conditions are determined](#how-conditions-are-determined)
 below — every threshold is tied to a WMO / NWS / AMS / IES source).
 
-## Combining station history and forecast (v0.5+)
+## Three modes (v0.5+)
 
-Since v0.5 this card can render both blocks **in a single chart**: past
-N days from your sensors on the left, today as a doubled column
-(measured aggregate + forecast), forecast N days on the right.
+The same card renders three distinct layouts depending on which blocks
+are enabled:
+
+![Combination, station-only, forecast-only side by side](images/modes-comparison.png)
+
+> **Combination** (left): past N days from your sensors + today as a
+> doubled column (measured + predicted) + forecast N days from a
+> `weather.*` entity. Forecast temperature lines are dashed and
+> forecast precipitation bars draw at ~45 % opacity so predicted values
+> read distinctly from measured ones.
+>
+> **Station** (centre): the original layout — past 7 days from your
+> sensors, today as the rightmost column. No `weather.*` entity needed.
+>
+> **Forecast** (right): forecast-only — no station-history block. Useful
+> when the card is paired with another sensor-history visualisation
+> elsewhere on the dashboard.
 
 ```yaml
 type: custom:weather-station-card
@@ -48,26 +62,9 @@ show_forecast: true            # turn the forecast block on
 show_station: true             # default; flip to false for forecast-only
 ```
 
-The doubled-today column ("Soll vs. Ist") is framed by two vertical
-separators with no line between them. Forecast temperature lines are
-dashed and forecast precipitation bars use ~45 % opacity so predicted
-values read distinctly from measured ones at a glance. Both blocks can
-be toggled independently — leave `show_forecast: false` (the default)
-for the original station-only experience, or set `show_station: false`
-to hide the historical block.
-
-## Sibling card for forecast-only setups
-
-If you want a *standalone* forecast chart in the same visual style (no
-station block, no doubled-today), use
-[`chriguschneider/weather-chart-card`](https://github.com/chriguschneider/weather-chart-card)
-— a fork of `mlamberts78/weather-chart-card` with the visuals from this
-card ported across:
-
-![Station and forecast side by side](images/sibling-comparison.png)
-
-> Left: this card — past 7 days, driven by sensor history.
-> Right: [`weather-chart-card`](https://github.com/chriguschneider/weather-chart-card) — daily forecast, driven by a `weather.*` entity.
+Both blocks toggle independently — leave `show_forecast: false` (the
+default) for the original station-only experience, or set
+`show_station: false` to hide the historical block.
 
 ## Screenshots
 
