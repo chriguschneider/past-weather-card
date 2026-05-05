@@ -1303,15 +1303,15 @@ updateChart({ forecasts, forecastChart } = this) {
             </div>
             ${this.renderModeToggle()}
             ${scrolling ? html`
-              <button class="scroll-indicator scroll-indicator-left" aria-label="Scroll left" hidden>
-                <ha-icon icon="mdi:chevron-left"></ha-icon>
+              <button type="button" class="scroll-indicator scroll-indicator-left" aria-label="Scroll left" hidden>
+                <ha-icon icon="mdi:chevron-left" aria-hidden="true"></ha-icon>
               </button>
-              <button class="scroll-indicator scroll-indicator-right" aria-label="Scroll right" hidden>
-                <ha-icon icon="mdi:chevron-right"></ha-icon>
+              <button type="button" class="scroll-indicator scroll-indicator-right" aria-label="Scroll right" hidden>
+                <ha-icon icon="mdi:chevron-right" aria-hidden="true"></ha-icon>
               </button>
-              <button class="jump-to-now" aria-label="Jump to now" title="Jump to now" hidden
+              <button type="button" class="jump-to-now" aria-label="Jump to now" title="Jump to now" hidden
                 @click=${this._onJumpToNowClick}>
-                <ha-icon icon="mdi:crosshairs-gps"></ha-icon>
+                <ha-icon icon="mdi:crosshairs-gps" aria-hidden="true"></ha-icon>
               </button>
             ` : ''}
             ${scrolling && config.forecast.type === 'hourly' ? html`
@@ -1919,9 +1919,10 @@ _convertWindSpeed(raw) {
     const icon = isHourly ? 'mdi:calendar-month-outline' : 'mdi:clock-time-eight-outline';
     const label = isHourly ? 'Switch to daily forecast' : 'Switch to hourly forecast';
     return html`
-      <button class="mode-toggle" aria-label="${label}" title="${label}"
+      <button type="button" class="mode-toggle" aria-label="${label}"
+              aria-pressed="${isHourly ? 'true' : 'false'}" title="${label}"
               @click=${this._onModeToggleClick}>
-        <ha-icon icon=${icon}></ha-icon>
+        <ha-icon icon=${icon} aria-hidden="true"></ha-icon>
       </button>
     `;
   }
