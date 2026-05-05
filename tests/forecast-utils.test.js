@@ -138,7 +138,13 @@ describe('hourlyTempSeries', () => {
     });
   });
 
-  it('returns null when templow is mixed (defensive)', () => {
+  // v1.0.1 regression: previously a single missing templow killed the
+  // whole low-temp dataset (combination + station modes hid the second
+  // line on any past day where the recorder had no `min` reading).
+  // New rule: tempLow is null only when NO entry has templow (pure
+  // hourly). Otherwise gaps are individual nulls in the array, which
+  // Chart.js renders as line breaks — preserving the rest.
+  it('keeps tempLow as a positional array with null in the missing slot', () => {
     const entries = [
       { temperature: 22, templow: 11 },
       { temperature: 24 }, // missing
@@ -146,13 +152,23 @@ describe('hourlyTempSeries', () => {
     ];
     const out = hourlyTempSeries(entries);
     expect(out.tempHigh).toEqual([22, 24, 25]);
-    expect(out.tempLow).toBeNull();
+    expect(out.tempLow).toEqual([11, null, 14]);
   });
 
-  it('treats explicit null templow the same as missing', () => {
+  it('treats explicit null templow as a gap, not a kill-switch', () => {
     const entries = [
       { temperature: 22, templow: 11 },
       { temperature: 24, templow: null },
+    ];
+    const out = hourlyTempSeries(entries);
+    expect(out.tempLow).toEqual([11, null]);
+  });
+
+  it('returns tempLow null only when EVERY entry lacks templow', () => {
+    const entries = [
+      { temperature: 22 },
+      { temperature: 24 },
+      { temperature: 25 },
     ];
     expect(hourlyTempSeries(entries).tempLow).toBeNull();
   });

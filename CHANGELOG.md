@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] — 2026-05-06
+
+### Fixed
+
+- **Low-temperature line restored in daily mode.** Since v0.8 the
+  `hourlyTempSeries` helper used an "all-or-nothing" rule: if **any**
+  past day had a missing `min` reading from the recorder (sensor
+  offline, fresh sensor with no history yet, etc.), the entire
+  low-temp dataset was returned as `null` and the chart hid the
+  second blue line in combination + station modes. Now individual
+  missing days render as gaps in the line; the dataset is hidden
+  only when **no** entry carries `templow` (pure hourly). Forecast-
+  only mode was unaffected because weather integrations populate
+  `templow` for every day.
+
+  Test surface: existing `hourlyTempSeries` tests updated, +1 new
+  test ("returns tempLow null only when EVERY entry lacks templow").
+
 ## [1.0.0] — 2026-05-06
 
 A user-visible quality release: faster card, real test coverage gate,
