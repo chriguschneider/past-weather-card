@@ -19995,10 +19995,7 @@ set hass(hass) {
     this.detachResizeObserver();
     this._teardownStation();
     this._teardownForecast();
-    if (this._pendingScrollFrame) {
-      cancelAnimationFrame(this._pendingScrollFrame);
-      this._pendingScrollFrame = null;
-    }
+    this._teardownInitialScrollObserver();
     if (this._scrollUxTeardown) {
       this._scrollUxTeardown();
       this._scrollUxTeardown = null;
@@ -21512,24 +21509,19 @@ _convertWindSpeed(raw) {
     }
     if (!needsReset) return;
 
-    // Lit's updateComplete guarantees DOM commit but NOT that browser
-    // layout has measured the .forecast-content's `width: <ratio>%`
-    // CSS, NOR that Chart.js has finished sizing the canvas inside
-    // it — at the first rAF wrapper.scrollWidth can still equal
-    // clientWidth, which makes computeInitialScrollLeft early-return 0
-    // and pins a left-edge position via _initialScrollApplied. Retry
-    // until the wrapper actually overflows, with a hard cap so we
-    // can't loop forever if something is wrong.
-    if (this._pendingScrollFrame) cancelAnimationFrame(this._pendingScrollFrame);
-    let retriesLeft = 30; // ~0.5 s at 60 fps — far past any sensible Chart.js settle time
-    const tryApply = () => {
-      this._pendingScrollFrame = null;
-      if (!wrapper.isConnected) return;
-      if (wrapper.scrollWidth <= wrapper.clientWidth && retriesLeft > 0) {
-        retriesLeft -= 1;
-        this._pendingScrollFrame = requestAnimationFrame(tryApply);
-        return;
-      }
+    // Tear down any in-flight observer / frame from a previous call —
+    // e.g. when the user flips forecast.type while a previous settle
+    // wait is still pending.
+    this._teardownInitialScrollObserver();
+
+    const apply = () => {
+      if (!wrapper.isConnected) return false;
+      // Lit's updateComplete guarantees DOM commit but NOT that browser
+      // layout has measured the .forecast-content's `width: <ratio>%`
+      // CSS, NOR that Chart.js has finished sizing the canvas inside
+      // it — at the first paint scrollWidth can still equal clientWidth,
+      // which makes computeInitialScrollLeft early-return 0.
+      if (wrapper.scrollWidth <= wrapper.clientWidth) return false;
       const scrollLeft = computeInitialScrollLeft({
         stationCount: this._stationCount || 0,
         forecastCount: this._forecastCount || 0,
@@ -21539,8 +21531,43 @@ _convertWindSpeed(raw) {
       wrapper.scrollLeft = scrollLeft;
       this._initialScrollApplied = true;
       this._lastScrollGeneration = generationKey;
+      return true;
     };
-    this._pendingScrollFrame = requestAnimationFrame(tryApply);
+
+    // Best case: layout already settled. Otherwise observe the inner
+    // content for size changes — that fires once Chart.js's canvas
+    // settles and the wrapper actually overflows. Hard cap (1 s after
+    // dataReady) so we don't observe forever if the wrapper never
+    // overflows for some reason.
+    if (apply()) return;
+
+    const content = wrapper.querySelector('.forecast-content');
+    if (!content || typeof ResizeObserver === 'undefined') {
+      this._pendingScrollFrame = requestAnimationFrame(() => {
+        this._pendingScrollFrame = null;
+        apply();
+      });
+      return;
+    }
+    const startedAt = Date.now();
+    const observer = new ResizeObserver(() => {
+      if (Date.now() - startedAt > 1000 || apply()) {
+        this._teardownInitialScrollObserver();
+      }
+    });
+    observer.observe(content);
+    this._initialScrollObserver = observer;
+  }
+
+  _teardownInitialScrollObserver() {
+    if (this._initialScrollObserver) {
+      this._initialScrollObserver.disconnect();
+      this._initialScrollObserver = null;
+    }
+    if (this._pendingScrollFrame) {
+      cancelAnimationFrame(this._pendingScrollFrame);
+      this._pendingScrollFrame = null;
+    }
   }
 
   _runAction(actionConfig) {

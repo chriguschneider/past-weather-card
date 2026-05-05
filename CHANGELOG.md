@@ -4,6 +4,31 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] — 2026-05-05
+
+### Changed
+
+- CI: bumped `actions/checkout` and `actions/setup-node` to `v6`,
+  `softprops/action-gh-release` to `v3`, and the runner Node version
+  from `20` to `22` LTS — ahead of the GitHub Actions Node 20
+  deprecation (Node 24 default 2026-06-02, Node 20 removal
+  2026-09-16). Closes
+  [#8](https://github.com/chriguschneider/weather-station-card/issues/8).
+- `_maybeApplyInitialScroll` no longer polls `requestAnimationFrame`
+  for up to 30 frames waiting for layout to settle. It tries once
+  synchronously after Lit's `updateComplete`; if the wrapper hasn't
+  overflowed yet, a `ResizeObserver` on `.forecast-content` fires
+  exactly when Chart.js finishes sizing the canvas. Hard 1 s cap
+  prevents observer leaks if the wrapper never overflows. Cheaper
+  on slow devices and avoids the corner case where the 30-frame
+  retry budget ran out before Chart.js settled.
+
+### Docs
+
+- README "Known limitations" links the hourly-classifier-thresholds
+  row to [#7](https://github.com/chriguschneider/weather-station-card/issues/7)
+  instead of the bare "v0.9 follow-up" placeholder.
+
 ## [0.8.0] — 2026-05-05
 
 ### Added
