@@ -21,6 +21,7 @@ import { overlayFromOpenMeteo, sunshineFractions } from './sunshine-source.js';
 import { OpenMeteoSunshineSource } from './openmeteo-source.js';
 import { safeQuery } from './utils/safe-query.js';
 import { parseNumericSafe } from './utils/numeric.js';
+import { setupScrollUx } from './scroll-ux.js';
 import { cardStyles } from './chart/styles.js';
 import {
   createSeparatorPlugin,
@@ -823,7 +824,7 @@ async updated(changedProperties) {
   // makes this idempotent on stable elements.
   this._setupActionHandler();
   this._maybeApplyInitialScroll(changedProperties);
-  this._setupScrollUx();
+  setupScrollUx(this);
 
   if (changedProperties.has('config')) {
     const oldConfig = changedProperties.get('config');
@@ -1320,8 +1321,7 @@ updateChart({ forecasts, forecastChart } = this) {
               <button type="button" class="scroll-indicator scroll-indicator-right" aria-label="Scroll right" hidden>
                 <ha-icon icon="mdi:chevron-right" aria-hidden="true"></ha-icon>
               </button>
-              <button type="button" class="jump-to-now" aria-label="Jump to now" title="Jump to now" hidden
-                @click=${this._onJumpToNowClick}>
+              <button type="button" class="jump-to-now" aria-label="Jump to now" title="Jump to now" hidden>
                 <ha-icon icon="mdi:crosshairs-gps" aria-hidden="true"></ha-icon>
               </button>
             ` : ''}
@@ -1718,340 +1718,6 @@ _convertWindSpeed(raw) {
     return event;
   }
 
-  // Mirror of HA's frontend handle-action helper, scoped to the actions
-  // the editor exposes via ha-selector ui_action: more-info, navigate,
-  // url, toggle, perform-action (a.k.a. call-service) and assist.
-  // 'none' / unconfigured actions are no-ops. We don't import HA's
-  // handle-action to avoid a runtime dependency on an internal module
-  // path that has changed names across HA versions.
-  // Wire up scroll-related UX on the .forecast-scroll wrapper:
-  //   - mouse drag-to-scroll on desktop (touch keeps native scrolling)
-  //   - left/right indicator buttons that scroll one viewport at a time
-  //   - indicator visibility tracking via the wrapper's scroll event
-  //
-  // Idempotent on stable elements via a per-element flag — Lit reuses
-  // the wrapper across data refreshes, so we don't want to re-bind on
-  // every render. Cleanup teardown is stored on `this` so disconnect
-  // can detach.
-  _setupScrollUx() {
-    const wrapper = safeQuery(this.shadowRoot,'.forecast-scroll.scrolling');
-    if (!wrapper) {
-      // Non-scrolling render (daily default fits all). Detach any
-      // previously bound handlers so a daily↔hourly toggle doesn't leak.
-      if (this._scrollUxTeardown) {
-        this._scrollUxTeardown();
-        this._scrollUxTeardown = null;
-      }
-      return;
-    }
-    if (wrapper._wsScrollUxBound) {
-      // Same element, already bound — only refresh indicator visibility
-      // (which depends on current scrollLeft / scrollWidth).
-      this._updateScrollIndicators();
-      return;
-    }
-    wrapper._wsScrollUxBound = true;
-
-    const block = wrapper.parentElement; // .forecast-scroll-block
-    const leftBtn = block && block.querySelector('.scroll-indicator-left');
-    const rightBtn = block && block.querySelector('.scroll-indicator-right');
-
-    // ── Drag-to-scroll + tap suppression ──────────────────────────────
-    // We listen to ALL pointer types so a swipe / drag — whether mouse
-    // or touch — sets `this._dragMoved`, which the action handler on
-    // ha-card checks before firing tap_action / hold_action. Without
-    // that gate, a horizontal touch-swipe to scroll the chart on mobile
-    // would also fire the configured tap action on pointerup.
-    //
-    // The actual scrollLeft manipulation (and pointer capture) is still
-    // mouse-only — touch falls through to the native `overflow-x: auto`
-    // scroll, and calling preventDefault or capturing the pointer
-    // would interfere with that native gesture.
-    const DRAG_THRESHOLD = 5;
-    let isDown = false;
-    let dragMoved = false;
-    let startX = 0;
-    let startScrollLeft = 0;
-    let activePointerId = null;
-
-    const onPointerDown = (ev) => {
-      isDown = true;
-      dragMoved = false;
-      activePointerId = ev.pointerId;
-      startX = ev.clientX;
-      startScrollLeft = wrapper.scrollLeft;
-      if (ev.pointerType === 'mouse') {
-        try { wrapper.setPointerCapture(ev.pointerId); } catch (_) { /* not always supported */ }
-      }
-    };
-
-    const onPointerMove = (ev) => {
-      if (!isDown || ev.pointerId !== activePointerId) return;
-      const dx = ev.clientX - startX;
-      if (!dragMoved && Math.abs(dx) > DRAG_THRESHOLD) {
-        dragMoved = true;
-        // Shared with the action handler so that a drag/swipe gesture
-        // doesn't also fire a tap_action on pointerup.
-        this._dragMoved = true;
-        wrapper.classList.add('dragging');
-      }
-      if (dragMoved && ev.pointerType === 'mouse') {
-        wrapper.scrollLeft = startScrollLeft - dx;
-        ev.preventDefault();
-      }
-    };
-
-    const onPointerEnd = (ev) => {
-      if (!isDown || (ev && ev.pointerId !== activePointerId)) return;
-      isDown = false;
-      activePointerId = null;
-      wrapper.classList.remove('dragging');
-      // pointercancel from the browser claiming the gesture for native
-      // scroll counts as a drag, even if our pointermove threshold
-      // wasn't crossed yet — any pointerup that may bubble up to the
-      // ha-card afterwards must skip its tap-detection branch.
-      if (ev && ev.type === 'pointercancel') {
-        dragMoved = true;
-        this._dragMoved = true;
-      }
-      if (dragMoved) {
-        // Reset via setTimeout(0) — a macrotask, not a microtask. The
-        // ha-card's pointerup listener bubbles up AFTER this one in the
-        // same event dispatch, and microtasks flush between listener
-        // invocations in V8/Blink, so a Promise.resolve().then(reset)
-        // would fire before the action handler reads the flag and the
-        // tap would still trigger. setTimeout(0) defers the reset to
-        // the next macrotask, after the entire event dispatch is done.
-        setTimeout(() => { this._dragMoved = false; }, 0);
-      }
-    };
-
-    wrapper.addEventListener('pointerdown', onPointerDown);
-    wrapper.addEventListener('pointermove', onPointerMove);
-    wrapper.addEventListener('pointerup', onPointerEnd);
-    wrapper.addEventListener('pointercancel', onPointerEnd);
-
-    // ── Indicator click ───────────────────────────────────────────────
-    // stopPropagation prevents the action handler (bound on ha-card)
-    // from interpreting the indicator click as a card-level tap.
-    const stepBy = 0.85; // scroll about one viewport, leave a hint of overlap
-    const onLeftClick = (ev) => {
-      ev.stopPropagation();
-      wrapper.scrollBy({ left: -wrapper.clientWidth * stepBy, behavior: 'smooth' });
-    };
-    const onRightClick = (ev) => {
-      ev.stopPropagation();
-      wrapper.scrollBy({ left: wrapper.clientWidth * stepBy, behavior: 'smooth' });
-    };
-    const stopDown = (ev) => ev.stopPropagation();
-    if (leftBtn) {
-      leftBtn.addEventListener('click', onLeftClick);
-      leftBtn.addEventListener('pointerdown', stopDown);
-    }
-    if (rightBtn) {
-      rightBtn.addEventListener('click', onRightClick);
-      rightBtn.addEventListener('pointerdown', stopDown);
-    }
-
-    // ── Indicator visibility on scroll ───────────────────────────────
-    const onScroll = () => this._updateScrollIndicators();
-    wrapper.addEventListener('scroll', onScroll, { passive: true });
-    this._updateScrollIndicators();
-
-    this._scrollUxTeardown = () => {
-      wrapper.removeEventListener('pointerdown', onPointerDown);
-      wrapper.removeEventListener('pointermove', onPointerMove);
-      wrapper.removeEventListener('pointerup', onPointerEnd);
-      wrapper.removeEventListener('pointercancel', onPointerEnd);
-      wrapper.removeEventListener('scroll', onScroll);
-      if (leftBtn) {
-        leftBtn.removeEventListener('click', onLeftClick);
-        leftBtn.removeEventListener('pointerdown', stopDown);
-      }
-      if (rightBtn) {
-        rightBtn.removeEventListener('click', onRightClick);
-        rightBtn.removeEventListener('pointerdown', stopDown);
-      }
-      wrapper.classList.remove('dragging');
-      wrapper._wsScrollUxBound = false;
-    };
-  }
-
-  _updateScrollIndicators() {
-    const block = safeQuery(this.shadowRoot,'.forecast-scroll-block');
-    if (!block) return;
-    const wrapper = block.querySelector('.forecast-scroll.scrolling');
-    if (!wrapper) return;
-    const left = block.querySelector('.scroll-indicator-left');
-    const right = block.querySelector('.scroll-indicator-right');
-    if (left && right) {
-      const slop = 1; // sub-pixel rounding tolerance
-      const max = wrapper.scrollWidth - wrapper.clientWidth;
-      if (wrapper.scrollLeft > slop) left.removeAttribute('hidden');
-      else left.setAttribute('hidden', '');
-      if (wrapper.scrollLeft < max - slop) right.removeAttribute('hidden');
-      else right.setAttribute('hidden', '');
-    }
-    // Jump-to-now visibility — hidden when current scrollLeft is within
-    // ~10% of one viewport width of the canonical "now" position. The
-    // threshold is relative so it scales with display size; phones get a
-    // tighter band than desktops in absolute pixels.
-    const jump = block.querySelector('.jump-to-now');
-    if (jump) {
-      const target = computeInitialScrollLeft({
-        stationCount: this._stationCount || 0,
-        forecastCount: this._forecastCount || 0,
-        contentWidth: wrapper.scrollWidth,
-        viewportWidth: wrapper.clientWidth,
-      });
-      const offset = Math.abs(wrapper.scrollLeft - target);
-      const threshold = Math.max(20, wrapper.clientWidth * 0.1);
-      if (offset > threshold) jump.removeAttribute('hidden');
-      else jump.setAttribute('hidden', '');
-    }
-    this._updateScrollDateStamps(block, wrapper);
-  }
-
-  // Renders the daily ↔ hourly mode toggle as a small circular button
-  // overlaid at the top-left of the forecast-scroll-block. Only visible
-  // when there's a forecast block to switch (otherwise the toggle has
-  // no effect — the station block alone runs at the configured forecast
-  // type but the user can't see the difference without forecast data
-  // to compare against).
-  renderModeToggle() {
-    const cfg = this.config || {};
-    // forecast.type drives both MeasuredDataSource (period: hour|day)
-    // and ForecastDataSource (forecast_type) — toggling is meaningful
-    // whenever ANY block renders, including station-only.
-    const showsStation = cfg.show_station !== false;
-    const showsForecast = cfg.show_forecast === true && !!cfg.weather_entity;
-    if (!showsStation && !showsForecast) return '';
-    const isHourly = (cfg.forecast || {}).type === 'hourly';
-    const icon = isHourly ? 'mdi:calendar-month-outline' : 'mdi:clock-time-eight-outline';
-    const label = isHourly ? 'Switch to daily forecast' : 'Switch to hourly forecast';
-    return html`
-      <button type="button" class="mode-toggle" aria-label="${label}"
-              aria-pressed="${isHourly ? 'true' : 'false'}" title="${label}"
-              @click=${this._onModeToggleClick}>
-        <ha-icon icon=${icon} aria-hidden="true"></ha-icon>
-      </button>
-    `;
-  }
-
-  // Toggle between daily and hourly via the same setConfig path the
-  // editor uses. _invalidateStaleSources picks up the forecast.type
-  // change and rebuilds both station and forecast data sources, so
-  // hourly station aggregates load on demand. The mutation does NOT
-  // persist to the user's saved YAML — refresh resets to whatever
-  // they configured. For permanent changes, the editor's radio.
-  _onModeToggleClick(ev) {
-    if (ev) ev.stopPropagation();
-    const cfg = this.config || {};
-    const fcfg = cfg.forecast || {};
-    const next = fcfg.type === 'hourly' ? 'daily' : 'hourly';
-    this.setConfig({ ...cfg, forecast: { ...fcfg, type: next } });
-  }
-
-  _onJumpToNowClick(ev) {
-    if (ev) ev.stopPropagation();
-    const wrapper = safeQuery(this.shadowRoot,'.forecast-scroll.scrolling');
-    if (!wrapper) return;
-    const target = computeInitialScrollLeft({
-      stationCount: this._stationCount || 0,
-      forecastCount: this._forecastCount || 0,
-      contentWidth: wrapper.scrollWidth,
-      viewportWidth: wrapper.clientWidth,
-    });
-    wrapper.scrollTo({ left: target, behavior: 'smooth' });
-  }
-
-  // At hourly: surface the date of the leftmost and rightmost visible
-  // bar by overlaying it directly above the corresponding tick — same
-  // visual style as the chart's own midnight marker (e.g. "May 6"
-  // above "00:00"). The chart only prints a date at midnight ticks,
-  // so a viewport that doesn't span 00:00 would otherwise leave the
-  // user without context which day they're looking at.
-  //
-  // When the leftmost / rightmost visible IS a midnight, the chart
-  // already shows the date there — we hide our overlay to avoid
-  // a duplicate.
-  _updateScrollDateStamps(block, wrapper) {
-    const leftEl = block.querySelector('.scroll-date-left');
-    const rightEl = block.querySelector('.scroll-date-right');
-    if (!leftEl || !rightEl) return;
-
-    const total = (this.forecasts || []).length;
-    if (!total || wrapper.scrollWidth <= 0) {
-      leftEl.setAttribute('hidden', '');
-      rightEl.setAttribute('hidden', '');
-      return;
-    }
-
-    const barWidth = wrapper.scrollWidth / total;
-    if (barWidth <= 0) return;
-
-    // floor(scrollLeft / barWidth) is the leftmost partially-visible
-    // bar; floor((scrollLeft + clientWidth - 1) / barWidth) is the
-    // rightmost. Each bar's tick label sits centred at (idx + 0.5) ×
-    // barWidth in canvas-pixel coordinates; subtract scrollLeft to
-    // map to viewport-pixel coordinates.
-    const leftIdx = Math.max(0, Math.min(total - 1, Math.floor(wrapper.scrollLeft / barWidth)));
-    const rightIdx = Math.max(0, Math.min(total - 1, Math.floor((wrapper.scrollLeft + wrapper.clientWidth - 1) / barWidth)));
-    const rawLeftCenterX = (leftIdx + 0.5) * barWidth - wrapper.scrollLeft;
-    const rawRightCenterX = (rightIdx + 0.5) * barWidth - wrapper.scrollLeft;
-    // Clamp the centre so translateX(-50%) doesn't push half the text
-    // outside the card. Reserved half-text-width is conservative (handles
-    // "Sep 12" at ~30 px half-width across the locales we ship). Without
-    // clamping, a leftmost bar that's 60-90 % scrolled past the viewport
-    // gives a small positive centre (e.g. 15 px) and the label still
-    // pokes off the left card edge.
-    const TEXT_HALF = 30;
-    const leftCenterX = Math.max(TEXT_HALF, rawLeftCenterX);
-    const rightCenterX = Math.min(wrapper.clientWidth - TEXT_HALF, rawRightCenterX);
-
-    const lang = this.config.locale || this.language || 'en';
-    const fmt = (idx) => {
-      const item = this.forecasts[idx];
-      if (!item || !item.datetime) return { date: '', isMidnight: false };
-      try {
-        const d = new Date(item.datetime);
-        const isMidnight = d.getHours() === 0 && d.getMinutes() === 0;
-        return {
-          date: d.toLocaleDateString(lang, { day: 'numeric', month: 'short' }),
-          isMidnight,
-        };
-      } catch (_) {
-        return { date: '', isMidnight: false };
-      }
-    };
-
-    // Collect the dates of every midnight tick that's currently inside
-    // the viewport — those dates are already drawn by the chart's own
-    // tick callback as a "May 6" stamp above the 00:00 tick. If our
-    // edge overlay would show the same date, it's redundant.
-    const visibleMidnightDates = new Set();
-    for (let i = leftIdx; i <= rightIdx; i++) {
-      const info = fmt(i);
-      if (info.isMidnight) visibleMidnightDates.add(info.date);
-    }
-
-    const leftInfo = fmt(leftIdx);
-    const rightInfo = fmt(rightIdx);
-
-    const apply = (el, info, centerX) => {
-      if (!info.date || info.isMidnight || visibleMidnightDates.has(info.date)) {
-        el.setAttribute('hidden', '');
-        return;
-      }
-      el.textContent = info.date;
-      el.style.left = `${Math.round(centerX)}px`;
-      el.removeAttribute('hidden');
-    };
-    apply(leftEl, leftInfo, leftCenterX);
-    if (rightIdx === leftIdx) rightEl.setAttribute('hidden', '');
-    else apply(rightEl, rightInfo, rightCenterX);
-  }
-
   // Apply the "scroll to now" position once per render generation.
   // A generation changes when forecast.type or number_of_forecasts
   // change — outside those, we leave scrollLeft alone so the user's
@@ -2156,6 +1822,12 @@ _convertWindSpeed(raw) {
     }
   }
 
+  // Mirror of HA's frontend handle-action helper, scoped to the actions
+  // the editor exposes via ha-selector ui_action: more-info, navigate,
+  // url, toggle, perform-action (a.k.a. call-service) and assist.
+  // 'none' / unconfigured actions are no-ops. We don't import HA's
+  // handle-action to avoid a runtime dependency on an internal module
+  // path that has changed names across HA versions.
   _runAction(actionConfig) {
     if (!actionConfig || !actionConfig.action || actionConfig.action === 'none') return;
     const hass = this._hass;

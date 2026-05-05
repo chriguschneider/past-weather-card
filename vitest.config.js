@@ -21,6 +21,10 @@ export default {
         'src/sunshine-source.js',
         'src/openmeteo-source.js',
         'src/chart/plugins.js',
+        'src/scroll-ux.js',
+        'src/teardown-registry.js',
+        'src/utils/safe-query.js',
+        'src/utils/numeric.js',
       ],
       thresholds: {
         statements: 80,
