@@ -11,6 +11,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      # softprops/action-gh-release needs contents:write to create or
+      # update the GitHub Release on tag push. The repo default is
+      # contents:read since GitHub tightened workflow permissions.
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
