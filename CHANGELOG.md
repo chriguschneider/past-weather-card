@@ -4,6 +4,28 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.3] — 2026-05-05
+
+### Removed
+
+- **`forecast.precipitation_type` and `forecast.show_probability`** —
+  both upstream-vestigial since this card forked: they read
+  `precipitation_probability` directly from `weather/get_forecasts`,
+  which most integrations relevant in DACH (Open-Meteo daily,
+  MeteoSchweiz, Met.no on certain entities) don't populate, so the
+  toggles silently produced no visible effect even with a forecast-
+  only setup. The fork's `MeasuredDataSource` never had a probability
+  field at all, so probability mode + station data was always inert.
+  Both keys have been hidden from the editor since v0.6 and the
+  feature is now removed entirely from the renderer, the data shape
+  (`precipitation_probability` no longer flows through), the locale
+  strings (DE + EN), and the README config table. Closes
+  [#4](https://github.com/chriguschneider/weather-station-card/issues/4).
+
+  YAML configs that still set `precipitation_type` or
+  `show_probability` will continue to load — extra keys are ignored —
+  they just do nothing. Drop them from your YAML for cleanliness.
+
 ## [0.8.2] — 2026-05-05
 
 ### Added

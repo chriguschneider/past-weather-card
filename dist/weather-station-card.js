@@ -167,8 +167,6 @@ const locale = {
       'chart_style': 'Diagramm-Stil',
       'chart_style_without_boxes': 'Ohne Boxen (Standard)',
       'chart_style_with_boxes': 'Mit Boxen',
-      'precipitation_type': 'Niederschlagstyp',
-      'show_probability': 'Niederschlagswahrscheinlichkeit anzeigen',
       'round_temp': 'Temperaturen runden',
       'disable_animation': 'Diagramm-Animation aus',
       'icon_size': 'Karten-Icon-Größe (px)',
@@ -341,8 +339,6 @@ const locale = {
       'chart_style': 'Chart style',
       'chart_style_without_boxes': 'Without boxes (standard)',
       'chart_style_with_boxes': 'With boxes',
-      'precipitation_type': 'Precipitation type',
-      'show_probability': 'Show precipitation probability',
       'round_temp': 'Round temperatures',
       'disable_animation': 'Disable chart animation',
       'icon_size': 'Card icon size (px)',
@@ -1717,14 +1713,6 @@ class WeatherStationCardEditor extends s {
               <label>${t('chart_style_with_boxes')}</label>
             </div>
           </div>
-          <!--
-            forecast.precipitation_type ('rainfall' / 'probability') and
-            forecast.show_probability are deliberately NOT rendered here
-            while issue #4 is open. Station data has no probability, so
-            the Probability mode produces empty bars for past columns and
-            show_probability has nothing to overlay there. YAML still
-            parses; restore once probability is wired correctly.
-          -->
           <div class="switch-container">
             <ha-switch
               @change="${(e) => this._valueChanged(e, 'forecast.round_temp')}"
@@ -1873,12 +1861,10 @@ class WeatherStationCardEditor extends s {
 
         <!-- ─── F. Advanced ─────────────────────────────────────────── -->
         <!--
-          autoscroll, forecast.precipitation_type and forecast.show_probability
-          are deliberately NOT rendered here while issues #3 / #4 are open.
-          The YAML keys still parse (values flow through); we just stop
-          advertising broken or vestigial features.
-          forecast.type and forecast.number_of_forecasts are wired again as
-          of v0.8 — both sit in the Setup block above next to weather_entity.
+          autoscroll is deliberately NOT rendered here while issue #3 is
+          open — the YAML key still parses but the toggle is inert.
+          forecast.type and forecast.number_of_forecasts are wired as of
+          v0.8 — both sit in the Setup block above next to weather_entity.
         -->
         <h3 class="section">${t('advanced_heading')}</h3>
         <div class="textfield-container">
@@ -2086,9 +2072,8 @@ function classifyDay(day, overrides = {}) {
 //
 // The render layer consumes `this.forecasts` — an array of entries with
 // fields `datetime`, `temperature`, `templow`, `precipitation`,
-// `precipitation_probability`, `wind_speed`, `wind_bearing`, `pressure`,
-// `humidity`, `uv_index`, `condition`. Anything that produces this shape
-// can drive the chart.
+// `wind_speed`, `wind_bearing`, `pressure`, `humidity`, `uv_index`,
+// `condition`. Anything that produces this shape can drive the chart.
 //
 // MeasuredDataSource: past data via recorder/statistics_during_period.
 // ForecastDataSource: future data via weather/subscribe_forecast.
@@ -2293,7 +2278,6 @@ class MeasuredDataSource {
         temperature: tempMax,
         templow: tempMin,
         precipitation,
-        precipitation_probability: null,
         wind_speed: windMean,
         wind_gust_speed: gustMax,
         wind_bearing: at(sensors.wind_direction, 'mean'),
@@ -2438,7 +2422,6 @@ class MeasuredDataSource {
         datetime: hourStart.toISOString(),
         temperature: tempMean,
         precipitation,
-        precipitation_probability: null,
         wind_speed: windMean,
         wind_gust_speed: gustMax,
         wind_bearing: atOrLive(sensors.wind_direction, 'mean'),
@@ -3157,8 +3140,6 @@ function createPrecipLabelPlugin({
       const padY = 2;
       const gap = 2;
       const fontFamily = 'Helvetica, Arial, sans-serif';
-      const showProb = config.forecast.precipitation_type === 'rainfall'
-        && config.forecast.show_probability;
       // All labels share a fixed Y line just above the precipitation
       // axis baseline, so they sit in a row at the chart bottom regardless
       // of bar height (matches the original datalabels look).
@@ -3170,8 +3151,6 @@ function createPrecipLabelPlugin({
         const value = data.precip[i];
         if (value == null || value <= 0) return;
         const number = value > 9 ? `${Math.round(value)}` : value.toFixed(1);
-        const probability = data.forecast[i] && data.forecast[i].precipitation_probability;
-        const showThisProb = showProb && probability !== undefined && probability !== null;
 
         c.font = `${baseSize}px ${fontFamily}`;
         const numberW = c.measureText(number).width;
@@ -3179,21 +3158,9 @@ function createPrecipLabelPlugin({
         const unitW = c.measureText(precipUnit).width;
         const lineW = numberW + gap + unitW;
 
-        let probLine = '';
-        let probW = 0;
-        if (showThisProb) {
-          probLine = `${Math.round(probability)} %`;
-          c.font = `${smallSize}px ${fontFamily}`;
-          probW = c.measureText(probLine).width;
-        }
-
-        const contentW = Math.max(lineW, probW);
         const lineH = baseSize;
-        const linesGap = showThisProb ? 2 : 0;
-        const contentH = lineH + (showThisProb ? smallSize + linesGap : 0);
-
-        const boxW = contentW + 2 * padX;
-        const boxH = contentH + 2 * padY;
+        const boxW = lineW + 2 * padX;
+        const boxH = lineH + 2 * padY;
         const cx = bar.x;
         const boxLeft = cx - boxW / 2;
         // Centre the box on the precip-axis baseline so the zero-line
@@ -3216,11 +3183,6 @@ function createPrecipLabelPlugin({
         c.fillText(number, numberX, lineCenterY);
         c.font = `${smallSize}px ${fontFamily}`;
         c.fillText(precipUnit, numberX + numberW + gap, lineCenterY);
-
-        if (showThisProb) {
-          c.textAlign = 'center';
-          c.fillText(probLine, cx, lineCenterY + lineH / 2 + linesGap + smallSize / 2);
-        }
       });
       c.restore();
     },
@@ -18218,9 +18180,7 @@ function buildChart(ctx, {
           ticks: {
             maxRotation: 0,
             color: config.forecast.chart_datetime_color || textColor,
-            padding: config.forecast.precipitation_type === 'rainfall'
-              && config.forecast.show_probability
-              && config.forecast.type !== 'hourly' ? 4 : 10,
+            padding: 10,
             callback: function (value) {
               const datetime = this.getLabelForValue(value);
               const dateObj = new Date(datetime);
@@ -18294,9 +18254,7 @@ function buildChart(ctx, {
           borderColor: (context) => context.dataset.backgroundColor,
           borderRadius: 0,
           borderWidth: 1.5,
-          padding: config.forecast.precipitation_type === 'rainfall'
-            && config.forecast.show_probability
-            && config.forecast.type !== 'hourly' ? 3 : 4,
+          padding: 4,
           color: chartTextColor || textColor,
           font: function (context) {
             const dt = data.dateTime[context.dataIndex];
@@ -19749,8 +19707,6 @@ static getStubConfig(hass, unusedEntities, allEntities) {
     icon_style: 'style1',
     autoscroll: false,
     forecast: {
-      precipitation_type: 'rainfall',
-      show_probability: false,
       labels_font_size: '11',
       precip_bar_size: '100',
       // Default chart style: temperature labels rendered as plain text
@@ -19807,8 +19763,6 @@ setConfig(config) {
     double_tap_action: { action: 'none' },
     ...config,
     forecast: {
-      precipitation_type: 'rainfall',
-      show_probability: false,
       labels_font_size: 11,
       chart_height: 180,
       precip_bar_size: 100,
@@ -20513,11 +20467,7 @@ _drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this)
   this._chartPhase = 'compute';
   var tempUnit = this._hass.config.unit_system.temperature;
   var lengthUnit = this._hass.config.unit_system.length;
-  if (config.forecast.precipitation_type === 'probability') {
-    var precipUnit = '%';
-  } else {
-    var precipUnit = lengthUnit === 'km' ? this.ll('units')['mm'] : this.ll('units')['in'];
-  }
+  var precipUnit = lengthUnit === 'km' ? this.ll('units')['mm'] : this.ll('units')['in'];
   const data = this.computeForecastData();
 
   var style = getComputedStyle(document.body);
@@ -20533,15 +20483,10 @@ _drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this)
   const ctx = canvas.getContext('2d');
 
   let precipMax;
-
-  if (config.forecast.precipitation_type === 'probability') {
-    precipMax = 100;
+  if (config.forecast.type === 'hourly') {
+    precipMax = lengthUnit === 'km' ? 4 : 1;
   } else {
-    if (config.forecast.type === 'hourly') {
-      precipMax = lengthUnit === 'km' ? 4 : 1;
-    } else {
-      precipMax = lengthUnit === 'km' ? 20 : 1;
-    }
+    precipMax = lengthUnit === 'km' ? 20 : 1;
   }
 
   Chart.defaults.color = textColor;
@@ -20633,37 +20578,12 @@ _drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this)
       backgroundColor: precipPerBarColor,
       barPercentage: config.forecast.precip_bar_size / 100,
       categoryPercentage: 1.0,
-      // datalabels handled by precipLabelPlugin so the unit can render at
-      // a smaller font next to the number. Keep formatter+display defined
-      // so `forecast.show_probability` overlay still works through the
-      // same pipeline when needed (the plugin reads them).
+      // datalabels handled by precipLabelPlugin so the unit can render
+      // at a smaller font next to the number. The default chartjs-
+      // datalabels render is suppressed via display:false here; the
+      // plugin reads dataset.data[i] directly to draw number + unit.
       datalabels: {
-        display: function (context) {
-          // Suppress the default chartjs-datalabels render — our plugin
-          // draws number + unit with mixed font sizes instead.
-          return false;
-        },
-      formatter: function (value, context) {
-        const precipitationType = config.forecast.precipitation_type;
-
-        const rainfall = context.dataset.data[context.dataIndex];
-        const probability = data.forecast[context.dataIndex].precipitation_probability;
-
-        let formattedValue;
-        if (precipitationType === 'rainfall') {
-          if (probability !== undefined && probability !== null && config.forecast.show_probability) {
-	    formattedValue = `${rainfall > 9 ? Math.round(rainfall) : rainfall.toFixed(1)} ${precipUnit}\n${Math.round(probability)}%`;
-          } else {
-            formattedValue = `${rainfall > 9 ? Math.round(rainfall) : rainfall.toFixed(1)} ${precipUnit}`;
-          }
-        } else {
-          formattedValue = `${rainfall > 9 ? Math.round(rainfall) : rainfall.toFixed(1)} ${precipUnit}`;
-        }
-
-        formattedValue = formattedValue.replace('\n', '\n\n');
-
-        return formattedValue;
-      },
+        display: function () { return false; },
         textAlign: 'center',
         textBaseline: 'middle',
         align: 'top',
@@ -20769,11 +20689,7 @@ computeForecastData({ config, forecastItems } = this) {
   const { tempHigh, tempLow } = hourlyTempSeries(forecast, {
     roundTemp: config.forecast.round_temp == true,
   });
-  const precip = forecast.map((d) =>
-    config.forecast.precipitation_type === 'probability'
-      ? d.precipitation_probability
-      : d.precipitation,
-  );
+  const precip = forecast.map((d) => d.precipitation);
 
   return {
     forecast,

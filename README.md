@@ -276,8 +276,6 @@ ON; in YAML the sub-keys are evaluated regardless.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `forecast.style` | `'style2' \| 'style1'` | `'style2'` | Temperature-label rendering. `style2` (default) shows plain text beside the lines; `style1` boxes each value with the line-coloured border. |
-| `forecast.precipitation_type` | `'rainfall' \| 'probability'` | `'rainfall'` | ⚠ Hidden in editor — see [Known limitations](#known-limitations). YAML still parses. |
-| `forecast.show_probability` | bool | `false` | ⚠ Hidden in editor — see [Known limitations](#known-limitations). YAML still parses. |
 | `forecast.round_temp` | bool | `false` | Round temperature labels to integers. |
 | `forecast.disable_animation` | bool | `false` | Disable chart redraw animation. |
 
@@ -527,10 +525,8 @@ vestigial. Tracking issues are linked.
 | Field | Symptom | Tracking |
 | --- | --- | --- |
 | `autoscroll: true` | Toggle existed in YAML and the editor; the timer in `main.js` fires once per hour but only triggers a redraw — there's no actual scroll behaviour. (v0.8's hourly viewport scrolling is unrelated and works fine.) | [#3](https://github.com/chriguschneider/weather-station-card/issues/3) |
-| `forecast.precipitation_type: probability` and `forecast.show_probability` | Station data has no probability field, so probability mode produces empty bars for past columns and `show_probability` has nothing to overlay there. Both keys are still parsed but no longer surfaced in the editor. | [#4](https://github.com/chriguschneider/weather-station-card/issues/4) |
 | Hourly wind values blank with Open-Meteo | At `forecast.type: hourly`, the wind row of the *forecast* block renders empty cells when the upstream `weather.*` integration omits per-hour wind data. HA's Open-Meteo integration ([source](https://github.com/home-assistant/core/blob/dev/homeassistant/components/open_meteo/weather.py) — see `_async_forecast_hourly`) currently ships only `datetime`, `condition`, `precipitation` and `temperature` per hourly entry; `wind_speed` / `wind_bearing` are present only on the daily branch. Met.no and other integrations may differ. The card hides the arrow + value when either field is missing, so cells stay empty rather than showing a default-direction arrow with an orphan unit. | upstream integration |
 | Hourly classifier thresholds | At `forecast.type: hourly`, station hours run through the same `classifyDay` decision tree as daily aggregates. Thresholds (e.g. `rainy_threshold_mm: 0.5`) are calibrated for *daily* totals — 0.5 mm in one hour is meteorologically heavier rain than 0.5 mm over a day, so the classifier may report `pouring` more often than feels right at hourly. Override via `condition_mapping` if it bothers you; per-hour-tuned defaults are tracked for v0.9. | [#7](https://github.com/chriguschneider/weather-station-card/issues/7) |
-| Plugin tests | The three Chart.js plugins are now factory functions and could be unit-tested, but no plugin tests exist yet. Visual review remains the only safety net for chart rendering changes. | Optional improvement. |
 
 Reactions / comments on the linked issues help prioritise the wiring
 work. PRs welcome — the relevant code paths are linked from each issue.

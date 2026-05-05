@@ -52,9 +52,7 @@ export function buildChart(ctx, {
           ticks: {
             maxRotation: 0,
             color: config.forecast.chart_datetime_color || textColor,
-            padding: config.forecast.precipitation_type === 'rainfall'
-              && config.forecast.show_probability
-              && config.forecast.type !== 'hourly' ? 4 : 10,
+            padding: 10,
             callback: function (value) {
               const datetime = this.getLabelForValue(value);
               const dateObj = new Date(datetime);
@@ -128,9 +126,7 @@ export function buildChart(ctx, {
           borderColor: (context) => context.dataset.backgroundColor,
           borderRadius: 0,
           borderWidth: 1.5,
-          padding: config.forecast.precipitation_type === 'rainfall'
-            && config.forecast.show_probability
-            && config.forecast.type !== 'hourly' ? 3 : 4,
+          padding: 4,
           color: chartTextColor || textColor,
           font: function (context) {
             const dt = data.dateTime[context.dataIndex];

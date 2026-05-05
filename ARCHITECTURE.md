@@ -80,7 +80,6 @@ Both data sources emit objects of this shape (one per day):
   temperature: number | null,      // daily max
   templow: number | null,          // daily min
   precipitation: number | null,    // mm or in (depending on length unit)
-  precipitation_probability: number | null,  // forecast only
   wind_speed: number | null,       // mean
   wind_gust_speed: number | null,  // daily max
   wind_bearing: number | null,     // mean degrees

@@ -148,7 +148,6 @@ describe('MeasuredDataSource._buildForecast', () => {
       temperature: expect.any(Number),
       templow: expect.any(Number),
       precipitation: null,
-      precipitation_probability: null,
       condition: expect.any(String),
     }));
     expect('wind_speed' in entry).toBe(true);
@@ -335,7 +334,6 @@ describe('MeasuredDataSource hourly mode', () => {
       datetime: expect.any(String),
       temperature: expect.any(Number),
       precipitation: null,
-      precipitation_probability: null,
       condition: expect.any(String),
     }));
     expect('wind_speed' in entry).toBe(true);

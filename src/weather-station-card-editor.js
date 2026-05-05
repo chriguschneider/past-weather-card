@@ -654,14 +654,6 @@ class WeatherStationCardEditor extends LitElement {
               <label>${t('chart_style_with_boxes')}</label>
             </div>
           </div>
-          <!--
-            forecast.precipitation_type ('rainfall' / 'probability') and
-            forecast.show_probability are deliberately NOT rendered here
-            while issue #4 is open. Station data has no probability, so
-            the Probability mode produces empty bars for past columns and
-            show_probability has nothing to overlay there. YAML still
-            parses; restore once probability is wired correctly.
-          -->
           <div class="switch-container">
             <ha-switch
               @change="${(e) => this._valueChanged(e, 'forecast.round_temp')}"
@@ -810,12 +802,10 @@ class WeatherStationCardEditor extends LitElement {
 
         <!-- ─── F. Advanced ─────────────────────────────────────────── -->
         <!--
-          autoscroll, forecast.precipitation_type and forecast.show_probability
-          are deliberately NOT rendered here while issues #3 / #4 are open.
-          The YAML keys still parse (values flow through); we just stop
-          advertising broken or vestigial features.
-          forecast.type and forecast.number_of_forecasts are wired again as
-          of v0.8 — both sit in the Setup block above next to weather_entity.
+          autoscroll is deliberately NOT rendered here while issue #3 is
+          open — the YAML key still parses but the toggle is inert.
+          forecast.type and forecast.number_of_forecasts are wired as of
+          v0.8 — both sit in the Setup block above next to weather_entity.
         -->
         <h3 class="section">${t('advanced_heading')}</h3>
         <div class="textfield-container">

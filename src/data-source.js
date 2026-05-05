@@ -2,9 +2,8 @@
 //
 // The render layer consumes `this.forecasts` — an array of entries with
 // fields `datetime`, `temperature`, `templow`, `precipitation`,
-// `precipitation_probability`, `wind_speed`, `wind_bearing`, `pressure`,
-// `humidity`, `uv_index`, `condition`. Anything that produces this shape
-// can drive the chart.
+// `wind_speed`, `wind_bearing`, `pressure`, `humidity`, `uv_index`,
+// `condition`. Anything that produces this shape can drive the chart.
 //
 // MeasuredDataSource: past data via recorder/statistics_during_period.
 // ForecastDataSource: future data via weather/subscribe_forecast.
@@ -211,7 +210,6 @@ export class MeasuredDataSource {
         temperature: tempMax,
         templow: tempMin,
         precipitation,
-        precipitation_probability: null,
         wind_speed: windMean,
         wind_gust_speed: gustMax,
         wind_bearing: at(sensors.wind_direction, 'mean'),
@@ -356,7 +354,6 @@ export class MeasuredDataSource {
         datetime: hourStart.toISOString(),
         temperature: tempMean,
         precipitation,
-        precipitation_probability: null,
         wind_speed: windMean,
         wind_gust_speed: gustMax,
         wind_bearing: atOrLive(sensors.wind_direction, 'mean'),

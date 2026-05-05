@@ -91,8 +91,6 @@ static getStubConfig(hass, unusedEntities, allEntities) {
     icon_style: 'style1',
     autoscroll: false,
     forecast: {
-      precipitation_type: 'rainfall',
-      show_probability: false,
       labels_font_size: '11',
       precip_bar_size: '100',
       // Default chart style: temperature labels rendered as plain text
@@ -149,8 +147,6 @@ setConfig(config) {
     double_tap_action: { action: 'none' },
     ...config,
     forecast: {
-      precipitation_type: 'rainfall',
-      show_probability: false,
       labels_font_size: 11,
       chart_height: 180,
       precip_bar_size: 100,
@@ -855,11 +851,7 @@ _drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this)
   this._chartPhase = 'compute';
   var tempUnit = this._hass.config.unit_system.temperature;
   var lengthUnit = this._hass.config.unit_system.length;
-  if (config.forecast.precipitation_type === 'probability') {
-    var precipUnit = '%';
-  } else {
-    var precipUnit = lengthUnit === 'km' ? this.ll('units')['mm'] : this.ll('units')['in'];
-  }
+  var precipUnit = lengthUnit === 'km' ? this.ll('units')['mm'] : this.ll('units')['in'];
   const data = this.computeForecastData();
 
   var style = getComputedStyle(document.body);
@@ -875,15 +867,10 @@ _drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this)
   const ctx = canvas.getContext('2d');
 
   let precipMax;
-
-  if (config.forecast.precipitation_type === 'probability') {
-    precipMax = 100;
+  if (config.forecast.type === 'hourly') {
+    precipMax = lengthUnit === 'km' ? 4 : 1;
   } else {
-    if (config.forecast.type === 'hourly') {
-      precipMax = lengthUnit === 'km' ? 4 : 1;
-    } else {
-      precipMax = lengthUnit === 'km' ? 20 : 1;
-    }
+    precipMax = lengthUnit === 'km' ? 20 : 1;
   }
 
   Chart.defaults.color = textColor;
@@ -975,37 +962,12 @@ _drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this)
       backgroundColor: precipPerBarColor,
       barPercentage: config.forecast.precip_bar_size / 100,
       categoryPercentage: 1.0,
-      // datalabels handled by precipLabelPlugin so the unit can render at
-      // a smaller font next to the number. Keep formatter+display defined
-      // so `forecast.show_probability` overlay still works through the
-      // same pipeline when needed (the plugin reads them).
+      // datalabels handled by precipLabelPlugin so the unit can render
+      // at a smaller font next to the number. The default chartjs-
+      // datalabels render is suppressed via display:false here; the
+      // plugin reads dataset.data[i] directly to draw number + unit.
       datalabels: {
-        display: function (context) {
-          // Suppress the default chartjs-datalabels render — our plugin
-          // draws number + unit with mixed font sizes instead.
-          return false;
-        },
-      formatter: function (value, context) {
-        const precipitationType = config.forecast.precipitation_type;
-
-        const rainfall = context.dataset.data[context.dataIndex];
-        const probability = data.forecast[context.dataIndex].precipitation_probability;
-
-        let formattedValue;
-        if (precipitationType === 'rainfall') {
-          if (probability !== undefined && probability !== null && config.forecast.show_probability) {
-	    formattedValue = `${rainfall > 9 ? Math.round(rainfall) : rainfall.toFixed(1)} ${precipUnit}\n${Math.round(probability)}%`;
-          } else {
-            formattedValue = `${rainfall > 9 ? Math.round(rainfall) : rainfall.toFixed(1)} ${precipUnit}`;
-          }
-        } else {
-          formattedValue = `${rainfall > 9 ? Math.round(rainfall) : rainfall.toFixed(1)} ${precipUnit}`;
-        }
-
-        formattedValue = formattedValue.replace('\n', '\n\n');
-
-        return formattedValue;
-      },
+        display: function () { return false; },
         textAlign: 'center',
         textBaseline: 'middle',
         align: 'top',
@@ -1111,11 +1073,7 @@ computeForecastData({ config, forecastItems } = this) {
   const { tempHigh, tempLow } = hourlyTempSeries(forecast, {
     roundTemp: config.forecast.round_temp == true,
   });
-  const precip = forecast.map((d) =>
-    config.forecast.precipitation_type === 'probability'
-      ? d.precipitation_probability
-      : d.precipitation,
-  );
+  const precip = forecast.map((d) => d.precipitation);
 
   return {
     forecast,

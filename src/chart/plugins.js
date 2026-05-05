@@ -169,8 +169,6 @@ export function createPrecipLabelPlugin({
       const padY = 2;
       const gap = 2;
       const fontFamily = 'Helvetica, Arial, sans-serif';
-      const showProb = config.forecast.precipitation_type === 'rainfall'
-        && config.forecast.show_probability;
       // All labels share a fixed Y line just above the precipitation
       // axis baseline, so they sit in a row at the chart bottom regardless
       // of bar height (matches the original datalabels look).
@@ -182,8 +180,6 @@ export function createPrecipLabelPlugin({
         const value = data.precip[i];
         if (value == null || value <= 0) return;
         const number = value > 9 ? `${Math.round(value)}` : value.toFixed(1);
-        const probability = data.forecast[i] && data.forecast[i].precipitation_probability;
-        const showThisProb = showProb && probability !== undefined && probability !== null;
 
         c.font = `${baseSize}px ${fontFamily}`;
         const numberW = c.measureText(number).width;
@@ -191,21 +187,9 @@ export function createPrecipLabelPlugin({
         const unitW = c.measureText(precipUnit).width;
         const lineW = numberW + gap + unitW;
 
-        let probLine = '';
-        let probW = 0;
-        if (showThisProb) {
-          probLine = `${Math.round(probability)} %`;
-          c.font = `${smallSize}px ${fontFamily}`;
-          probW = c.measureText(probLine).width;
-        }
-
-        const contentW = Math.max(lineW, probW);
         const lineH = baseSize;
-        const linesGap = showThisProb ? 2 : 0;
-        const contentH = lineH + (showThisProb ? smallSize + linesGap : 0);
-
-        const boxW = contentW + 2 * padX;
-        const boxH = contentH + 2 * padY;
+        const boxW = lineW + 2 * padX;
+        const boxH = lineH + 2 * padY;
         const cx = bar.x;
         const boxLeft = cx - boxW / 2;
         // Centre the box on the precip-axis baseline so the zero-line
@@ -228,11 +212,6 @@ export function createPrecipLabelPlugin({
         c.fillText(number, numberX, lineCenterY);
         c.font = `${smallSize}px ${fontFamily}`;
         c.fillText(precipUnit, numberX + numberW + gap, lineCenterY);
-
-        if (showThisProb) {
-          c.textAlign = 'center';
-          c.fillText(probLine, cx, lineCenterY + lineH / 2 + linesGap + smallSize / 2);
-        }
       });
       c.restore();
     },
