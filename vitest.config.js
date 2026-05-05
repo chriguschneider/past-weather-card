@@ -22,6 +22,7 @@ export default {
         'src/openmeteo-source.js',
         'src/chart/plugins.js',
         'src/scroll-ux.js',
+        'src/action-handler.js',
         'src/teardown-registry.js',
         'src/utils/safe-query.js',
         'src/utils/numeric.js',
