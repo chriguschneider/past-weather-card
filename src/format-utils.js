@@ -3,15 +3,21 @@
 
 // Reduce a CSS colour to ~`factor` of its original alpha. Used to render
 // forecast precipitation bars at lower opacity than the measured station
-// bars next to them. Handles the rgb/rgba/hex shapes the editor produces;
-// other formats (named colours, hsl, oklch, …) pass through unchanged so
-// no exception escapes into the render path.
+// bars next to them. Handles rgb/rgba/hex/hsl/hsla — the shapes either the
+// editor or a hand-written YAML config can produce. Other formats (named
+// colours, oklch, colour-mix(), …) pass through unchanged so no exception
+// escapes into the render path.
 export function lightenColor(color, factor = 0.45) {
   if (!color || typeof color !== 'string') return color;
   let m = /^rgba?\s*\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)\s*$/i.exec(color);
   if (m) {
     const a = m[4] !== undefined ? parseFloat(m[4]) : 1;
     return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${(a * factor).toFixed(3)})`;
+  }
+  m = /^hsla?\s*\(\s*([\d.]+)(?:deg)?\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%\s*(?:,\s*([\d.]+)\s*)?\)\s*$/i.exec(color);
+  if (m) {
+    const a = m[4] !== undefined ? parseFloat(m[4]) : 1;
+    return `hsla(${m[1]}, ${m[2]}%, ${m[3]}%, ${(a * factor).toFixed(3)})`;
   }
   m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color);
   if (m) {

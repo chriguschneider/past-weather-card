@@ -4,6 +4,11 @@ Thanks for considering a contribution. The most welcome kinds of PRs are
 **translations**, **bug fixes**, and **screenshots / docs polish**. New
 features are also welcome — please open an issue first to discuss scope.
 
+If your PR touches code beyond a single locale or a one-line fix, skim
+[ARCHITECTURE.md](ARCHITECTURE.md) first — it covers the data flow, the
+forecast-array shape that every consumer relies on, and the chart-plugin
+contract. About 10 minutes of reading saves an hour of reverse-engineering.
+
 ## Adding a new language
 
 The visual editor and the in-card condition labels are translated via

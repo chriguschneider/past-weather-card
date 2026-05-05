@@ -26,8 +26,20 @@ describe('lightenColor', () => {
     expect(lightenColor('rgba(255, 0, 0, 1.0)', 0.2)).toBe('rgba(255, 0, 0, 0.200)');
   });
 
+  it('reduces alpha of an hsla colour', () => {
+    expect(lightenColor('hsla(210, 80%, 60%, 1.0)')).toBe('hsla(210, 80%, 60%, 0.450)');
+  });
+
+  it('handles hsl without alpha (treats alpha as 1)', () => {
+    expect(lightenColor('hsl(210, 80%, 60%)')).toBe('hsla(210, 80%, 60%, 0.450)');
+  });
+
+  it('compounds an existing hsl alpha', () => {
+    expect(lightenColor('hsla(0, 100%, 50%, 0.5)')).toBe('hsla(0, 100%, 50%, 0.225)');
+  });
+
   it('returns the input unchanged for unknown formats', () => {
-    expect(lightenColor('hsl(0, 100%, 50%)')).toBe('hsl(0, 100%, 50%)');
+    expect(lightenColor('oklch(0.7 0.15 150)')).toBe('oklch(0.7 0.15 150)');
     expect(lightenColor('red')).toBe('red');
     expect(lightenColor('inherit')).toBe('inherit');
   });

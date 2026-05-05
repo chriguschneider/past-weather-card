@@ -4,6 +4,94 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] — 2026-05-05
+
+### Changed
+
+- **Default chart style is now `style2` ("without boxes")** — temperature
+  labels render as plain text beside the lines instead of inside bordered
+  boxes. The previous `style1` ("with boxes") remains available as an
+  opt-in. Existing configs that pin `forecast.style: style1` are
+  unaffected.
+- Visual editor restructured into 6 sections (A. Setup / B. Sensors /
+  C. Layout / D. Style & Colours / E. Units / F. Advanced). Section C uses
+  `show_main` and `show_attributes` as disclosure masters — sub-toggles
+  appear only when the master is on.
+- Mode selection (Station only / Forecast only / Combination) is now a
+  single radio in Setup, derived from `show_station` / `show_forecast`
+  (YAML schema unchanged).
+- README Configuration section uses collapsible `<details>` blocks
+  matching the editor's A–F order.
+- main.js shrunk by ~23 % after extracting `src/chart/draw.js` (Chart.js
+  options builder), `src/chart/plugins.js` (separator / dailyTickLabels
+  / precipLabel as factory functions), and `src/chart/styles.js` (CSS
+  template). Plugins now declare their dependencies via parameters
+  instead of closing over component state.
+
+### Added
+
+- `ARCHITECTURE.md` — module map, data-flow diagram, lifecycle
+  invariants, Chart.js plugin contract, build pipeline, testing scope.
+- Visual editor: `condition_mapping` override block under Advanced — 13
+  threshold fields with units as suffixes and defaults as placeholders.
+  Empty fields are not written to the YAML.
+- README: precipitation-sensor setup guide (state_class detection plus
+  utility_meter and integration sensor templates), live-condition
+  rate-unit explanation, Troubleshooting section mapping each error
+  banner to its cause.
+- `CONTRIBUTING.md` opening pointer to ARCHITECTURE.md.
+
+### Fixed
+
+- TempAxis NaN bounds when temperature arrays are empty (sensor offline
+  for the full window).
+- `ForecastDataSource.unsubscribe()` is now finally-safe — the slot is
+  cleared before awaiting so a subsequent unsubscribe never re-throws on
+  a rejected promise.
+- Chart-render errors carry a phase tag (`compute` / `init` / `draw`)
+  in the banner instead of a generic message.
+- Subscribe-callback bodies in `set hass` wrapped in `try / catch` so a
+  bad render path can't detach HA's WebSocket listener.
+
+### Internal
+
+- Dropped unused `relative-time` dependency.
+- `lightenColor` handles hsl/hsla in addition to rgba/hex.
+- `_invalidateStaleSources` replaces seven hand-rolled change-detection
+  branches with two declarative key tables.
+- `disconnectedCallback` uses the new `_teardownStation` /
+  `_teardownForecast` helpers shared with the invalidation path.
+- Editor: chart-style, precipitation-type, forecast-type, and icon-style
+  selectors converted from `ha-select` (whose `@change` handler turned
+  out to silently drop selections) to `ha-radio` pairs that hard-code
+  the new value in the change handler — proven to work and easier to
+  reason about.
+
+### Removed (from editor only — YAML keys still honoured)
+
+- `forecast.type` radio (Daily / Hourly) is no longer surfaced in the
+  visual editor. Hourly was accepted by the data layer but the chart
+  rendered as daily-only. Tracked as
+  [#2](https://github.com/chriguschneider/weather-station-card/issues/2).
+- `autoscroll` switch is no longer surfaced in the visual editor.
+  The hourly timer was firing but only triggered a redraw — no actual
+  scroll. Tracked as
+  [#3](https://github.com/chriguschneider/weather-station-card/issues/3).
+- `forecast.precipitation_type` radio (Rainfall / Probability) and the
+  `forecast.show_probability` switch are no longer surfaced.
+  MeasuredDataSource emits `precipitation_probability: null` for every
+  station entry, so probability mode produced empty bars for past
+  columns and the overlay had nothing to display. Tracked as
+  [#4](https://github.com/chriguschneider/weather-station-card/issues/4).
+- `forecast.number_of_forecasts` textfield is no longer surfaced.
+  Vestigial from upstream — `days` and `forecast_days` already control
+  column counts, and a positive value cropped the merged array from the
+  left, breaking combination mode (lost today + forecast block).
+  Tracked as
+  [#5](https://github.com/chriguschneider/weather-station-card/issues/5).
+- All YAML keys still parse and flow through unchanged — only the
+  editor stops advertising them as working features.
+
 ## [0.5.0] — 2026-05
 
 ### Added

@@ -237,19 +237,26 @@ export class ForecastDataSource {
 
   async unsubscribe() {
     this._listener = null;
-    if (this._unsubPromise) {
-      try {
-        const unsub = await this._unsubPromise;
-        if (typeof unsub === 'function') unsub();
-      } catch (_) { /* already gone */ }
-      this._unsubPromise = null;
-    }
+    const pending = this._unsubPromise;
+    // Always clear the slot first so a subsequent unsubscribe() doesn't
+    // await the same (possibly rejected) promise. If subscribeMessage
+    // rejected, awaiting it again would just re-throw without progress.
+    this._unsubPromise = null;
+    if (!pending) return;
+    try {
+      const unsub = await pending;
+      if (typeof unsub === 'function') unsub();
+    } catch (_) { /* already gone or never landed */ }
   }
 
   _resubscribe() {
     if (this._unsubPromise) {
-      this._unsubPromise.then((unsub) => { try { if (typeof unsub === 'function') unsub(); } catch (_) {} });
+      const pending = this._unsubPromise;
       this._unsubPromise = null;
+      pending.then(
+        (unsub) => { try { if (typeof unsub === 'function') unsub(); } catch (_) {} },
+        () => { /* rejected — nothing to dispose */ },
+      );
     }
     const entity = this.config.weather_entity;
     if (!entity) {

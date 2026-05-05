@@ -114,12 +114,80 @@ const locale = {
       'uv_index': 'UV-Index',
       'dew_point': 'Taupunkt',
       'title': 'Titel',
-      'days': 'Tage',
+      'days': 'Tage (Station)',
+      'forecast_days': 'Tage (Vorhersage)',
+      'weather_entity': 'Wetter-Entität',
+      'setup_heading': 'Einrichtung',
       'sensors_heading': 'Sensoren',
+      'layout_heading': 'Aufbau',
+      'style_heading': 'Stil & Farben',
+      'units_heading': 'Einheiten',
+      'advanced_heading': 'Erweitert',
       'card_heading': 'Karte',
       'display_heading': 'Anzeige',
       'chart_heading': 'Diagramm',
-      'units_heading': 'Einheiten'
+      'mode_label': 'Modus',
+      'mode_station': 'Nur Station',
+      'mode_forecast': 'Nur Vorhersage',
+      'mode_combination': 'Kombination',
+      'main_panel_heading': 'Hauptpanel',
+      'attributes_heading': 'Attributzeile',
+      'chart_rows_heading': 'Diagrammzeilen',
+      'chart_appearance_heading': 'Diagramm',
+      'sizing_heading': 'Größen',
+      'icons_heading': 'Icons',
+      'colours_heading': 'Farben',
+      'show_main': '"Jetzt"-Hauptpanel anzeigen',
+      'show_temperature': 'Aktuelle Temperatur',
+      'show_current_condition': 'Aktuelle Wetterlage',
+      'show_attributes': 'Attributzeile anzeigen',
+      'show_humidity': 'Luftfeuchtigkeit',
+      'show_pressure': 'Luftdruck',
+      'show_dew_point': 'Taupunkt',
+      'show_wind_direction': 'Windrichtung',
+      'show_wind_speed': 'Windgeschwindigkeit',
+      'show_wind_gust_speed': 'Böen',
+      'show_sun': 'Sonne (Auf-/Untergang)',
+      'show_time': 'Uhr anzeigen',
+      'show_time_seconds': 'Sekunden',
+      'show_day': 'Wochentag',
+      'show_date': 'Datum',
+      'use_12hour_format': '12-Stunden-Format',
+      'show_chart_icons': 'Bedingungs-Icon-Zeile',
+      'show_chart_wind': 'Wind-Zeile',
+      'show_chart_wind_arrow': 'Windrichtungs-Pfeil in der Wind-Zeile',
+      'show_chart_date': 'Datum in der x-Achse',
+      'chart_style': 'Diagramm-Stil',
+      'chart_style_without_boxes': 'Ohne Boxen (Standard)',
+      'chart_style_with_boxes': 'Mit Boxen',
+      'precipitation_type': 'Niederschlagstyp',
+      'show_probability': 'Niederschlagswahrscheinlichkeit anzeigen',
+      'round_temp': 'Temperaturen runden',
+      'disable_animation': 'Diagramm-Animation aus',
+      'icon_size': 'Karten-Icon-Größe (px)',
+      'current_temp_size': 'Haupttemperatur-Größe (px)',
+      'time_size': 'Uhrzeit-Größe (px)',
+      'day_date_size': 'Tag / Datum-Größe (px)',
+      'labels_font_size': 'Diagramm-Beschriftung (px)',
+      'chart_height': 'Diagrammhöhe (px)',
+      'precip_bar_size': 'Niederschlags-Balkenbreite (%)',
+      'icon_style': 'Icon-Set',
+      'animated_icons': 'Animierte Icons',
+      'custom_icons_url': 'Eigener Icon-Pfad',
+      'temperature1_color': 'Temperatur Hoch',
+      'temperature2_color': 'Temperatur Tief',
+      'precipitation_color': 'Niederschlag',
+      'chart_text_color': 'Diagramm-Text',
+      'chart_datetime_color': 'Datum / Wochentag-Text',
+      'forecast_type': 'Vorhersagetyp',
+      'forecast_type_hint': 'Stündlich wird erkannt, das Diagramm rendert aber weiterhin tageweise. Bekannte Einschränkung.',
+      'number_of_forecasts': 'Sichtbare Spalten',
+      'number_of_forecasts_hint': '0 = jede Spalte aus Station + Vorhersage anzeigen (kein Breiten-basiertes Cropping). Positive Zahl begrenzt die Anzahl sichtbarer Spalten.',
+      'autoscroll': 'Stündlich autoscrollen',
+      'autoscroll_hint': 'Aktuell nicht im Diagramm verdrahtet — bekannte Einschränkung.',
+      'locale': 'Sprache (Override)',
+      'condition_mapping_heading': 'Klassifikator-Overrides',
+      'condition_mapping_hint': 'Leere Felder benutzen die meteorologisch begründeten Defaults.',
     }
   },
   nl: {
@@ -205,12 +273,88 @@ const locale = {
       'uv_index': 'UV index',
       'dew_point': 'Dew point',
       'title': 'Title',
-      'days': 'Days',
+      'days': 'Days (station)',
+      'forecast_days': 'Days (forecast)',
+      'weather_entity': 'Weather entity',
+      // Section headings (A–F)
+      'setup_heading': 'Setup',
       'sensors_heading': 'Sensors',
+      'layout_heading': 'Layout',
+      'style_heading': 'Style & Colours',
+      'units_heading': 'Units',
+      'advanced_heading': 'Advanced',
+      // Legacy keys (kept so old translations keep working in v0.6)
       'card_heading': 'Card',
       'display_heading': 'Display',
       'chart_heading': 'Chart',
-      'units_heading': 'Units'
+      // Mode radio
+      'mode_label': 'Mode',
+      'mode_station': 'Station only',
+      'mode_forecast': 'Forecast only',
+      'mode_combination': 'Combination',
+      // Layout sub-headings
+      'main_panel_heading': 'Main panel',
+      'attributes_heading': 'Attributes row',
+      'chart_rows_heading': 'Chart rows',
+      // Style sub-headings
+      'chart_appearance_heading': 'Chart',
+      'sizing_heading': 'Sizing',
+      'icons_heading': 'Icons',
+      'colours_heading': 'Colours',
+      // Toggles
+      'show_main': 'Show "now" main panel',
+      'show_temperature': 'Show current temperature',
+      'show_current_condition': 'Show current condition',
+      'show_attributes': 'Show attributes row',
+      'show_humidity': 'Humidity',
+      'show_pressure': 'Pressure',
+      'show_dew_point': 'Dew point',
+      'show_wind_direction': 'Wind direction',
+      'show_wind_speed': 'Wind speed',
+      'show_wind_gust_speed': 'Gust speed',
+      'show_sun': 'Sun (sunrise / sunset)',
+      'show_time': 'Show clock',
+      'show_time_seconds': 'Seconds',
+      'show_day': 'Day name',
+      'show_date': 'Date',
+      'use_12hour_format': '12-hour clock',
+      'show_chart_icons': 'Condition icons row',
+      'show_chart_wind': 'Wind row',
+      'show_chart_wind_arrow': 'Wind direction arrow in wind row',
+      'show_chart_date': 'Date in chart x-axis',
+      // Style fields
+      'chart_style': 'Chart style',
+      'chart_style_without_boxes': 'Without boxes (standard)',
+      'chart_style_with_boxes': 'With boxes',
+      'precipitation_type': 'Precipitation type',
+      'show_probability': 'Show precipitation probability',
+      'round_temp': 'Round temperatures',
+      'disable_animation': 'Disable chart animation',
+      'icon_size': 'Card icon size (px)',
+      'current_temp_size': 'Main temperature size (px)',
+      'time_size': 'Time size (px)',
+      'day_date_size': 'Day / date size (px)',
+      'labels_font_size': 'Chart label size (px)',
+      'chart_height': 'Chart height (px)',
+      'precip_bar_size': 'Precipitation bar width (%)',
+      'icon_style': 'Icon set',
+      'animated_icons': 'Animated icons',
+      'custom_icons_url': 'Custom icon URL',
+      'temperature1_color': 'Temperature high',
+      'temperature2_color': 'Temperature low',
+      'precipitation_color': 'Precipitation',
+      'chart_text_color': 'Chart text',
+      'chart_datetime_color': 'Date / weekday text',
+      // Advanced
+      'forecast_type': 'Forecast type',
+      'forecast_type_hint': 'Hourly is recognised but the chart still renders daily ticks. Tracked as a known limitation.',
+      'number_of_forecasts': 'Visible columns',
+      'number_of_forecasts_hint': '0 = show every column from station + forecast (no width-based cropping). A positive number caps the visible columns at that count.',
+      'autoscroll': 'Autoscroll once per hour',
+      'autoscroll_hint': 'Currently not wired through to the chart — known limitation.',
+      'locale': 'Locale override',
+      'condition_mapping_heading': 'Condition classifier overrides',
+      'condition_mapping_hint': 'Empty cells use the meteorologically-grounded defaults.',
     }
   },
   es: {
@@ -905,61 +1049,71 @@ var t;const i=window,s$1=i.trustedTypes,e=s$1?s$1.createPolicy("lit-html",{creat
  * SPDX-License-Identifier: BSD-3-Clause
  */var l,o;class s extends u$1{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0;}createRenderRoot(){var t,e;const i=super.createRenderRoot();return null!==(t=(e=this.renderOptions).renderBefore)&&void 0!==t||(e.renderBefore=i.firstChild),i}update(t){const i=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(t),this._$Do=D(i,this.renderRoot,this.renderOptions);}connectedCallback(){var t;super.connectedCallback(),null===(t=this._$Do)||void 0===t||t.setConnected(true);}disconnectedCallback(){var t;super.disconnectedCallback(),null===(t=this._$Do)||void 0===t||t.setConnected(false);}render(){return T}}s.finalized=true,s._$litElement$=true,null===(l=globalThis.litElementHydrateSupport)||void 0===l||l.call(globalThis,{LitElement:s});const n$1=globalThis.litElementPolyfillSupport;null==n$1||n$1({LitElement:s});(null!==(o=globalThis.litElementVersions)&&void 0!==o?o:globalThis.litElementVersions=[]).push("3.3.3");
 
-// Per-metric sensor pickers. Most filter by `device_class`; wind direction
-// has no canonical class but a stable unit (degrees) so it gets a runtime
-// include-list keyed off `hass.states`. UV index has neither a class nor a
-// universal unit and stays unfiltered.
+// Per-metric sensor field list. Most filter by `device_class`; wind
+// direction has no canonical class but a stable unit (degrees) so it
+// gets a runtime predicate. UV index has neither a class nor a universal
+// unit and gets a name/id pattern match.
 //
-// `name` doubles as the i18n key — see locale.js `editor` blocks. The
-// English `label` here is the runtime fallback when the user's HA
-// language has no translation registered.
-function buildSensorsSchema(hass) {
-  const directionEntities = hass
-    ? Object.entries(hass.states)
-        .filter(([id, s]) =>
-          id.startsWith('sensor.') &&
-          (s.attributes.unit_of_measurement === '°' ||
-           s.attributes.unit_of_measurement === 'deg'))
-        .map(([id]) => id)
-    : [];
+// Each entry's `key` is the YAML key under `sensors:` and doubles as the
+// i18n key (see locale.js `editor` blocks). The candidate list narrows
+// the entity-picker dropdown to plausible matches; if no candidates were
+// found we leave the picker unfiltered so a manual selection still works.
+//
+// Used by both buildSensorsSchema (drives ha-form) and the editor's
+// custom rendering paths.
+function buildSensorFields(hass) {
+  const all = hass ? Object.entries(hass.states) : [];
+  const byDeviceClass = (classes) => all
+    .filter(([id, s]) => id.startsWith('sensor.') &&
+      classes.includes(s.attributes && s.attributes.device_class))
+    .map(([id]) => id);
 
-  // UV: no canonical device_class and no universal unit. Match either
-  // 'uv' as a separator-bounded token (uv_index, uvindex, foo_uv) or a
-  // friendly_name containing 'uv index' / 'uv-index'.
+  const directionEntities = all
+    .filter(([id, s]) => id.startsWith('sensor.') &&
+      (s.attributes.unit_of_measurement === '°' ||
+       s.attributes.unit_of_measurement === 'deg'))
+    .map(([id]) => id);
+
   const uvRegex = /(?:^|[._-])uv(?:[._-]|index|$)/i;
   const uvNameRegex = /\buv[\s_-]?index\b|\buv\b/i;
-  const uvEntities = hass
-    ? Object.entries(hass.states)
-        .filter(([id, s]) => {
-          if (!id.startsWith('sensor.')) return false;
-          const name = (s.attributes && s.attributes.friendly_name) || '';
-          return uvRegex.test(id) || uvNameRegex.test(name);
-        })
-        .map(([id]) => id)
-    : [];
+  const uvEntities = all
+    .filter(([id, s]) => {
+      if (!id.startsWith('sensor.')) return false;
+      const name = (s.attributes && s.attributes.friendly_name) || '';
+      return uvRegex.test(id) || uvNameRegex.test(name);
+    })
+    .map(([id]) => id);
 
   return [
-    { name: "temperature",    label: "Temperature",
-      selector: { entity: { domain: 'sensor', device_class: 'temperature' } } },
-    { name: "humidity",       label: "Humidity",
-      selector: { entity: { domain: 'sensor', device_class: 'humidity' } } },
-    { name: "illuminance",    label: "Illuminance",
-      selector: { entity: { domain: 'sensor', device_class: 'illuminance' } } },
-    { name: "precipitation",  label: "Precipitation",
-      selector: { entity: { domain: 'sensor', device_class: 'precipitation' } } },
-    { name: "pressure",       label: "Pressure",
-      selector: { entity: { domain: 'sensor', device_class: ['atmospheric_pressure', 'pressure'] } } },
-    { name: "wind_speed",     label: "Wind speed",
-      selector: { entity: { domain: 'sensor', device_class: ['wind_speed', 'speed'] } } },
-    { name: "gust_speed",     label: "Gust speed",
-      selector: { entity: { domain: 'sensor', device_class: ['wind_speed', 'speed'] } } },
-    { name: "wind_direction", label: "Wind direction",
-      selector: { entity: { include_entities: directionEntities } } },
-    { name: "uv_index",       label: "UV index",
-      selector: { entity: { include_entities: uvEntities } } },
-    { name: "dew_point",      label: "Dew point",
-      selector: { entity: { domain: 'sensor', device_class: 'temperature' } } },
+    { key: 'temperature',    candidates: byDeviceClass(['temperature']) },
+    { key: 'humidity',       candidates: byDeviceClass(['humidity']) },
+    { key: 'illuminance',    candidates: byDeviceClass(['illuminance']) },
+    { key: 'precipitation',  candidates: byDeviceClass(['precipitation']) },
+    { key: 'pressure',       candidates: byDeviceClass(['atmospheric_pressure', 'pressure']) },
+    { key: 'wind_speed',     candidates: byDeviceClass(['wind_speed', 'speed']) },
+    { key: 'gust_speed',     candidates: byDeviceClass(['wind_speed', 'speed']) },
+    { key: 'wind_direction', candidates: directionEntities },
+    { key: 'uv_index',       candidates: uvEntities },
+    { key: 'dew_point',      candidates: byDeviceClass(['temperature']) },
   ];
+}
+
+// ha-form schema derived from buildSensorFields. The selector forces
+// the entity-picker to filter by our candidate list (fall back to all
+// sensors when no candidates were found, so manual picks still work).
+// Going through ha-form also ensures ha-entity-picker is registered —
+// using <ha-entity-picker> standalone fails to render in some HA builds
+// because the lazy-loaded element isn't pulled in until ha-selector
+// requests it.
+function buildSensorsSchema(hass) {
+  return buildSensorFields(hass).map((f) => ({
+    name: f.key,
+    selector: {
+      entity: f.candidates.length > 0
+        ? { include_entities: f.candidates }
+        : { domain: 'sensor' },
+    },
+  }));
 }
 
 // Resolve a localized editor string. Falls back along
@@ -974,6 +1128,35 @@ function tEditor(hass, key) {
   return key;
 }
 
+// condition_mapping override schema. Each row knows its unit (rendered as
+// a suffix in the input label) so users don't need to consult the README
+// to remember whether `windy_threshold` is m/s or km/h.
+const CONDITION_MAPPING_FIELDS = [
+  { key: 'rainy_threshold_mm',      unit: 'mm',  defaultValue: 0.5 },
+  { key: 'pouring_threshold_mm',    unit: 'mm',  defaultValue: 10 },
+  { key: 'exceptional_gust_ms',     unit: 'm/s', defaultValue: 24.5 },
+  { key: 'exceptional_precip_mm',   unit: 'mm',  defaultValue: 50 },
+  { key: 'snow_max_c',              unit: '°C',  defaultValue: 0 },
+  { key: 'snow_rain_max_c',         unit: '°C',  defaultValue: 3 },
+  { key: 'fog_humidity_pct',        unit: '%',   defaultValue: 95 },
+  { key: 'fog_dewpoint_spread_c',   unit: '°C',  defaultValue: 1 },
+  { key: 'fog_wind_max_ms',         unit: 'm/s', defaultValue: 3 },
+  { key: 'windy_threshold_ms',      unit: 'm/s', defaultValue: 10.8 },
+  { key: 'windy_mean_threshold_ms', unit: 'm/s', defaultValue: 8.0 },
+  { key: 'sunny_cloud_ratio',       unit: 'ratio', defaultValue: 0.70 },
+  { key: 'partly_cloud_ratio',      unit: 'ratio', defaultValue: 0.30 },
+];
+
+const LOCALE_OPTIONS = [
+  ['',   'HA Default'],
+  ['bg', 'Bulgarian'], ['ca', 'Catalan'], ['cs', 'Czech'], ['da', 'Danish'],
+  ['nl', 'Dutch'],     ['en', 'English'], ['fi', 'Finnish'], ['fr', 'French'],
+  ['de', 'German'],    ['el', 'Greek'],   ['hu', 'Hungarian'], ['it', 'Italian'],
+  ['lt', 'Lithuanian'], ['no', 'Norwegian'], ['pl', 'Polish'], ['pt', 'Portuguese'],
+  ['ro', 'Romanian'],  ['ru', 'Russian'], ['sk', 'Slovak'], ['es', 'Spanish'],
+  ['sv', 'Swedish'],   ['uk', 'Ukrainian'], ['ko', '한국어'],
+];
+
 class WeatherStationCardEditor extends s {
   static get properties() {
     return {
@@ -982,20 +1165,11 @@ class WeatherStationCardEditor extends s {
     };
   }
 
-  constructor() {
-    super();
-    this._formValueChanged = this._formValueChanged.bind(this);
-  }
-
   setConfig(config) {
     if (!config) {
       throw new Error("Invalid configuration");
     }
     this._config = config;
-    const sensors = config.sensors || {};
-    // Surface toggles only make sense if the corresponding sensor is configured.
-    this.hasDewpoint = !!sensors.dew_point;
-    this.hasWindgustspeed = !!sensors.gust_speed;
     this.requestUpdate();
   }
 
@@ -1003,121 +1177,135 @@ class WeatherStationCardEditor extends s {
     return this._config;
   }
 
-  updated(changedProperties) {
-    // No weather-entity dependency to watch for in this fork.
+  // ── Mode (UI-only abstraction over show_station / show_forecast) ──────
+  // The YAML schema keeps the two booleans for backwards compatibility;
+  // the editor projects them onto a single radio so users pick a mode
+  // up-front instead of inferring it from two unrelated toggles.
+  get _mode() {
+    const wantStation = this._config.show_station !== false;
+    const wantForecast = this._config.show_forecast === true;
+    if (wantStation && wantForecast) return 'combination';
+    if (wantForecast) return 'forecast';
+    return 'station';
+  }
+
+  _setMode(value) {
+    const newConfig = { ...this._config };
+    switch (value) {
+      case 'station':
+        newConfig.show_station = true;
+        newConfig.show_forecast = false;
+        break;
+      case 'forecast':
+        newConfig.show_station = false;
+        newConfig.show_forecast = true;
+        break;
+      case 'combination':
+        newConfig.show_station = true;
+        newConfig.show_forecast = true;
+        break;
+    }
+    this.configChanged(newConfig);
+    this.requestUpdate();
+  }
+
+  // ── Event plumbing ────────────────────────────────────────────────────
+  configChanged(newConfig) {
+    const event = new Event("config-changed", { bubbles: true, composed: true });
+    event.detail = { config: newConfig };
+    this.dispatchEvent(event);
   }
 
   _sensorsChanged(event) {
     if (!this._config) return;
     if (event.target.tagName.toLowerCase() !== 'ha-form') return;
-    const newConfig = { ...this._config, sensors: event.detail.value };
-    this.configChanged(newConfig);
+    this.configChanged({ ...this._config, sensors: event.detail.value });
+    this.requestUpdate();
+  }
+
+  // Per-picker handler used now that the sensors block uses explicit
+  // ha-entity-picker elements (instead of one ha-form). Empty value
+  // removes the key from the YAML so unset sensors don't appear as
+  // empty strings.
+  _sensorPickerChanged(key, value) {
+    if (!this._config) return;
+    const newSensors = { ...(this._config.sensors || {}) };
+    if (value === '' || value === null || value === undefined) {
+      delete newSensors[key];
+    } else {
+      newSensors[key] = value;
+    }
+    this.configChanged({ ...this._config, sensors: newSensors });
     this.requestUpdate();
   }
 
   _unitsChanged(event) {
     if (!this._config) return;
     if (event.target.tagName.toLowerCase() !== 'ha-form') return;
-    const newConfig = { ...this._config, units: event.detail.value };
-    this.configChanged(newConfig);
+    this.configChanged({ ...this._config, units: event.detail.value });
     this.requestUpdate();
-  }
-
-  configChanged(newConfig) {
-    const event = new Event("config-changed", {
-      bubbles: true,
-      composed: true,
-    });
-    event.detail = { config: newConfig };
-    this.dispatchEvent(event);
   }
 
   _valueChanged(event, key) {
-    if (!this._config) {
-      return;
-    }
+    if (!this._config) return;
 
-    let newConfig = { ...this._config };
+    const newConfig = { ...this._config };
+    const newValue = event.target.checked !== undefined
+      ? event.target.checked
+      : event.target.value;
 
     if (key.includes('.')) {
       const parts = key.split('.');
-      let currentLevel = newConfig;
-
+      let level = newConfig;
       for (let i = 0; i < parts.length - 1; i++) {
-        const part = parts[i];
-
-        currentLevel[part] = { ...currentLevel[part] };
-
-        currentLevel = currentLevel[part];
+        level[parts[i]] = { ...level[parts[i]] };
+        level = level[parts[i]];
       }
-
-      const finalKey = parts[parts.length - 1];
-      if (event.target.checked !== undefined) {
-        currentLevel[finalKey] = event.target.checked;
-      } else {
-        currentLevel[finalKey] = event.target.value;
-      }
+      level[parts[parts.length - 1]] = newValue;
     } else {
-      if (event.target.checked !== undefined) {
-        newConfig[key] = event.target.checked;
-      } else {
-        newConfig[key] = event.target.value;
-      }
+      newConfig[key] = newValue;
     }
-
     this.configChanged(newConfig);
     this.requestUpdate();
   }
 
-  _handleStyleChange(event) {
-    if (!this._config) {
-      return;
+  // condition_mapping override editor: empty input = use default (key
+  // removed from the YAML); any value coerces to a number.
+  _conditionMappingChanged(event, key) {
+    if (!this._config) return;
+    const raw = event.target.value;
+    const newMapping = { ...(this._config.condition_mapping || {}) };
+    if (raw === '' || raw === null || raw === undefined) {
+      delete newMapping[key];
+    } else {
+      const n = parseFloat(raw);
+      if (Number.isFinite(n)) newMapping[key] = n;
     }
-    const newConfig = JSON.parse(JSON.stringify(this._config));
-    newConfig.forecast.style = event.target.value;
+    const newConfig = { ...this._config };
+    if (Object.keys(newMapping).length === 0) {
+      delete newConfig.condition_mapping;
+    } else {
+      newConfig.condition_mapping = newMapping;
+    }
     this.configChanged(newConfig);
     this.requestUpdate();
   }
 
-  _handleTypeChange(event) {
-    if (!this._config) {
-      return;
-    }
-    const newConfig = JSON.parse(JSON.stringify(this._config));
-    newConfig.forecast.type = event.target.value;
-    this.configChanged(newConfig);
-    this.requestUpdate();
-  }
-
-  _handleIconStyleChange(event) {
-    if (!this._config) {
-      return;
-    }
-    const newConfig = JSON.parse(JSON.stringify(this._config));
-    newConfig.icon_style = event.target.value;
-    this.configChanged(newConfig);
-    this.requestUpdate();
-  }
-
-  _handlePrecipitationTypeChange(e) {
-    const newValue = e.target.value;
-    this.config.forecast.precipitation_type = newValue;
-  }
-
-  _formValueChanged(event) {
-    if (event.target.tagName.toLowerCase() === 'ha-form') {
-      const newConfig = event.detail.value;
-      this.configChanged(newConfig);
-      this.requestUpdate();
-    }
-  }
-
+  // ── Render ────────────────────────────────────────────────────────────
   render() {
-    const forecastConfig = this._config.forecast || {};
-    const unitsConfig = this._config.units || {};
-    const sensorsConfig = this._config.sensors || {};
-    this._config.show_time !== false;
-
+    const t = (k) => tEditor(this.hass, k);
+    const cfg = this._config;
+    const fcfg = cfg.forecast || {};
+    const sensorsConfig = cfg.sensors || {};
+    const unitsConfig = cfg.units || {};
+    const mode = this._mode;
+    const isStation = mode === 'station';
+    const isForecast = mode === 'forecast';
+    const isCombo = mode === 'combination';
+    const showsForecast = isForecast || isCombo;
+    const showsStation = isStation || isCombo;
+    const hasSensor = (key) => !!sensorsConfig[key];
+    const cmap = cfg.condition_mapping || {};
 
     return x`
       <style>
@@ -1129,521 +1317,474 @@ class WeatherStationCardEditor extends s {
           padding-bottom: 4px;
           border-bottom: 1px solid var(--divider-color);
         }
-        h3.section:first-of-type {
-          margin-top: 0;
+        h3.section:first-of-type { margin-top: 0; }
+        h4.subsection {
+          font-size: 0.9rem;
+          font-weight: 500;
+          color: var(--secondary-text-color);
+          margin: 18px 0 8px;
         }
-        .switch-label {
-          padding-left: 14px;
+        details.advanced {
+          margin-top: 8px;
+          border: 1px solid var(--divider-color);
+          border-radius: 4px;
+          padding: 8px 12px;
         }
-        .switch-container {
+        details.advanced > summary {
+          cursor: pointer;
+          color: var(--primary-text-color);
+          font-weight: 500;
+        }
+        details.advanced[open] > summary {
           margin-bottom: 12px;
         }
-        .time-container {
-          display: flex;
-          flex-direction: row;
-          margin-bottom: 12px;
-        }
-        .icon-container {
-          display: flex;
-          flex-direction: row;
-          margin-bottom: 12px;
-        }
-        .switch-right {
-          display: flex;
-          flex-direction: row;
-          align-items: center;
-        }
-        .checkbox-container {
-          display: flex;
-          align-items: center;
-          gap: 5px;
-        }
+        .switch-label { padding-left: 14px; }
+        .switch-container { margin-bottom: 12px; display: flex; align-items: center; }
         .textfield-container {
-          display: flex;
-          flex-direction: column;
-          margin-bottom: 10px;
-          gap: 20px;
+          display: flex; flex-direction: column; margin-bottom: 10px; gap: 16px;
         }
-        .radio-container {
-          display: flex;
+        .flex-container { display: flex; flex-direction: row; gap: 20px; }
+        .flex-container ha-textfield { flex-basis: 50%; flex-grow: 1; }
+        .radio-group { display: flex; gap: 16px; align-items: center; margin-bottom: 12px; }
+        .radio-item { display: flex; align-items: center; }
+        .radio-item label { margin-left: 4px; }
+        .hint {
+          font-size: 0.85rem;
+          color: var(--secondary-text-color);
+          margin: 4px 0 12px;
+        }
+        .cmap-row {
+          display: grid;
+          grid-template-columns: 1fr 80px 60px;
+          gap: 8px;
           align-items: center;
-          gap: 5px;
+          margin-bottom: 6px;
         }
-        .radio-group {
-          display: flex;
-          align-items: center;
+        .cmap-default {
+          font-size: 0.8rem;
+          color: var(--secondary-text-color);
         }
-        .radio-group label {
-          margin-left: 4px;
-        }
-        .flex-container {
-          display: flex;
-          flex-direction: row;
-          gap: 20px;
-        }
-        .flex-container ha-textfield {
-          flex-basis: 50%;
-          flex-grow: 1;
+        .cmap-unit {
+          font-size: 0.85rem;
+          color: var(--secondary-text-color);
         }
       </style>
+
       <div>
 
-        <h3 class="section">${tEditor(this.hass, 'sensors_heading')}</h3>
+        <!-- ─── A. Setup ─────────────────────────────────────────────── -->
+        <h3 class="section">${t('setup_heading')}</h3>
         <div class="textfield-container">
+          <ha-textfield
+            label="${t('title')}"
+            .value="${cfg.title || ''}"
+            @change="${(e) => this._valueChanged(e, 'title')}"
+          ></ha-textfield>
+
+          <div class="radio-group">
+            <span style="margin-right:8px;font-weight:500;">${t('mode_label')}:</span>
+            ${[
+              ['station', 'mode_station'],
+              ['forecast', 'mode_forecast'],
+              ['combination', 'mode_combination'],
+            ].map(([value, key]) => x`
+              <div class="radio-item">
+                <ha-radio
+                  name="ws-mode"
+                  .value=${value}
+                  .checked=${mode === value}
+                  @change=${() => this._setMode(value)}
+                ></ha-radio>
+                <label>${t(key)}</label>
+              </div>
+            `)}
+          </div>
+
+          <div class="flex-container">
+            ${showsStation ? x`
+              <ha-textfield
+                label="${t('days')}"
+                type="number" min="1" max="14"
+                .value="${cfg.days || 7}"
+                @change="${(e) => this._valueChanged(e, 'days')}"
+              ></ha-textfield>
+            ` : ''}
+            ${showsForecast ? x`
+              <ha-textfield
+                label="${t('forecast_days')}"
+                type="number" min="1" max="14"
+                .value="${cfg.forecast_days != null ? cfg.forecast_days : (cfg.days || 7)}"
+                @change="${(e) => this._valueChanged(e, 'forecast_days')}"
+              ></ha-textfield>
+            ` : ''}
+          </div>
+          ${showsForecast ? x`
+            <ha-entity-picker
+              .hass=${this.hass}
+              .value=${cfg.weather_entity || ''}
+              .includeDomains=${['weather']}
+              label="${t('weather_entity')}"
+              allow-custom-entity
+              @value-changed=${(e) => this._valueChanged({ target: { value: e.detail.value } }, 'weather_entity')}
+            ></ha-entity-picker>
+          ` : ''}
+        </div>
+
+        <!-- ─── B. Sensors ──────────────────────────────────────────── -->
+        <!-- No heading: ha-form renders each picker with its label as a
+             Material floating label inside the field, so the section is
+             self-explanatory. We keep ha-form (vs. explicit pickers) so
+             ha-entity-picker is registered through the selector pipeline
+             — direct use renders blank in some HA builds. -->
+        <div class="textfield-container" style="margin-top:24px;">
           <ha-form
             .data=${sensorsConfig}
             .schema=${buildSensorsSchema(this.hass)}
             .hass=${this.hass}
-            .computeLabel=${(s) => tEditor(this.hass, s.name)}
+            .computeLabel=${(s) => t(s.name)}
             @value-changed=${this._sensorsChanged}
           ></ha-form>
         </div>
 
-        <h3 class="section">${tEditor(this.hass, 'card_heading')}</h3>
-        <div class="textfield-container">
-          <ha-textfield
-            label="${tEditor(this.hass, 'title')}"
-            .value="${this._config.title || ''}"
-            @change="${(e) => this._valueChanged(e, 'title')}"
-          ></ha-textfield>
-          <ha-textfield
-            label="${tEditor(this.hass, 'days')}"
-            type="number"
-            min="1"
-            max="14"
-            .value="${this._config.days || 7}"
-            @change="${(e) => this._valueChanged(e, 'days')}"
-          ></ha-textfield>
-        </div>
+        <!-- ─── C. Layout ───────────────────────────────────────────── -->
+        <h3 class="section">${t('layout_heading')}</h3>
 
-        <h3 class="section">Forecast block</h3>
-        <div>
-          <div class="switch-container">
-            <ha-switch
-              @change="${(e) => this._valueChanged(e, 'show_station')}"
-              .checked="${this._config.show_station !== false}"
-            ></ha-switch>
-            <label class="switch-label">
-              Show station history (left block)
-            </label>
-          </div>
-          <div class="switch-container">
-            <ha-switch
-              @change="${(e) => this._valueChanged(e, 'show_forecast')}"
-              .checked="${this._config.show_forecast === true}"
-            ></ha-switch>
-            <label class="switch-label">
-              Show forecast (right block)
-            </label>
-          </div>
-          <div class="textfield-container">
-            <ha-entity-picker
-              .hass=${this.hass}
-              .value=${this._config.weather_entity || ''}
-              .includeDomains=${['weather']}
-              label="Weather entity (forecast)"
-              allow-custom-entity
-              @value-changed=${(e) => this._valueChanged({ target: { value: e.detail.value } }, 'weather_entity')}
-            ></ha-entity-picker>
-            <ha-textfield
-              label="Forecast days"
-              type="number"
-              min="1"
-              max="14"
-              .value="${this._config.forecast_days != null ? this._config.forecast_days : (this._config.days || 7)}"
-              @change="${(e) => this._valueChanged(e, 'forecast_days')}"
-            ></ha-textfield>
-          </div>
+        <h4 class="subsection">${t('main_panel_heading')}</h4>
+        <div class="switch-container">
+          <ha-switch
+            @change="${(e) => this._valueChanged(e, 'show_main')}"
+            .checked="${cfg.show_main === true}"
+          ></ha-switch>
+          <label class="switch-label">${t('show_main')}</label>
         </div>
-
-        <h3 class="section">${tEditor(this.hass, 'display_heading')}</h3>
-        <div>
-          <div class="switch-container">
-            <ha-switch
-              @change="${(e) => this._valueChanged(e, 'show_main')}"
-              .checked="${this._config.show_main !== false}"
-            ></ha-switch>
-            <label class="switch-label">
-              Show Main
-            </label>
-          </div>
+        ${cfg.show_main === true ? x`
           <div class="switch-container">
             <ha-switch
               @change="${(e) => this._valueChanged(e, 'show_temperature')}"
-              .checked="${this._config.show_temperature !== false}"
+              .checked="${cfg.show_temperature !== false}"
             ></ha-switch>
-            <label class="switch-label">
-              Show Current Temperature
-            </label>
+            <label class="switch-label">${t('show_temperature')}</label>
           </div>
           <div class="switch-container">
             <ha-switch
               @change="${(e) => this._valueChanged(e, 'show_current_condition')}"
-              .checked="${this._config.show_current_condition !== false}"
+              .checked="${cfg.show_current_condition !== false}"
             ></ha-switch>
-            <label class="switch-label">
-              Show Current Weather Condition
-            </label>
+            <label class="switch-label">${t('show_current_condition')}</label>
           </div>
           <div class="switch-container">
             <ha-switch
-              @change="${(e) => this._valueChanged(e, 'show_attributes')}"
-              .checked="${this._config.show_attributes !== false}"
+              @change="${(e) => this._valueChanged(e, 'show_time')}"
+              .checked="${cfg.show_time === true}"
             ></ha-switch>
-            <label class="switch-label">
-              Show Attributes
-            </label>
+            <label class="switch-label">${t('show_time')}</label>
+          </div>
+          ${cfg.show_time === true ? x`
+            <div class="switch-container" style="padding-left:20px;">
+              <ha-switch
+                @change="${(e) => this._valueChanged(e, 'show_time_seconds')}"
+                .checked="${cfg.show_time_seconds === true}"
+              ></ha-switch>
+              <label class="switch-label">${t('show_time_seconds')}</label>
+            </div>
+            <div class="switch-container" style="padding-left:20px;">
+              <ha-switch
+                @change="${(e) => this._valueChanged(e, 'use_12hour_format')}"
+                .checked="${cfg.use_12hour_format === true}"
+              ></ha-switch>
+              <label class="switch-label">${t('use_12hour_format')}</label>
+            </div>
+          ` : ''}
+          <div class="switch-container">
+            <ha-switch
+              @change="${(e) => this._valueChanged(e, 'show_day')}"
+              .checked="${cfg.show_day === true}"
+            ></ha-switch>
+            <label class="switch-label">${t('show_day')}</label>
           </div>
           <div class="switch-container">
             <ha-switch
-              @change="${(e) => this._valueChanged(e, 'show_humidity')}"
-              .checked="${this._config.show_humidity !== false}"
+              @change="${(e) => this._valueChanged(e, 'show_date')}"
+              .checked="${cfg.show_date === true}"
             ></ha-switch>
-            <label class="switch-label">
-              Show Humidity
-            </label>
+            <label class="switch-label">${t('show_date')}</label>
           </div>
-          <div class="switch-container">
-            <ha-switch
-              @change="${(e) => this._valueChanged(e, 'show_pressure')}"
-              .checked="${this._config.show_pressure !== false}"
-            ></ha-switch>
-            <label class="switch-label">
-              Show Pressure
-            </label>
-          </div>
+        ` : ''}
+
+        <h4 class="subsection">${t('attributes_heading')}</h4>
+        <div class="switch-container">
+          <ha-switch
+            @change="${(e) => this._valueChanged(e, 'show_attributes')}"
+            .checked="${cfg.show_attributes === true}"
+          ></ha-switch>
+          <label class="switch-label">${t('show_attributes')}</label>
+        </div>
+        ${cfg.show_attributes === true ? x`
+          ${hasSensor('humidity') ? x`
+            <div class="switch-container">
+              <ha-switch
+                @change="${(e) => this._valueChanged(e, 'show_humidity')}"
+                .checked="${cfg.show_humidity !== false}"
+              ></ha-switch>
+              <label class="switch-label">${t('show_humidity')}</label>
+            </div>
+          ` : ''}
+          ${hasSensor('pressure') ? x`
+            <div class="switch-container">
+              <ha-switch
+                @change="${(e) => this._valueChanged(e, 'show_pressure')}"
+                .checked="${cfg.show_pressure !== false}"
+              ></ha-switch>
+              <label class="switch-label">${t('show_pressure')}</label>
+            </div>
+          ` : ''}
+          ${hasSensor('dew_point') ? x`
+            <div class="switch-container">
+              <ha-switch
+                @change="${(e) => this._valueChanged(e, 'show_dew_point')}"
+                .checked="${cfg.show_dew_point === true}"
+              ></ha-switch>
+              <label class="switch-label">${t('show_dew_point')}</label>
+            </div>
+          ` : ''}
+          ${hasSensor('wind_direction') ? x`
+            <div class="switch-container">
+              <ha-switch
+                @change="${(e) => this._valueChanged(e, 'show_wind_direction')}"
+                .checked="${cfg.show_wind_direction !== false}"
+              ></ha-switch>
+              <label class="switch-label">${t('show_wind_direction')}</label>
+            </div>
+          ` : ''}
+          ${hasSensor('wind_speed') ? x`
+            <div class="switch-container">
+              <ha-switch
+                @change="${(e) => this._valueChanged(e, 'show_wind_speed')}"
+                .checked="${cfg.show_wind_speed !== false}"
+              ></ha-switch>
+              <label class="switch-label">${t('show_wind_speed')}</label>
+            </div>
+          ` : ''}
+          ${hasSensor('gust_speed') ? x`
+            <div class="switch-container">
+              <ha-switch
+                @change="${(e) => this._valueChanged(e, 'show_wind_gust_speed')}"
+                .checked="${cfg.show_wind_gust_speed === true}"
+              ></ha-switch>
+              <label class="switch-label">${t('show_wind_gust_speed')}</label>
+            </div>
+          ` : ''}
           <div class="switch-container">
             <ha-switch
               @change="${(e) => this._valueChanged(e, 'show_sun')}"
-              .checked="${this._config.show_sun !== false}"
+              .checked="${cfg.show_sun === true}"
             ></ha-switch>
-            <label class="switch-label">
-              Show Sun
-            </label>
+            <label class="switch-label">${t('show_sun')}</label>
           </div>
-          <div class="switch-container">
-            <ha-switch
-              @change="${(e) => this._valueChanged(e, 'show_wind_direction')}"
-              .checked="${this._config.show_wind_direction !== false}"
-            ></ha-switch>
-            <label class="switch-label">
-              Show Wind Direction
-            </label>
-          </div>
-          <div class="switch-container">
-            <ha-switch
-              @change="${(e) => this._valueChanged(e, 'show_wind_speed')}"
-              .checked="${this._config.show_wind_speed !== false}"
-            ></ha-switch>
-            <label class="switch-label">
-              Show Wind Speed
-            </label>
-	  </div>
-      <div class="switch-container">
-        ${this.hasDewpoint ? x`
-          <ha-switch
-            @change="${(e) => this._valueChanged(e, 'show_dew_point')}"
-            .checked="${this._config.show_dew_point !== false}"
-          ></ha-switch>
-          <label class="switch-label">
-            Show Dew Point
-          </label>
         ` : ''}
-      </div>
-      <div class="switch-container">
-        ${this.hasWindgustspeed ? x`
-          <ha-switch
-            @change="${(e) => this._valueChanged(e, 'show_wind_gust_speed')}"
-            .checked="${this._config.show_wind_gust_speed !== false}"
-          ></ha-switch>
-          <label class="switch-label">
-            Show Wind Gust Speed
-          </label>
-        ` : ''}
-      </div>
-          <div class="switch-container">
-            <ha-switch
-              @change="${(e) => this._valueChanged(e, 'use_12hour_format')}"
-              .checked="${this._config.use_12hour_format !== false}"
-            ></ha-switch>
-            <label class="switch-label">
-              Use 12-Hour Format
-            </label>
-          </div>
-          <div class="switch-container">
-            <ha-switch
-              @change="${(e) => this._valueChanged(e, 'autoscroll')}"
-              .checked="${this._config.autoscroll !== false}"
-            ></ha-switch>
-            <label class="switch-label">
-              Autoscroll
-            </label>
-          </div>
-          <div class="time-container">
-            <div class="switch-right">
-              <ha-switch
-                @change="${(e) => this._valueChanged(e, 'show_time')}"
-                .checked="${this._config.show_time !== false}"
-              ></ha-switch>
-              <label class="switch-label">
-                Show Current Time
-              </label>
-            </div>
-            <div class="switch-right checkbox-container" style="${this._config.show_time ? 'display: flex;' : 'display: none;'}">
-              <ha-checkbox
-                @change="${(e) => this._valueChanged(e, 'show_time_seconds')}"
-                .checked="${this._config.show_time_seconds !== false}"
-              ></ha-checkbox>
-              <label class="check-label">
-                Show Seconds
-              </label>
-            </div>
-            <div class="switch-right checkbox-container" style="${this._config.show_time ? 'display: flex;' : 'display: none;'}">
-              <ha-checkbox
-                @change="${(e) => this._valueChanged(e, 'show_day')}"
-                .checked="${this._config.show_day !== false}"
-              ></ha-checkbox>
-              <label class="check-label">
-                Show Day
-              </label>
-            </div>
-            <div class="switch-right checkbox-container" style="${this._config.show_time ? 'display: flex;' : 'display: none;'}">
-              <ha-checkbox
-                @change="${(e) => this._valueChanged(e, 'show_date')}"
-                .checked="${this._config.show_date !== false}"
-              ></ha-checkbox>
-              <label class="check-label">
-                Show Date
-              </label>
-            </div>
-          </div>
-            <div class="flex-container" style="${this._config.show_time ? 'display: flex;' : 'display: none;'}">
-              <ha-textfield
-                label="Time text size"
-                type="number"
-                .value="${this._config.time_size || '26'}"
-                @change="${(e) => this._valueChanged(e, 'time_size')}"
-              ></ha-textfield>
-              <ha-textfield
-                label="Day and date text size"
-                type="number"
-                .value="${this._config.day_date_size || '15'}"
-                @change="${(e) => this._valueChanged(e, 'day_date_size')}"
-              ></ha-textfield>
-              </div>
-            <div class="icon-container">
-              <div class="switch-right">
-                <ha-switch
-                  @change="${(e) => this._valueChanged(e, 'animated_icons')}"
-                  .checked="${this._config.animated_icons === true}"
-                ></ha-switch>
-                <label class="switch-label">
-                  Use Animated Icons
-                </label>
-              </div>
-              <div class="switch-right radio-container" style="${this._config.animated_icons ? 'display: flex;' : 'display: none;'}">
-                  <ha-radio
-                    name="icon_style"
-                    value="style1"
-                    @change="${this._handleIconStyleChange}"
-                    .checked="${this._config.icon_style === 'style1'}"
-                  ></ha-radio>
-                  <label class="check-label">
-                    Style 1
-                  </label>
-                </div>
-              <div class="switch-right radio-container" style="${this._config.animated_icons ? 'display: flex;' : 'display: none;'}">
-                  <ha-radio
-                    name="icon_style"
-                    value="style2"
-                    @change="${this._handleIconStyleChange}"
-                    .checked="${this._config.icon_style === 'style2'}"
-                  ></ha-radio>
-                  <label class="check-label">
-                    Style 2
-                  </label>
-                </div>
-              </div>
-       <div class="textfield-container">
-         <ha-textfield
-           label="Icon Size for animated or custom icons"
-           type="number"
-           .value="${this._config.icons_size || '25'}"
-           @change="${(e) => this._valueChanged(e, 'icons_size')}"
-         ></ha-textfield>
-          <ha-textfield
-            label="Curent temperature Font Size"
-           type="number"
-            .value="${this._config.current_temp_size || '28'}"
-            @change="${(e) => this._valueChanged(e, 'current_temp_size')}"
-          ></ha-textfield>
-        <ha-textfield
-          label="Custom icon path"
-          .value="${this._config.icons || ''}"
-          @change="${(e) => this._valueChanged(e, 'icons')}"
-        ></ha-textfield>
-         <ha-select
-           naturalMenuWidth
-           fixedMenuPosition
-           label="Select custom language"
-           .configValue=${''}
-           .value=${this._config.locale}
-           @change=${(e) => this._valueChanged(e, 'locale')}
-           @closed=${(ev) => ev.stopPropagation()}
-         >
-           <ha-list-item .value=${''}>HA Default</ha-list-item>
-           <ha-list-item .value=${'bg'}>Bulgarian</ha-list-item>
-           <ha-list-item .value=${'ca'}>Catalan</ha-list-item>
-           <ha-list-item .value=${'cs'}>Czech</ha-list-item>
-           <ha-list-item .value=${'da'}>Danish</ha-list-item>
-           <ha-list-item .value=${'nl'}>Dutch</ha-list-item>
-           <ha-list-item .value=${'en'}>English</ha-list-item>
-           <ha-list-item .value=${'fi'}>Finnish</ha-list-item>
-           <ha-list-item .value=${'fr'}>French</ha-list-item>
-           <ha-list-item .value=${'de'}>German</ha-list-item>
-           <ha-list-item .value=${'el'}>Greek</ha-list-item>
-           <ha-list-item .value=${'hu'}>Hungarian</ha-list-item>
-           <ha-list-item .value=${'it'}>Italian</ha-list-item>
-           <ha-list-item .value=${'lt'}>Lithuanian</ha-list-item>
-           <ha-list-item .value=${'no'}>Norwegian</ha-list-item>
-           <ha-list-item .value=${'pl'}>Polish</ha-list-item>
-           <ha-list-item .value=${'pt'}>Portuguese</ha-list-item>
-           <ha-list-item .value=${'ro'}>Romanian</ha-list-item>
-           <ha-list-item .value=${'ru'}>Russian</ha-list-item>
-           <ha-list-item .value=${'sk'}>Slovak</ha-list-item>
-           <ha-list-item .value=${'es'}>Spanish</ha-list-item>
-           <ha-list-item .value=${'sv'}>Swedish</ha-list-item>
-	   <ha-list-item .value=${'uk'}>Ukrainian</ha-list-item>
-    	   <ha-list-item .value=${'ko'}>한국어</ha-list-item>
-        </ha-select>
-        </div>
-      </div>
 
-        <h3 class="section">${tEditor(this.hass, 'chart_heading')}</h3>
-        <div class="radio-container" style="margin-bottom: 12px;">
-          <div class="switch-right">
-            <ha-radio
-              name="style"
-              value="style1"
-              @change="${this._handleStyleChange}"
-              .checked="${forecastConfig.style === 'style1'}"
-            ></ha-radio>
-            <label class="check-label">Chart style 1</label>
-          </div>
-          <div class="switch-right">
-            <ha-radio
-              name="style"
-              value="style2"
-              @change="${this._handleStyleChange}"
-              .checked="${forecastConfig.style === 'style2'}"
-            ></ha-radio>
-            <label class="check-label">Chart style 2</label>
-          </div>
+        <h4 class="subsection">${t('chart_rows_heading')}</h4>
+        <div class="switch-container">
+          <ha-switch
+            @change="${(e) => this._valueChanged(e, 'forecast.condition_icons')}"
+            .checked="${fcfg.condition_icons !== false}"
+          ></ha-switch>
+          <label class="switch-label">${t('show_chart_icons')}</label>
         </div>
-        <div>
-          <div class="switch-container">
+        <div class="switch-container">
+          <ha-switch
+            @change="${(e) => this._valueChanged(e, 'forecast.show_wind_forecast')}"
+            .checked="${fcfg.show_wind_forecast !== false}"
+          ></ha-switch>
+          <label class="switch-label">${t('show_chart_wind')}</label>
+        </div>
+        ${fcfg.show_wind_forecast !== false ? x`
+          <div class="switch-container" style="padding-left:20px;">
             <ha-switch
-              @change="${(e) => this._valueChanged(e, 'forecast.condition_icons')}"
-              .checked="${forecastConfig.condition_icons !== false}"
+              @change="${(e) => this._valueChanged(e, 'forecast.show_wind_arrow')}"
+              .checked="${fcfg.show_wind_arrow !== false}"
             ></ha-switch>
-            <label class="switch-label">
-              Show Condition Icons
-            </label>
+            <label class="switch-label">${t('show_chart_wind_arrow')}</label>
           </div>
-          <div class="switch-container">
-            <ha-switch
-              @change="${(e) => this._valueChanged(e, 'forecast.show_date')}"
-              .checked="${forecastConfig.show_date !== false}"
-            ></ha-switch>
-            <label class="switch-label">
-              Show date row in chart
-            </label>
+        ` : ''}
+        <div class="switch-container">
+          <ha-switch
+            @change="${(e) => this._valueChanged(e, 'forecast.show_date')}"
+            .checked="${fcfg.show_date !== false}"
+          ></ha-switch>
+          <label class="switch-label">${t('show_chart_date')}</label>
+        </div>
+
+        <!-- ─── D. Style & Colours ──────────────────────────────────── -->
+        <h3 class="section">${t('style_heading')}</h3>
+
+        <h4 class="subsection">${t('chart_appearance_heading')}</h4>
+        <div class="textfield-container">
+          <div class="radio-group">
+            <span style="margin-right:8px;font-weight:500;">${t('chart_style')}:</span>
+            <div class="radio-item">
+              <ha-radio
+                name="ws-chart-style"
+                .value=${'style2'}
+                .checked=${(fcfg.style || 'style2') === 'style2'}
+                @change=${() => this._valueChanged({ target: { value: 'style2' } }, 'forecast.style')}
+              ></ha-radio>
+              <label>${t('chart_style_without_boxes')}</label>
+            </div>
+            <div class="radio-item">
+              <ha-radio
+                name="ws-chart-style"
+                .value=${'style1'}
+                .checked=${fcfg.style === 'style1'}
+                @change=${() => this._valueChanged({ target: { value: 'style1' } }, 'forecast.style')}
+              ></ha-radio>
+              <label>${t('chart_style_with_boxes')}</label>
+            </div>
           </div>
-          <div class="switch-container">
-            <ha-switch
-              @change="${(e) => this._valueChanged(e, 'forecast.show_wind_forecast')}"
-              .checked="${forecastConfig.show_wind_forecast !== false}"
-            ></ha-switch>
-            <label class="switch-label">
-              Show Wind Forecast
-            </label>
-          </div>
+          <!--
+            forecast.precipitation_type ('rainfall' / 'probability') and
+            forecast.show_probability are deliberately NOT rendered here
+            while issue #4 is open. Station data has no probability, so
+            the Probability mode produces empty bars for past columns and
+            show_probability has nothing to overlay there. YAML still
+            parses; restore once probability is wired correctly.
+          -->
           <div class="switch-container">
             <ha-switch
               @change="${(e) => this._valueChanged(e, 'forecast.round_temp')}"
-              .checked="${forecastConfig.round_temp !== false}"
+              .checked="${fcfg.round_temp === true}"
             ></ha-switch>
-            <label class="switch-label">
-              Rounding Temperatures
-            </label>
+            <label class="switch-label">${t('round_temp')}</label>
           </div>
           <div class="switch-container">
             <ha-switch
               @change="${(e) => this._valueChanged(e, 'forecast.disable_animation')}"
-              .checked="${forecastConfig.disable_animation !== false}"
+              .checked="${fcfg.disable_animation === true}"
             ></ha-switch>
-            <label class="switch-label">
-              Disable Chart Animation
-            </label>
-          </div>
-	  <div class="textfield-container">
-          <ha-select
-            naturalMenuWidth
-            fixedMenuPosition
-            label="Precipitation Type (Probability if supported by the weather entity)"
-            .configValue=${'forecast.precipitation_type'}
-            .value=${forecastConfig.precipitation_type}
-            @change=${(e) => this._valueChanged(e, 'forecast.precipitation_type')}
-            @closed=${(ev) => ev.stopPropagation()}
-          >
-            <ha-list-item .value=${'rainfall'}>Rainfall</ha-list-item>
-            <ha-list-item .value=${'probability'}>Probability</ha-list-item>
-          </ha-select>
-         <div class="switch-container" ?hidden=${forecastConfig.precipitation_type !== 'rainfall'}>
-             <ha-switch
-               @change="${(e) => this._valueChanged(e, 'forecast.show_probability')}"
-               .checked="${forecastConfig.show_probability !== false}"
-             ></ha-switch>
-             <label class="switch-label">
-               Show precipitation probability
-             </label>
-         </div>
-          <div class="textfield-container">
-            <div class="flex-container">
-              <ha-textfield
-                label="Precipitation Bar Size %"
-                type="number"
-                max="100"
-                min="0"
-                .value="${forecastConfig.precip_bar_size || '100'}"
-                @change="${(e) => this._valueChanged(e, 'forecast.precip_bar_size')}"
-              ></ha-textfield>
-              <ha-textfield
-                label="Labels Font Size"
-                type="number"
-                .value="${forecastConfig.labels_font_size || '11'}"
-                @change="${(e) => this._valueChanged(e, 'forecast.labels_font_size')}"
-              ></ha-textfield>
-              </div>
-	    <div class="flex-container">
-              <ha-textfield
-                label="Chart height"
-                type="number"
-                .value="${forecastConfig.chart_height || '180'}"
-                @change="${(e) => this._valueChanged(e, 'forecast.chart_height')}"
-              ></ha-textfield>
-              <ha-textfield
-                label="Number of forecasts"
-                type="number"
-                .value="${forecastConfig.number_of_forecasts || '0'}"
-                @change="${(e) => this._valueChanged(e, 'forecast.number_of_forecasts')}"
-              ></ha-textfield>
-              </div>
-            </div>
+            <label class="switch-label">${t('disable_animation')}</label>
           </div>
         </div>
 
-        <h3 class="section">${tEditor(this.hass, 'units_heading')}</h3>
+        <h4 class="subsection">${t('sizing_heading')}</h4>
+        <div class="textfield-container">
+          <div class="flex-container">
+            <ha-textfield
+              label="${t('icon_size')}" type="number"
+              .value="${cfg.icons_size || '25'}"
+              @change="${(e) => this._valueChanged(e, 'icons_size')}"
+            ></ha-textfield>
+            <ha-textfield
+              label="${t('current_temp_size')}" type="number"
+              .value="${cfg.current_temp_size || '28'}"
+              @change="${(e) => this._valueChanged(e, 'current_temp_size')}"
+            ></ha-textfield>
+          </div>
+          <div class="flex-container">
+            <ha-textfield
+              label="${t('time_size')}" type="number"
+              .value="${cfg.time_size || '26'}"
+              @change="${(e) => this._valueChanged(e, 'time_size')}"
+            ></ha-textfield>
+            <ha-textfield
+              label="${t('day_date_size')}" type="number"
+              .value="${cfg.day_date_size || '15'}"
+              @change="${(e) => this._valueChanged(e, 'day_date_size')}"
+            ></ha-textfield>
+          </div>
+          <div class="flex-container">
+            <ha-textfield
+              label="${t('labels_font_size')}" type="number"
+              .value="${fcfg.labels_font_size || '11'}"
+              @change="${(e) => this._valueChanged(e, 'forecast.labels_font_size')}"
+            ></ha-textfield>
+            <ha-textfield
+              label="${t('chart_height')}" type="number"
+              .value="${fcfg.chart_height || '180'}"
+              @change="${(e) => this._valueChanged(e, 'forecast.chart_height')}"
+            ></ha-textfield>
+          </div>
+          <ha-textfield
+            label="${t('precip_bar_size')}" type="number" min="0" max="100"
+            .value="${fcfg.precip_bar_size || '100'}"
+            @change="${(e) => this._valueChanged(e, 'forecast.precip_bar_size')}"
+          ></ha-textfield>
+        </div>
+
+        <h4 class="subsection">${t('icons_heading')}</h4>
+        <div class="textfield-container">
+          <div class="radio-group">
+            <span style="margin-right:8px;font-weight:500;">${t('icon_style')}:</span>
+            <div class="radio-item">
+              <ha-radio
+                name="ws-icon-style"
+                .value=${'style1'}
+                .checked=${(cfg.icon_style || 'style1') === 'style1'}
+                @change=${() => this._valueChanged({ target: { value: 'style1' } }, 'icon_style')}
+              ></ha-radio>
+              <label>Style 1</label>
+            </div>
+            <div class="radio-item">
+              <ha-radio
+                name="ws-icon-style"
+                .value=${'style2'}
+                .checked=${cfg.icon_style === 'style2'}
+                @change=${() => this._valueChanged({ target: { value: 'style2' } }, 'icon_style')}
+              ></ha-radio>
+              <label>Style 2</label>
+            </div>
+          </div>
+          <div class="switch-container">
+            <ha-switch
+              @change="${(e) => this._valueChanged(e, 'animated_icons')}"
+              .checked="${cfg.animated_icons === true}"
+            ></ha-switch>
+            <label class="switch-label">${t('animated_icons')}</label>
+          </div>
+          <ha-textfield
+            label="${t('custom_icons_url')}"
+            .value="${cfg.icons || ''}"
+            @change="${(e) => this._valueChanged(e, 'icons')}"
+          ></ha-textfield>
+        </div>
+
+        <details class="advanced">
+          <summary>${t('colours_heading')}</summary>
+          <div class="textfield-container" style="margin-top:12px;">
+            <ha-textfield
+              label="${t('temperature1_color')}"
+              .value="${fcfg.temperature1_color || ''}"
+              placeholder="rgba(255, 152, 0, 1.0)"
+              @change="${(e) => this._valueChanged(e, 'forecast.temperature1_color')}"
+            ></ha-textfield>
+            <ha-textfield
+              label="${t('temperature2_color')}"
+              .value="${fcfg.temperature2_color || ''}"
+              placeholder="rgba(68, 115, 158, 1.0)"
+              @change="${(e) => this._valueChanged(e, 'forecast.temperature2_color')}"
+            ></ha-textfield>
+            <ha-textfield
+              label="${t('precipitation_color')}"
+              .value="${fcfg.precipitation_color || ''}"
+              placeholder="rgba(132, 209, 253, 1.0)"
+              @change="${(e) => this._valueChanged(e, 'forecast.precipitation_color')}"
+            ></ha-textfield>
+            <ha-textfield
+              label="${t('chart_text_color')}"
+              .value="${fcfg.chart_text_color || ''}"
+              placeholder="auto"
+              @change="${(e) => this._valueChanged(e, 'forecast.chart_text_color')}"
+            ></ha-textfield>
+            <ha-textfield
+              label="${t('chart_datetime_color')}"
+              .value="${fcfg.chart_datetime_color || ''}"
+              placeholder="auto"
+              @change="${(e) => this._valueChanged(e, 'forecast.chart_datetime_color')}"
+            ></ha-textfield>
+          </div>
+        </details>
+
+        <!-- ─── E. Units ────────────────────────────────────────────── -->
+        <h3 class="section">${t('units_heading')}</h3>
         <div class="textfield-container">
           <ha-form
             .data=${unitsConfig}
@@ -1654,6 +1795,47 @@ class WeatherStationCardEditor extends s {
           ></ha-form>
         </div>
 
+        <!-- ─── F. Advanced ─────────────────────────────────────────── -->
+        <!--
+          forecast.type, autoscroll, forecast.number_of_forecasts,
+          forecast.precipitation_type and forecast.show_probability are
+          deliberately NOT rendered here while issues #2 / #3 / #4 / #5
+          are open. The YAML keys still parse (values flow through);
+          we just stop advertising broken or vestigial features.
+        -->
+        <h3 class="section">${t('advanced_heading')}</h3>
+        <div class="textfield-container">
+          <ha-select
+            naturalMenuWidth fixedMenuPosition
+            label="${t('locale')}"
+            .value=${cfg.locale || ''}
+            @change=${(e) => this._valueChanged(e, 'locale')}
+            @closed=${(ev) => ev.stopPropagation()}
+          >
+            ${LOCALE_OPTIONS.map(([value, label]) => x`
+              <ha-list-item .value=${value}>${label}</ha-list-item>
+            `)}
+          </ha-select>
+        </div>
+
+        <details class="advanced">
+          <summary>${t('condition_mapping_heading')}</summary>
+          <p class="hint">${t('condition_mapping_hint')}</p>
+          ${CONDITION_MAPPING_FIELDS.map((field) => x`
+            <div class="cmap-row">
+              <span>${field.key}</span>
+              <ha-textfield
+                type="number" step="any"
+                .value="${cmap[field.key] != null ? String(cmap[field.key]) : ''}"
+                placeholder="${field.defaultValue}"
+                @change="${(e) => this._conditionMappingChanged(e, field.key)}"
+              ></ha-textfield>
+              <span class="cmap-unit">${field.unit}</span>
+            </div>
+          `)}
+        </details>
+
+      </div>
     `;
   }
 }
@@ -1669,6 +1851,7 @@ const UNIT_LABELS = {
   pressure: "Convert pressure to",
   speed: "Convert wind speed to",
 };
+
 customElements.define("weather-station-card-editor", WeatherStationCardEditor);
 
 // Sensor-driven daily weather condition classifier.
@@ -2059,19 +2242,26 @@ class ForecastDataSource {
 
   async unsubscribe() {
     this._listener = null;
-    if (this._unsubPromise) {
-      try {
-        const unsub = await this._unsubPromise;
-        if (typeof unsub === 'function') unsub();
-      } catch (_) { /* already gone */ }
-      this._unsubPromise = null;
-    }
+    const pending = this._unsubPromise;
+    // Always clear the slot first so a subsequent unsubscribe() doesn't
+    // await the same (possibly rejected) promise. If subscribeMessage
+    // rejected, awaiting it again would just re-throw without progress.
+    this._unsubPromise = null;
+    if (!pending) return;
+    try {
+      const unsub = await pending;
+      if (typeof unsub === 'function') unsub();
+    } catch (_) { /* already gone or never landed */ }
   }
 
   _resubscribe() {
     if (this._unsubPromise) {
-      this._unsubPromise.then((unsub) => { try { if (typeof unsub === 'function') unsub(); } catch (_) {} });
+      const pending = this._unsubPromise;
       this._unsubPromise = null;
+      pending.then(
+        (unsub) => { try { if (typeof unsub === 'function') unsub(); } catch (_) {} },
+        () => { /* rejected — nothing to dispose */ },
+      );
     }
     const entity = this.config.weather_entity;
     if (!entity) {
@@ -2117,15 +2307,21 @@ class ForecastDataSource {
 
 // Reduce a CSS colour to ~`factor` of its original alpha. Used to render
 // forecast precipitation bars at lower opacity than the measured station
-// bars next to them. Handles the rgb/rgba/hex shapes the editor produces;
-// other formats (named colours, hsl, oklch, …) pass through unchanged so
-// no exception escapes into the render path.
+// bars next to them. Handles rgb/rgba/hex/hsl/hsla — the shapes either the
+// editor or a hand-written YAML config can produce. Other formats (named
+// colours, oklch, colour-mix(), …) pass through unchanged so no exception
+// escapes into the render path.
 function lightenColor(color, factor = 0.45) {
   if (!color || typeof color !== 'string') return color;
   let m = /^rgba?\s*\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)\s*$/i.exec(color);
   if (m) {
     const a = m[4] !== undefined ? parseFloat(m[4]) : 1;
     return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${(a * factor).toFixed(3)})`;
+  }
+  m = /^hsla?\s*\(\s*([\d.]+)(?:deg)?\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%\s*(?:,\s*([\d.]+)\s*)?\)\s*$/i.exec(color);
+  if (m) {
+    const a = m[4] !== undefined ? parseFloat(m[4]) : 1;
+    return `hsla(${m[1]}, ${m[2]}%, ${m[3]}%, ${(a * factor).toFixed(3)})`;
   }
   m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color);
   if (m) {
@@ -2157,11 +2353,384 @@ function computeBlockSeparatorPositions(stationCount, forecastCount, ticksLength
   return out;
 }
 
-/**
- * @license
- * Copyright 2021 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */var n;null!=(null===(n=window.HTMLSlotElement)||void 0===n?void 0:n.prototype.assignedElements)?(o,n)=>o.assignedElements(n):(o,n)=>o.assignedNodes(n).filter((o=>o.nodeType===Node.ELEMENT_NODE));
+// Returns the CSS string for the card's <style> block. Pulled out of the
+// main render() template so render() stays readable. The handful of
+// values that depend on config (icon sizes, font sizes, chart height) are
+// passed in explicitly — the function is otherwise pure.
+//
+// Adding a new style rule that *only* references CSS variables (no
+// JS-side values) is fine to add inline here. Adding one that needs a new
+// runtime value means adding it to the parameter list.
+function cardStyles({
+  iconsSize,
+  currentTempSize,
+  timeSize,
+  dayDateSize,
+  chartHeight,
+  titlePresent,
+  labelsSmallSize,
+}) {
+  return `
+    ha-icon {
+      color: var(--paper-item-icon-color);
+    }
+    img {
+      width: ${iconsSize}px;
+      height: ${iconsSize}px;
+    }
+    .card {
+      padding-top: ${titlePresent ? '0px' : '16px'};
+      padding-right: 16px;
+      padding-bottom: 16px;
+      padding-left: 16px;
+    }
+    .main {
+      display: flex;
+      align-items: center;
+      font-size: ${currentTempSize}px;
+      margin-bottom: 10px;
+    }
+    .main ha-icon {
+      --mdc-icon-size: 50px;
+      margin-right: 14px;
+      margin-inline-start: initial;
+      margin-inline-end: 14px;
+    }
+    .main img {
+      width: ${iconsSize * 2}px;
+      height: ${iconsSize * 2}px;
+      margin-right: 14px;
+      margin-inline-start: initial;
+      margin-inline-end: 14px;
+    }
+    .main div {
+      line-height: 0.9;
+    }
+    .main span {
+      font-size: 18px;
+      color: var(--secondary-text-color);
+    }
+    .attributes {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      font-weight: 300;
+      direction: ltr;
+    }
+    .chart-container {
+      position: relative;
+      height: ${chartHeight}px;
+      width: 100%;
+      direction: ltr;
+    }
+    .conditions {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      margin: 0px 5px 0px 5px;
+      cursor: pointer;
+    }
+    .forecast-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 1px;
+    }
+    .wind-details {
+      display: flex;
+      justify-content: space-around;
+      align-items: flex-start;
+      font-weight: 300;
+    }
+    /* Each per-day wind cell. flex-wrap lets the speed (.wind-value) drop
+     * onto a second line when the column is too narrow to fit it next to
+     * the arrow — keeps narrow charts readable without truncating. */
+    .wind-detail {
+      display: flex;
+      flex: 1 1 0;
+      min-width: 0;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 2px;
+      margin: 1px;
+    }
+    .wind-detail ha-icon {
+      --mdc-icon-size: 15px;
+    }
+    .wind-icon {
+      position: relative;
+      bottom: 1px;
+    }
+    /* Speed + unit travel together as one wrap unit so the unit doesn't
+     * split off from its number on narrow columns. */
+    .wind-value {
+      display: inline-flex;
+      align-items: center;
+      gap: 1px;
+      white-space: nowrap;
+    }
+    .wind-speed {
+      font-size: 11px;
+    }
+    .wind-unit {
+      font-size: ${labelsSmallSize}px;
+    }
+    .current-time {
+      position: absolute;
+      top: 20px;
+      right: 16px;
+      inset-inline-start: initial;
+      inset-inline-end: 16px;
+      font-size: ${timeSize}px;
+    }
+    .date-text {
+      font-size: ${dayDateSize}px;
+      color: var(--secondary-text-color);
+    }
+  `;
+}
+
+// Chart.js plugin factories. Each factory takes the rendering context
+// it needs (counts, colours, computed data) explicitly and returns a
+// plugin object.
+//
+// Why factories instead of objects with closures over `this`? The
+// previous inline definitions inside _drawChartUnsafe() captured many
+// component-instance values via closure. That made it hard to reason
+// about which piece of state any given plugin actually depended on, and
+// hard to test plugins in isolation. With a factory the dependencies
+// become a typed argument list — easier to grep, easier to extend.
+//
+// All three plugins follow the contract documented in ARCHITECTURE.md:
+//   1. Read pixel positions from chart.scales.x / meta.data[i] — never
+//      compute them independently.
+//   2. Save / restore the canvas context.
+//   3. Bail out cleanly when the layout isn't ready.
+//   4. Never throw — outer drawChart() will surface a banner but you've
+//      lost the chart for the user.
+
+
+// Frames "today" with vertical separators.
+//
+// Both blocks active: today appears as a doubled column (station-today |
+// forecast-today). Draw a line on the LEFT of station-today and on the
+// RIGHT of forecast-today, but NOT between them — keeps Soll/Ist visually
+// grouped as one "today" block.
+//
+// Station-only: line at the left edge of today (rightmost column), so
+// today stays enclosed between the line and the chart's right border.
+//
+// Forecast-only: today is leftmost; the chart's left border already
+// encloses it, so a line on the right of today is enough.
+function createSeparatorPlugin({ stationCount, forecastCount, style, dividerColor }) {
+  return {
+    id: 'blockSeparator',
+    afterDraw(chart) {
+      const xScale = chart.scales.x;
+      if (!xScale || !xScale.ticks) return;
+      const ticks = xScale.ticks.length;
+      const positions = computeBlockSeparatorPositions(stationCount, forecastCount, ticks);
+      if (!positions.length) return;
+      const c = chart.ctx;
+      const { top, bottom } = chart.chartArea;
+      const strokeColor = style.getPropertyValue('--secondary-text-color') || dividerColor;
+      c.save();
+      c.strokeStyle = strokeColor;
+      c.lineWidth = 2;
+      for (const [leftIdx, rightIdx] of positions) {
+        const x = (xScale.getPixelForTick(leftIdx) + xScale.getPixelForTick(rightIdx)) / 2;
+        c.beginPath();
+        c.moveTo(x, top);
+        c.lineTo(x, bottom);
+        c.stroke();
+      }
+      c.restore();
+    },
+  };
+}
+
+// Replaces Chart.js's daily tick labels with our own so we can colour
+// weekday and date differently. Chart.js still draws the labels first
+// (we need it to, otherwise it doesn't reserve axis height); the plugin
+// then masks the whole label area for each tick and repaints weekday on
+// top in the primary text colour, date below in --secondary-text-color.
+//
+// `doubledToday` tells us whether station-today and forecast-today both
+// exist — in that case we centre a single label between the two columns
+// instead of drawing the same weekday twice side by side.
+function createDailyTickLabelsPlugin({
+  config,
+  language,
+  data,
+  textColor,
+  backgroundColor,
+  style,
+  stationCount,
+  doubledToday,
+}) {
+  const showDateRow = config.forecast.show_date !== false;
+  return {
+    id: 'dailyTickLabels',
+    afterDraw(chart) {
+      if (config.forecast.type === 'hourly') return;
+      const xScale = chart.scales.x;
+      if (!xScale || !xScale.ticks) return;
+      const c = chart.ctx;
+      const fontSize = parseInt(config.forecast.labels_font_size) || 11;
+      const lineH = Math.ceil(fontSize * 1.3);
+      const weekdayColor = config.forecast.chart_datetime_color || textColor;
+      const dateColor = style.getPropertyValue('--secondary-text-color') || weekdayColor;
+      const todayMs = (() => { const t = new Date(); t.setHours(0, 0, 0, 0); return t.getTime(); })();
+      c.save();
+      c.textAlign = 'center';
+      c.textBaseline = 'bottom';
+      for (let i = 0; i < xScale.ticks.length; i++) {
+        const x = xScale.getPixelForTick(i);
+        const datetime = data.dateTime[i];
+        if (!datetime) continue;
+        const d = new Date(datetime);
+        const dKey = (() => { const k = new Date(d); k.setHours(0, 0, 0, 0); return k.getTime(); })();
+        const isToday = dKey === todayMs;
+        const weekday = d.toLocaleString(language, { weekday: 'short' }).toUpperCase();
+        const colW = (xScale.width / xScale.ticks.length);
+        c.fillStyle = backgroundColor;
+        c.fillRect(x - colW / 2, xScale.top, colW, xScale.bottom - xScale.top);
+
+        // Today is a doubled column when both blocks are active. Skip the
+        // station-today label (i = stationCount - 1) and draw a single
+        // centered label at the boundary in the forecast-today pass.
+        if (doubledToday && i === stationCount - 1) continue;
+        const labelX = (doubledToday && i === stationCount)
+          ? (xScale.getPixelForTick(i - 1) + x) / 2
+          : x;
+
+        c.font = `${fontSize}px Helvetica, Arial, sans-serif`;
+        if (showDateRow) {
+          const dateLabel = d.toLocaleDateString(language, {
+            day: '2-digit',
+            month: '2-digit',
+          });
+          c.fillStyle = dateColor;
+          c.fillText(dateLabel, labelX, xScale.bottom - 2);
+        }
+        c.font = `${isToday ? 'bold ' : ''}${fontSize}px Helvetica, Arial, sans-serif`;
+        c.fillStyle = weekdayColor;
+        const weekdayY = showDateRow ? xScale.bottom - 2 - lineH : xScale.bottom - 2;
+        c.fillText(weekday, labelX, weekdayY);
+      }
+      c.restore();
+    },
+  };
+}
+
+// Renders precipitation labels with the value at the regular
+// labels_font_size and the unit at ~50 % so "mm" / "in" doesn't dominate
+// narrow bars. Replaces the chart's own datalabel for the precip dataset
+// (display:false on that dataset's datalabels block) and reproduces the
+// boxed look (chart-bg fill, bar-coloured 1.5 px border).
+//
+// ── Why a custom plugin and not chartjs-plugin-datalabels? ─────────────
+// chartjs-datalabels can render multiline text but applies one font to
+// the whole label. We need *different* font sizes for the number and the
+// unit on the same line, so the unit doesn't crowd narrow bars. That's
+// outside the plugin's API surface — hence this small, contained
+// custom plugin alongside chartjs-datalabels (which still drives the
+// temperature labels above and below the line). Two mechanisms is a
+// deliberate trade-off: full unification would mean reimplementing
+// every chartjs-datalabels feature for temperature too.
+function createPrecipLabelPlugin({
+  config,
+  data,
+  precipUnit,
+  precipPerBarColor,
+  precipColor,
+  textColor,
+  backgroundColor,
+  chartTextColor,
+}) {
+  return {
+    id: 'precipLabel',
+    afterDatasetsDraw(chart) {
+      const meta = chart.getDatasetMeta(2); // tempHigh, tempLow, precip
+      if (!meta || !meta.data) return;
+      const c = chart.ctx;
+      const baseSize = parseInt(config.forecast.labels_font_size) || 11;
+      const smallSize = Math.max(6, Math.round(baseSize * 0.5));
+      const padX = 3;
+      const padY = 2;
+      const gap = 2;
+      const fontFamily = 'Helvetica, Arial, sans-serif';
+      const showProb = config.forecast.precipitation_type === 'rainfall'
+        && config.forecast.show_probability;
+      // All labels share a fixed Y line just above the precipitation
+      // axis baseline, so they sit in a row at the chart bottom regardless
+      // of bar height (matches the original datalabels look).
+      const precipAxis = chart.scales.PrecipAxis;
+      const baselineY = precipAxis ? precipAxis.getPixelForValue(0) : chart.chartArea.bottom;
+      c.save();
+      c.textBaseline = 'middle';
+      meta.data.forEach((bar, i) => {
+        const value = data.precip[i];
+        if (value == null || value <= 0) return;
+        const number = value > 9 ? `${Math.round(value)}` : value.toFixed(1);
+        const probability = data.forecast[i] && data.forecast[i].precipitation_probability;
+        const showThisProb = showProb && probability !== undefined && probability !== null;
+
+        c.font = `${baseSize}px ${fontFamily}`;
+        const numberW = c.measureText(number).width;
+        c.font = `${smallSize}px ${fontFamily}`;
+        const unitW = c.measureText(precipUnit).width;
+        const lineW = numberW + gap + unitW;
+
+        let probLine = '';
+        let probW = 0;
+        if (showThisProb) {
+          probLine = `${Math.round(probability)} %`;
+          c.font = `${smallSize}px ${fontFamily}`;
+          probW = c.measureText(probLine).width;
+        }
+
+        const contentW = Math.max(lineW, probW);
+        const lineH = baseSize;
+        const linesGap = showThisProb ? 2 : 0;
+        const contentH = lineH + (showThisProb ? smallSize + linesGap : 0);
+
+        const boxW = contentW + 2 * padX;
+        const boxH = contentH + 2 * padY;
+        const cx = bar.x;
+        const boxLeft = cx - boxW / 2;
+        // Centre the box on the precip-axis baseline so the zero-line
+        // runs through the middle of every label.
+        const boxTop = baselineY - boxH / 2;
+
+        c.fillStyle = backgroundColor;
+        c.strokeStyle = bar.options && bar.options.borderColor
+          ? bar.options.borderColor
+          : (precipPerBarColor[i] || precipColor);
+        c.lineWidth = 1.5;
+        c.fillRect(boxLeft, boxTop, boxW, boxH);
+        c.strokeRect(boxLeft, boxTop, boxW, boxH);
+
+        c.fillStyle = chartTextColor || textColor;
+        c.textAlign = 'left';
+        const lineCenterY = boxTop + padY + lineH / 2;
+        const numberX = cx - lineW / 2;
+        c.font = `${baseSize}px ${fontFamily}`;
+        c.fillText(number, numberX, lineCenterY);
+        c.font = `${smallSize}px ${fontFamily}`;
+        c.fillText(precipUnit, numberX + numberW + gap, lineCenterY);
+
+        if (showThisProb) {
+          c.textAlign = 'center';
+          c.fillText(probLine, cx, lineCenterY + lineH / 2 + linesGap + smallSize / 2);
+        }
+      });
+      c.restore();
+    },
+  };
+}
 
 /*!
  * @kurkle/color v0.3.4
@@ -17101,6 +17670,196 @@ const registerables = [
     scales
 ];
 
+// Chart.js instance builder. Pulled out of main.js so the lifecycle
+// component (set hass / updated / render / drawChart) and the chart
+// configuration each fit in one screen of mental model.
+//
+// Inputs are passed as a single bag so the call site (drawChart in
+// main.js) reads as a small list of "what does the chart need to know"
+// instead of a 200-line block of nested options.
+
+
+function buildChart(ctx, {
+  datasets,
+  plugins,
+  data,
+  config,
+  language,
+  textColor,
+  backgroundColor,
+  dividerColor,
+  chartTextColor,
+  precipMax,
+  precipUnit,
+  tempUnit,
+  doubledToday,
+  stationCount,
+  style,
+}) {
+  return new Chart(ctx, {
+    type: 'bar',
+    plugins,
+    data: {
+      labels: data.dateTime,
+      datasets,
+    },
+    options: {
+      maintainAspectRatio: false,
+      animation: config.forecast.disable_animation === true ? { duration: 0 } : {},
+      layout: { padding: { bottom: 10 } },
+      scales: {
+        x: {
+          position: 'top',
+          border: { width: 0 },
+          grid: {
+            drawTicks: false,
+            // Suppress only the gridline between station-today and
+            // forecast-today (it sits inside the doubled-today framing);
+            // keep the others as visual day separators.
+            color: (gridCtx) => (doubledToday && gridCtx.index === stationCount)
+              ? 'transparent'
+              : dividerColor,
+          },
+          ticks: {
+            maxRotation: 0,
+            color: config.forecast.chart_datetime_color || textColor,
+            padding: config.forecast.precipitation_type === 'rainfall'
+              && config.forecast.show_probability
+              && config.forecast.type !== 'hourly' ? 4 : 10,
+            callback: function (value) {
+              const datetime = this.getLabelForValue(value);
+              const dateObj = new Date(datetime);
+              const timeFormatOptions = {
+                hour12: config.use_12hour_format,
+                hour: 'numeric',
+                ...(config.use_12hour_format ? {} : { minute: 'numeric' }),
+              };
+              let time = dateObj.toLocaleTimeString(language, timeFormatOptions);
+
+              if (dateObj.getHours() === 0 && dateObj.getMinutes() === 0
+                  && config.forecast.type === 'hourly') {
+                const date = dateObj.toLocaleDateString(language, {
+                  day: 'numeric', month: 'short',
+                });
+                time = time.replace('a.m.', 'AM').replace('p.m.', 'PM');
+                return [date, time];
+              }
+
+              if (config.forecast.type !== 'hourly') {
+                const weekday = dateObj.toLocaleString(language, { weekday: 'short' }).toUpperCase();
+                // When the date row is hidden, return a single string so
+                // Chart.js only reserves one line of tick height and the
+                // chart reclaims the gap.
+                if (config.forecast.show_date === false) return weekday;
+                const dateLabel = dateObj.toLocaleDateString(language, {
+                  day: '2-digit', month: '2-digit',
+                });
+                return [weekday, dateLabel];
+              }
+
+              return time.replace('a.m.', 'AM').replace('p.m.', 'PM');
+            },
+          },
+          reverse: document.dir === 'rtl',
+        },
+        TempAxis: (() => {
+          // Math.min/max on empty arrays is +/-Infinity → NaN bounds → the
+          // chart fails to render. Skip nulls (sensor offline that day) and
+          // fall back to a sane default range when nothing is finite.
+          const finite = [...data.tempHigh, ...data.tempLow].filter(Number.isFinite);
+          const min = finite.length ? Math.min(...finite) - 5 : 0;
+          const max = finite.length ? Math.max(...finite) + 6 : 30;
+          return {
+            position: 'left',
+            beginAtZero: false,
+            suggestedMin: min,
+            suggestedMax: max,
+            border: { width: 0 },
+            grid: { display: false, drawTicks: false },
+            ticks: { display: false },
+          };
+        })(),
+        PrecipAxis: {
+          position: 'right',
+          suggestedMax: precipMax,
+          // No outer chart border on either side — today's framing is
+          // carried by blockSeparatorPlugin alone.
+          border: {
+            width: 0,
+            color: style.getPropertyValue('--secondary-text-color') || dividerColor,
+          },
+          grid: { display: false, drawTicks: false },
+          ticks: { display: false },
+        },
+      },
+      plugins: {
+        legend: { display: false },
+        datalabels: {
+          backgroundColor: backgroundColor,
+          borderColor: (context) => context.dataset.backgroundColor,
+          borderRadius: 0,
+          borderWidth: 1.5,
+          padding: config.forecast.precipitation_type === 'rainfall'
+            && config.forecast.show_probability
+            && config.forecast.type !== 'hourly' ? 3 : 4,
+          color: chartTextColor || textColor,
+          font: function (context) {
+            const dt = data.dateTime[context.dataIndex];
+            const k = dt ? new Date(dt) : null;
+            if (k) k.setHours(0, 0, 0, 0);
+            const t = new Date(); t.setHours(0, 0, 0, 0);
+            const isToday = k && k.getTime() === t.getTime();
+            return {
+              size: parseInt(config.forecast.labels_font_size) || 11,
+              lineHeight: 0.7,
+              weight: isToday ? 'bold' : 'normal',
+            };
+          },
+          formatter: function (value, context) {
+            return context.dataset.data[context.dataIndex] + '°';
+          },
+        },
+        tooltip: {
+          caretSize: 0,
+          caretPadding: 15,
+          callbacks: {
+            title: function (items) {
+              const datetime = items[0].label;
+              return new Date(datetime).toLocaleDateString(language, {
+                month: 'short',
+                day: 'numeric',
+                weekday: 'short',
+                hour: 'numeric',
+                minute: 'numeric',
+                hour12: config.use_12hour_format,
+              });
+            },
+            label: function (context) {
+              const label = context.dataset.label;
+              const value = context.formattedValue;
+              const probability = data.forecast[context.dataIndex].precipitation_probability;
+              const unit = context.datasetIndex === 2 ? precipUnit : tempUnit;
+              if (config.forecast.precipitation_type === 'rainfall'
+                  && context.datasetIndex === 2
+                  && config.forecast.show_probability
+                  && probability !== undefined && probability !== null) {
+                return `${label}: ${value} ${precipUnit} / ${Math.round(probability)}%`;
+              }
+              return `${label}: ${value} ${unit}`;
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+/**
+ * @license
+ * Copyright 2021 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */var n;null!=(null===(n=window.HTMLSlotElement)||void 0===n?void 0:n.prototype.assignedElements)?(o,n)=>o.assignedElements(n):(o,n)=>o.assignedNodes(n).filter((o=>o.nodeType===Node.ELEMENT_NODE));
+
 /*!
  * chartjs-plugin-datalabels v2.2.0
  * https://chartjs-plugin-datalabels.netlify.app
@@ -18523,8 +19282,12 @@ static getStubConfig(hass, unusedEntities, allEntities) {
       show_probability: false,
       labels_font_size: '11',
       precip_bar_size: '100',
-      style: 'style1',
+      // Default chart style: temperature labels rendered as plain text
+      // beside the lines (no boxes around each value). 'style1' was the
+      // legacy default with bordered boxes — kept as an opt-in.
+      style: 'style2',
       show_wind_forecast: true,
+      show_wind_arrow: true,
       condition_icons: true,
       show_date: true,
       round_temp: false,
@@ -18573,12 +19336,13 @@ setConfig(config) {
       labels_font_size: 11,
       chart_height: 180,
       precip_bar_size: 100,
-      style: 'style1',
+      style: 'style2',
       temperature1_color: 'rgba(255, 152, 0, 1.0)',
       temperature2_color: 'rgba(68, 115, 158, 1.0)',
       precipitation_color: 'rgba(132, 209, 253, 1.0)',
       condition_icons: true,
       show_wind_forecast: true,
+      show_wind_arrow: true,
       show_date: true,
       round_temp: false,
       type: 'daily',
@@ -18700,22 +19464,28 @@ set hass(hass) {
   const wantStation = this.config.show_station !== false;
   const wantForecast = this.config.show_forecast === true && !!this.config.weather_entity;
 
+  // Both subscribe callbacks are invoked from HA's WebSocket listener
+  // (ForecastDataSource) or our own polling timer (MeasuredDataSource).
+  // A throw out of the callback would propagate into those code paths
+  // and could detach the listener — wrap each body in try/catch so the
+  // chart can recover via _chartError instead.
   if (wantStation) {
     if (!this._dataSource) {
       this._dataSource = new MeasuredDataSource(hass, this.config);
       this._dataUnsubscribe = this._dataSource.subscribe((event) => {
-        this._stationData = event.forecast || [];
-        this._stationError = event.error || null;
-        this._refreshForecasts();
+        try {
+          this._stationData = event.forecast || [];
+          this._stationError = event.error || null;
+          this._refreshForecasts();
+        } catch (err) {
+          console.error('[weather-station-card] station callback failed', err);
+        }
       });
     } else {
       this._dataSource.setHass(hass);
     }
   } else if (this._dataSource) {
-    if (this._dataUnsubscribe) this._dataUnsubscribe();
-    this._dataUnsubscribe = null;
-    this._dataSource = null;
-    this._stationData = [];
+    this._teardownStation();
     this._stationError = null;
   }
 
@@ -18723,18 +19493,19 @@ set hass(hass) {
     if (!this._forecastSource) {
       this._forecastSource = new ForecastDataSource(hass, this.config);
       this._forecastUnsubscribe = this._forecastSource.subscribe((event) => {
-        this._forecastData = event.forecast || [];
-        this._forecastError = event.error || null;
-        this._refreshForecasts();
+        try {
+          this._forecastData = event.forecast || [];
+          this._forecastError = event.error || null;
+          this._refreshForecasts();
+        } catch (err) {
+          console.error('[weather-station-card] forecast callback failed', err);
+        }
       });
     } else {
       this._forecastSource.setHass(hass);
     }
   } else if (this._forecastSource) {
-    if (this._forecastUnsubscribe) this._forecastUnsubscribe();
-    this._forecastUnsubscribe = null;
-    this._forecastSource = null;
-    this._forecastData = [];
+    this._teardownForecast();
     this._forecastError = null;
   }
 
@@ -18775,16 +19546,8 @@ set hass(hass) {
   disconnectedCallback() {
     super.disconnectedCallback();
     this.detachResizeObserver();
-    if (this._dataUnsubscribe) {
-      this._dataUnsubscribe();
-      this._dataUnsubscribe = null;
-    }
-    this._dataSource = null;
-    if (this._forecastUnsubscribe) {
-      this._forecastUnsubscribe();
-      this._forecastUnsubscribe = null;
-    }
-    this._forecastSource = null;
+    this._teardownStation();
+    this._teardownForecast();
     if (this._clockTimer) {
       clearInterval(this._clockTimer);
       this._clockTimer = null;
@@ -18813,7 +19576,11 @@ set hass(hass) {
     // length and then redraws. Going through it (instead of calling
     // drawChart() directly) prevents a stale forecastItems set by an
     // earlier ResizeObserver tick from cropping the merged array.
-    this.measureCard();
+    //
+    // Data callbacks can fire before Lit's first render has built the
+    // shadow root. Skip the redraw in that window — firstUpdated() will
+    // call measureCard() once the DOM is in place.
+    if (this.shadowRoot) this.measureCard();
   }
 
   attachResizeObserver() {
@@ -18847,19 +19614,13 @@ set hass(hass) {
   }
 
 measureCard() {
-  // Data callbacks can call _refreshForecasts → measureCard before Lit's
-  // first render has created the shadow root. Bail out cleanly; the next
-  // firstUpdated tick (or a later data arrival) will redraw.
-  if (!this.shadowRoot) {
-    return;
-  }
-  const card = this.shadowRoot.querySelector('ha-card');
+  // Callers (firstUpdated, ResizeObserver, _refreshForecasts) all gate on
+  // shadowRoot existence — the only thing left to guard is the ha-card
+  // element itself, which can briefly be missing during teardown.
+  const card = this.shadowRoot && this.shadowRoot.querySelector('ha-card');
+  if (!card) return;
   let fontSize = this.config.forecast.labels_font_size;
   const numberOfForecasts = this.config.forecast.number_of_forecasts || 0;
-
-  if (!card) {
-    return;
-  }
 
   if (numberOfForecasts > 0) {
     this.forecastItems = numberOfForecasts;
@@ -19004,45 +19765,22 @@ async updated(changedProperties) {
 
   if (changedProperties.has('config')) {
     const oldConfig = changedProperties.get('config');
+    if (oldConfig) {
+      this._invalidateStaleSources(oldConfig);
 
-    const sensorsChanged = oldConfig && JSON.stringify(this.config.sensors) !== JSON.stringify(oldConfig.sensors);
-    const daysChanged = oldConfig && this.config.days !== oldConfig.days;
-    const stationToggled = oldConfig && (this.config.show_station !== false) !== (oldConfig.show_station !== false);
-    const forecastToggled = oldConfig && (this.config.show_forecast === true) !== (oldConfig.show_forecast === true);
-    const weatherEntityChanged = oldConfig && this.config.weather_entity !== oldConfig.weather_entity;
-    const forecastTypeChanged = oldConfig && (this.config.forecast || {}).type !== (oldConfig.forecast || {}).type;
-    const forecastDaysChanged = oldConfig && this.config.forecast_days !== oldConfig.forecast_days;
-    const autoscrollChanged = oldConfig && this.config.autoscroll !== oldConfig.autoscroll;
+      // Pure render-only config changes (round_temp, colours, labels, …)
+      // re-merge against existing forecasts; teardowns above will refill
+      // anyway via the next `set hass` tick. forecast_days alone only
+      // crops what we already have, so trigger refresh even with no data
+      // currently merged.
+      const forecastDaysChanged = this.config.forecast_days !== oldConfig.forecast_days;
+      if ((this.forecasts && this.forecasts.length) || forecastDaysChanged) {
+        try { this._refreshForecasts(); } catch (e) { console.error('[weather-station-card] redraw failed', e); }
+      }
 
-    // Tear down sources whose driving config changed; the next `set hass`
-    // tick re-creates them with the new config, then _refreshForecasts
-    // re-merges. This avoids the old direct `this.forecasts = …` write
-    // that would clobber the station+forecast merge.
-    if (sensorsChanged || daysChanged || stationToggled) {
-      if (this._dataUnsubscribe) { this._dataUnsubscribe(); this._dataUnsubscribe = null; }
-      this._dataSource = null;
-      this._stationData = [];
-    }
-    if (forecastToggled || weatherEntityChanged || forecastTypeChanged) {
-      if (this._forecastUnsubscribe) { this._forecastUnsubscribe(); this._forecastUnsubscribe = null; }
-      this._forecastSource = null;
-      this._forecastData = [];
-    }
-
-    // Pure render-only config changes (round_temp, colours, labels, …)
-    // just need a chart redraw against the existing merged forecasts.
-    if (this.forecasts && this.forecasts.length) {
-      try { this._refreshForecasts(); } catch (e) { console.error('[weather-station-card] redraw failed', e); }
-    } else if (forecastDaysChanged) {
-      // forecast_days only crops what we already have; no resubscribe needed.
-      try { this._refreshForecasts(); } catch (e) { console.error('[weather-station-card] redraw failed', e); }
-    }
-
-    if (autoscrollChanged) {
-      if (!this.config.autoscroll) {
-        this.autoscroll();
-      } else {
-        this.cancelAutoscroll();
+      if (this.config.autoscroll !== oldConfig.autoscroll) {
+        if (!this.config.autoscroll) this.autoscroll();
+        else this.cancelAutoscroll();
       }
     }
   }
@@ -19050,6 +19788,31 @@ async updated(changedProperties) {
   if (changedProperties.has('weather')) {
     this.updateChart();
   }
+}
+
+// Tear down whichever data source had a config dependency change. The next
+// `set hass` tick rebuilds the source with the new config and emits a fresh
+// merge via _refreshForecasts. Adding a new field that drives a source is
+// a one-line edit to the keys table, not a new branch in updated().
+_invalidateStaleSources(oldConfig) {
+  const get = (obj, path) => path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
+  const stale = (key) => JSON.stringify(get(this.config, key)) !== JSON.stringify(get(oldConfig, key));
+  const STATION_KEYS = ['sensors', 'days', 'show_station'];
+  const FORECAST_KEYS = ['show_forecast', 'weather_entity', 'forecast.type'];
+  if (STATION_KEYS.some(stale)) this._teardownStation();
+  if (FORECAST_KEYS.some(stale)) this._teardownForecast();
+}
+
+_teardownStation() {
+  if (this._dataUnsubscribe) { this._dataUnsubscribe(); this._dataUnsubscribe = null; }
+  this._dataSource = null;
+  this._stationData = [];
+}
+
+_teardownForecast() {
+  if (this._forecastUnsubscribe) { this._forecastUnsubscribe(); this._forecastUnsubscribe = null; }
+  this._forecastSource = null;
+  this._forecastData = [];
 }
 
 autoscroll() {
@@ -19084,13 +19847,27 @@ cancelAutoscroll() {
 
 drawChart(args) {
   try {
-    return this._drawChartUnsafe(args);
+    const result = this._drawChartUnsafe(args);
+    if (this._chartError) {
+      this._chartError = null;
+      this.requestUpdate();
+    }
+    return result;
   } catch (e) {
-    console.error('[weather-station-card] drawChart failed', e);
+    // The phase tag (set by _drawChartUnsafe before calling each sub-step)
+    // tells us where we crashed — without it, the banner just says "render
+    // failed" and we have to repro to find the spot. Falls back to "draw"
+    // for failures that happen outside any tagged step.
+    const phase = this._chartPhase || 'draw';
+    console.error(`[weather-station-card] chart ${phase} failed`, e);
     if (this.forecastChart) {
       try { this.forecastChart.destroy(); } catch (_) { /* already gone */ }
       this.forecastChart = null;
     }
+    const msg = String(e && e.message ? e.message : e);
+    this._chartError = `${phase}: ${msg}`;
+    this._chartPhase = null;
+    this.requestUpdate();
   }
 }
 
@@ -19108,6 +19885,7 @@ _drawChartUnsafe({ config, language, weather, forecastItems } = this) {
   if (this.forecastChart) {
     this.forecastChart.destroy();
   }
+  this._chartPhase = 'compute';
   var tempUnit = this._hass.config.unit_system.temperature;
   var lengthUnit = this._hass.config.unit_system.length;
   if (config.forecast.precipitation_type === 'probability') {
@@ -19299,359 +20077,39 @@ _drawChartUnsafe({ config, language, weather, forecastItems } = this) {
     };
   }
 
-  // Plugin: frames "today" with vertical separators.
-  //
-  // Both blocks active: today appears as a doubled column (station-today |
-  // forecast-today). Draw a line on the LEFT of station-today and on the
-  // RIGHT of forecast-today, but NOT between them — keeps Soll/Ist visually
-  // grouped as one "today" block.
-  //
-  // Station-only: line at the left edge of today (rightmost column), so
-  // today stays enclosed between the line and the chart's right border.
-  //
-  // Forecast-only: today is leftmost; the chart's left border already
-  // encloses it, so a line on the right of today is enough.
   const stationCount = this._stationCount || 0;
   const forecastCount = this._forecastCount || 0;
-  const separatorPlugin = {
-    id: 'blockSeparator',
-    afterDraw(chart) {
-      const xScale = chart.scales.x;
-      if (!xScale || !xScale.ticks) return;
-      const ticks = xScale.ticks.length;
-      const positions = computeBlockSeparatorPositions(stationCount, forecastCount, ticks);
-      if (!positions.length) return;
-      const c = chart.ctx;
-      const { top, bottom } = chart.chartArea;
-      const strokeColor = style.getPropertyValue('--secondary-text-color') || dividerColor;
-      c.save();
-      c.strokeStyle = strokeColor;
-      c.lineWidth = 2;
-      for (const [leftIdx, rightIdx] of positions) {
-        const x = (xScale.getPixelForTick(leftIdx) + xScale.getPixelForTick(rightIdx)) / 2;
-        c.beginPath();
-        c.moveTo(x, top);
-        c.lineTo(x, bottom);
-        c.stroke();
-      }
-      c.restore();
-    },
-  };
-
-  // Plugin: replaces Chart.js's daily tick labels with our own so we can
-  // colour weekday and date differently. Chart.js still draws the labels
-  // first (we need it to, otherwise it doesn't reserve axis height).
-  // The plugin then masks the whole label area for each tick and
-  // repaints weekday on top in the primary text colour, date below in
-  // --secondary-text-color.
-  const showDateRow = config.forecast.show_date !== false;
   const doubledToday = stationCount > 0 && forecastCount > 0;
-  const dailyTickLabelsPlugin = {
-    id: 'dailyTickLabels',
-    afterDraw(chart) {
-      if (config.forecast.type === 'hourly') return;
-      const xScale = chart.scales.x;
-      if (!xScale || !xScale.ticks) return;
-      const c = chart.ctx;
-      const fontSize = parseInt(config.forecast.labels_font_size) || 11;
-      const lineH = Math.ceil(fontSize * 1.3);
-      const weekdayColor = config.forecast.chart_datetime_color || textColor;
-      const dateColor = style.getPropertyValue('--secondary-text-color') || weekdayColor;
-      const todayMs = (() => { const t = new Date(); t.setHours(0,0,0,0); return t.getTime(); })();
-      c.save();
-      c.textAlign = 'center';
-      c.textBaseline = 'bottom';
-      for (let i = 0; i < xScale.ticks.length; i++) {
-        const x = xScale.getPixelForTick(i);
-        const datetime = data.dateTime[i];
-        if (!datetime) continue;
-        const d = new Date(datetime);
-        const dKey = (() => { const k = new Date(d); k.setHours(0,0,0,0); return k.getTime(); })();
-        const isToday = dKey === todayMs;
-        const weekday = d.toLocaleString(language, { weekday: 'short' }).toUpperCase();
-        const colW = (xScale.width / xScale.ticks.length);
-        c.fillStyle = backgroundColor;
-        c.fillRect(x - colW / 2, xScale.top, colW, xScale.bottom - xScale.top);
-
-        // Today is a doubled column when both blocks are active. Skip the
-        // station-today label (i = stationCount - 1) and draw a single
-        // centered label at the boundary in the forecast-today pass.
-        if (doubledToday && i === stationCount - 1) continue;
-        const labelX = (doubledToday && i === stationCount)
-          ? (xScale.getPixelForTick(i - 1) + x) / 2
-          : x;
-
-        c.font = `${fontSize}px Helvetica, Arial, sans-serif`;
-        if (showDateRow) {
-          const dateLabel = d.toLocaleDateString(language, {
-            day: '2-digit',
-            month: '2-digit',
-          });
-          c.fillStyle = dateColor;
-          c.fillText(dateLabel, labelX, xScale.bottom - 2);
-        }
-        c.font = `${isToday ? 'bold ' : ''}${fontSize}px Helvetica, Arial, sans-serif`;
-        c.fillStyle = weekdayColor;
-        const weekdayY = showDateRow ? xScale.bottom - 2 - lineH : xScale.bottom - 2;
-        c.fillText(weekday, labelX, weekdayY);
-      }
-      c.restore();
-    },
-  };
-
-  // Plugin: renders precipitation labels with the value at the regular
-  // labels_font_size and the unit at ~65 % so "mm" / "in" doesn't dominate
-  // narrow bars. Replaces the chart's own datalabel for the precip dataset
-  // (display:false above), and reproduces the boxed look (chart-bg fill,
-  // bar-coloured 1.5 px border).
-  const precipLabelPlugin = {
-    id: 'precipLabel',
-    afterDatasetsDraw(chart) {
-      const meta = chart.getDatasetMeta(2); // tempHigh, tempLow, precip
-      if (!meta || !meta.data) return;
-      const c = chart.ctx;
-      const baseSize = parseInt(config.forecast.labels_font_size) || 11;
-      const smallSize = Math.max(6, Math.round(baseSize * 0.5));
-      const padX = 3;
-      const padY = 2;
-      const gap = 2;
-      const fontFamily = 'Helvetica, Arial, sans-serif';
-      const showProb = config.forecast.precipitation_type === 'rainfall'
-        && config.forecast.show_probability;
-      // All labels share a fixed Y line just above the precipitation
-      // axis baseline, so they sit in a row at the chart bottom regardless
-      // of bar height (matches the original datalabels look).
-      const precipAxis = chart.scales.PrecipAxis;
-      const baselineY = precipAxis ? precipAxis.getPixelForValue(0) : chart.chartArea.bottom;
-      c.save();
-      c.textBaseline = 'middle';
-      meta.data.forEach((bar, i) => {
-        const value = data.precip[i];
-        if (value == null || value <= 0) return;
-        const number = value > 9 ? `${Math.round(value)}` : value.toFixed(1);
-        const probability = data.forecast[i] && data.forecast[i].precipitation_probability;
-        const showThisProb = showProb && probability !== undefined && probability !== null;
-
-        c.font = `${baseSize}px ${fontFamily}`;
-        const numberW = c.measureText(number).width;
-        c.font = `${smallSize}px ${fontFamily}`;
-        const unitW = c.measureText(precipUnit).width;
-        const lineW = numberW + gap + unitW;
-
-        let probLine = '';
-        let probW = 0;
-        if (showThisProb) {
-          probLine = `${Math.round(probability)} %`;
-          c.font = `${smallSize}px ${fontFamily}`;
-          probW = c.measureText(probLine).width;
-        }
-
-        const contentW = Math.max(lineW, probW);
-        const lineH = baseSize;
-        const linesGap = showThisProb ? 2 : 0;
-        const contentH = lineH + (showThisProb ? smallSize + linesGap : 0);
-
-        const boxW = contentW + 2 * padX;
-        const boxH = contentH + 2 * padY;
-        const cx = bar.x;
-        const boxLeft = cx - boxW / 2;
-        // Centre the box on the precip-axis baseline so the zero-line
-        // runs through the middle of every label.
-        const boxTop = baselineY - boxH / 2;
-
-        c.fillStyle = backgroundColor;
-        c.strokeStyle = bar.options && bar.options.borderColor
-          ? bar.options.borderColor
-          : (precipPerBarColor[i] || precipColor);
-        c.lineWidth = 1.5;
-        c.fillRect(boxLeft, boxTop, boxW, boxH);
-        c.strokeRect(boxLeft, boxTop, boxW, boxH);
-
-        c.fillStyle = chart_text_color || textColor;
-        c.textAlign = 'left';
-        const lineCenterY = boxTop + padY + lineH / 2;
-        const numberX = cx - lineW / 2;
-        c.font = `${baseSize}px ${fontFamily}`;
-        c.fillText(number, numberX, lineCenterY);
-        c.font = `${smallSize}px ${fontFamily}`;
-        c.fillText(precipUnit, numberX + numberW + gap, lineCenterY);
-
-        if (showThisProb) {
-          c.textAlign = 'center';
-          c.fillText(probLine, cx, lineCenterY + lineH / 2 + linesGap + smallSize / 2);
-        }
-      });
-      c.restore();
-    },
-  };
-
-  this.forecastChart = new Chart(ctx, {
-    type: 'bar',
-    plugins: [separatorPlugin, dailyTickLabelsPlugin, precipLabelPlugin],
-    data: {
-      labels: data.dateTime,
-      datasets: datasets,
-    },
-    options: {
-      maintainAspectRatio: false,
-      animation: config.forecast.disable_animation === true ? { duration: 0 } : {},
-      layout: {
-        padding: {
-          bottom: 10,
-        },
-      },
-      scales: {
-        x: {
-          position: 'top',
-          border: {
-            width: 0,
-          },
-          grid: {
-            drawTicks: false,
-            // Suppress only the gridline between station-today and
-            // forecast-today (it sits inside the doubled-today framing);
-            // keep the others as visual day separators.
-            color: (ctx) => (doubledToday && ctx.index === stationCount)
-              ? 'transparent'
-              : dividerColor,
-          },
-          ticks: {
-              maxRotation: 0,
-              color: config.forecast.chart_datetime_color || textColor,
-              padding: config.forecast.precipitation_type === 'rainfall' && config.forecast.show_probability && config.forecast.type !== 'hourly' ? 4 : 10,
-              callback: function (value, index, values) {
-                  var datetime = this.getLabelForValue(value);
-                  var dateObj = new Date(datetime);
-        
-                  var timeFormatOptions = {
-                      hour12: config.use_12hour_format,
-                      hour: 'numeric',
-                      ...(config.use_12hour_format ? {} : { minute: 'numeric' }),
-                  };
-
-                  var time = dateObj.toLocaleTimeString(language, timeFormatOptions);
-
-                  if (dateObj.getHours() === 0 && dateObj.getMinutes() === 0 && config.forecast.type === 'hourly') {
-                      var dateFormatOptions = {
-                          day: 'numeric',
-                          month: 'short',
-                      };
-                      var date = dateObj.toLocaleDateString(language, dateFormatOptions);
-                      time = time.replace('a.m.', 'AM').replace('p.m.', 'PM');
-                      return [date, time];
-                  }
-
-                  if (config.forecast.type !== 'hourly') {
-                      var weekday = dateObj.toLocaleString(language, { weekday: 'short' }).toUpperCase();
-                      // When the date row is hidden, return a single
-                      // string so Chart.js only reserves one line of
-                      // tick height and the chart reclaims the gap.
-                      if (config.forecast.show_date === false) {
-                          return weekday;
-                      }
-                      var dateLabel = dateObj.toLocaleDateString(language, { day: '2-digit', month: '2-digit' });
-                      return [weekday, dateLabel];
-                  }
-
-                  time = time.replace('a.m.', 'AM').replace('p.m.', 'PM');
-                  return time;
-              },
-          },
-          reverse: document.dir === 'rtl' ? true : false,
-        },
-        TempAxis: {
-          position: 'left',
-          beginAtZero: false,
-          suggestedMin: Math.min(...data.tempHigh, ...data.tempLow) - 5,
-          suggestedMax: Math.max(...data.tempHigh, ...data.tempLow) + 6,
-          border: {
-            width: 0,
-          },
-          grid: {
-            display: false,
-            drawTicks: false,
-          },
-          ticks: {
-            display: false,
-          },
-        },
-        PrecipAxis: {
-          position: 'right',
-          suggestedMax: precipMax,
-          border: {
-            // No outer chart border on either side — today's framing is
-            // carried by blockSeparatorPlugin alone.
-            width: 0,
-            color: style.getPropertyValue('--secondary-text-color') || dividerColor,
-          },
-          grid: {
-            display: false,
-            drawTicks: false,
-          },
-          ticks: {
-            display: false,
-          },
-        },
-      },
-      plugins: {
-        legend: {
-          display: false,
-        },
-        datalabels: {
-          backgroundColor: backgroundColor,
-          borderColor: context => context.dataset.backgroundColor,
-          borderRadius: 0,
-          borderWidth: 1.5,
-          padding: config.forecast.precipitation_type === 'rainfall' && config.forecast.show_probability && config.forecast.type !== 'hourly' ? 3 : 4,
-          color: chart_text_color || textColor,
-          font: function (context) {
-            const dt = data.dateTime[context.dataIndex];
-            const k = dt ? new Date(dt) : null;
-            if (k) k.setHours(0, 0, 0, 0);
-            const t = new Date(); t.setHours(0, 0, 0, 0);
-            const isToday = k && k.getTime() === t.getTime();
-            return {
-              size: parseInt(config.forecast.labels_font_size) || 11,
-              lineHeight: 0.7,
-              weight: isToday ? 'bold' : 'normal',
-            };
-          },
-          formatter: function (value, context) {
-            return context.dataset.data[context.dataIndex] + '°';
-          },
-        },
-        tooltip: {
-          caretSize: 0,
-          caretPadding: 15,
-          callbacks: {
-            title: function (TooltipItem) {
-              var datetime = TooltipItem[0].label;
-              return new Date(datetime).toLocaleDateString(language, {
-                month: 'short',
-                day: 'numeric',
-                weekday: 'short',
-                hour: 'numeric',
-                minute: 'numeric',
-                hour12: config.use_12hour_format,
-              });
-            },
-    label: function (context) {
-      var label = context.dataset.label;
-      var value = context.formattedValue;
-      var probability = data.forecast[context.dataIndex].precipitation_probability;
-      var unit = context.datasetIndex === 2 ? precipUnit : tempUnit;
-
-      if (config.forecast.precipitation_type === 'rainfall' && context.datasetIndex === 2 && config.forecast.show_probability && probability !== undefined && probability !== null) {
-        return label + ': ' + value + ' ' + precipUnit + ' / ' + Math.round(probability) + '%';
-      } else {
-        return label + ': ' + value + ' ' + unit;
-      }
-            },
-          },
-        },
-      },
-    },
+  const separatorPlugin = createSeparatorPlugin({
+    stationCount, forecastCount, style, dividerColor,
   });
+  const dailyTickLabelsPlugin = createDailyTickLabelsPlugin({
+    config, language, data, textColor, backgroundColor, style, stationCount, doubledToday,
+  });
+  const precipLabelPlugin = createPrecipLabelPlugin({
+    config, data, precipUnit, precipPerBarColor, precipColor, textColor, backgroundColor,
+    chartTextColor: chart_text_color,
+  });
+
+  this._chartPhase = 'init';
+  this.forecastChart = buildChart(ctx, {
+    datasets,
+    plugins: [separatorPlugin, dailyTickLabelsPlugin, precipLabelPlugin],
+    data,
+    config,
+    language,
+    textColor,
+    backgroundColor,
+    dividerColor,
+    chartTextColor: chart_text_color,
+    precipMax,
+    precipUnit,
+    tempUnit,
+    doubledToday,
+    stationCount,
+    style,
+  });
+  this._chartPhase = null;
 }
 
 computeForecastData({ config, forecastItems } = this) {
@@ -19718,6 +20176,11 @@ updateChart({ forecasts, forecastChart } = this) {
     if (!config || !_hass) {
       return x``;
     }
+    // Match the mm-unit sizing rule from precipLabelPlugin so the wind unit
+    // ("km/h", "m/s", …) renders at the same compact size as the precip unit
+    // alongside its number.
+    const labelsBaseSize = parseInt(config && config.forecast && config.forecast.labels_font_size) || 11;
+    const labelsSmallSize = Math.max(6, Math.round(labelsBaseSize * 0.5));
     if (!weather || !weather.attributes) {
       return x`
         <style>
@@ -19736,122 +20199,15 @@ updateChart({ forecasts, forecastChart } = this) {
       `;
     }
     return x`
-      <style>
-        ha-icon {
-          color: var(--paper-item-icon-color);
-        }
-        img {
-          width: ${config.icons_size}px;
-          height: ${config.icons_size}px;
-        }
-        .card {
-          padding-top: ${config.title ? '0px' : '16px'};
-          padding-right: 16px;
-          padding-bottom: 16px;
-          padding-left: 16px;
-        }
-        .main {
-          display: flex;
-          align-items: center;
-          font-size: ${config.current_temp_size}px;
-          margin-bottom: 10px;
-        }
-        .main ha-icon {
-          --mdc-icon-size: 50px;
-          margin-right: 14px;
-          margin-inline-start: initial;
-          margin-inline-end: 14px;
-        }
-        .main img {
-          width: ${config.icons_size * 2}px;
-          height: ${config.icons_size * 2}px;
-          margin-right: 14px;
-          margin-inline-start: initial;
-          margin-inline-end: 14px;
-        }
-        .main div {
-          line-height: 0.9;
-        }
-        .main span {
-          font-size: 18px;
-          color: var(--secondary-text-color);
-        }
-        .attributes {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 6px;
-      	  font-weight: 300;
-          direction: ltr;
-        }
-        .chart-container {
-          position: relative;
-          height: ${config.forecast.chart_height}px;
-          width: 100%;
-          direction: ltr;
-        }
-        .conditions {
-          display: flex;
-          justify-content: space-around;
-          align-items: center;
-          margin: 0px 5px 0px 5px;
-      	  cursor: pointer;
-        }
-        .forecast-item {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          margin: 1px;
-        }
-        .wind-details {
-          display: flex;
-          justify-content: space-around;
-          align-items: center;
-          font-weight: 300;
-        }
-        .wind-detail {
-          display: flex;
-          align-items: center;
-          margin: 1px;
-        }
-        .wind-detail ha-icon {
-          --mdc-icon-size: 15px;
-          margin-right: 1px;
-          margin-inline-start: initial;
-          margin-inline-end: 1px;
-        }
-        .wind-icon {
-          margin-right: 1px;
-          margin-inline-start: initial;
-          margin-inline-end: 1px;
-          position: relative;
-	        bottom: 1px;
-        }
-        .wind-speed {
-          font-size: 11px;
-          margin-right: 1px;
-          margin-inline-start: initial;
-          margin-inline-end: 1px;
-        }
-        .wind-unit {
-          font-size: 9px;
-          margin-left: 1px;
-          margin-inline-start: 1px;
-          margin-inline-end: initial;
-        }
-        .current-time {
-          position: absolute;
-          top: 20px;
-          right: 16px;
-          inset-inline-start: initial;
-          inset-inline-end: 16px;
-          font-size: ${config.time_size}px;
-        }
-        .date-text {
-          font-size: ${config.day_date_size}px;
-          color: var(--secondary-text-color);
-        }
-      </style>
+      <style>${cardStyles({
+        iconsSize: config.icons_size,
+        currentTempSize: config.current_temp_size,
+        timeSize: config.time_size,
+        dayDateSize: config.day_date_size,
+        chartHeight: config.forecast.chart_height,
+        titlePresent: !!config.title,
+        labelsSmallSize,
+      })}</style>
 
       <ha-card header="${config.title}">
         <div class="card">
@@ -19875,6 +20231,9 @@ renderErrorBanner() {
   }
   if (this._forecastError) {
     errors.push(`Forecast unavailable: ${this._forecastError}`);
+  }
+  if (this._chartError) {
+    errors.push(`Chart render failed: ${this._chartError}`);
   }
   if (this._missingSensors && this._missingSensors.length) {
     errors.push(`Sensors unavailable: ${this._missingSensors.join(', ')}`);
@@ -20173,29 +20532,33 @@ renderForecastConditionIcons({ config, forecastItems, sun } = this) {
 
 renderWind({ config, weather, windSpeed, windDirection, forecastItems } = this) {
   const showWindForecast = config.forecast.show_wind_forecast !== false;
+  if (!showWindForecast) return x``;
 
-  if (!showWindForecast) {
-    return x``;
-  }
-
+  // Per-column wind direction arrow can be hidden via forecast.show_wind_arrow
+  // (default true). When kept on but the column gets too narrow for arrow +
+  // speed side-by-side, .wind-detail's flex-wrap drops the speed below the
+  // arrow — see chart/styles.js.
+  const showArrow = config.forecast.show_wind_arrow !== false;
   const forecast = this.forecasts ? this.forecasts.slice(0, forecastItems) : [];
+  const unit = this.ll('units')[this.unitSpeed];
 
   return x`
     <div class="wind-details">
-      ${showWindForecast ? x`
-        ${forecast.map((item) => {
-          const raw = item.wind_gust_speed != null ? item.wind_gust_speed : item.wind_speed;
-          const dWindSpeed = this._convertWindSpeed(raw);
-
-          return x`
-            <div class="wind-detail">
+      ${forecast.map((item) => {
+        const raw = item.wind_gust_speed != null ? item.wind_gust_speed : item.wind_speed;
+        const dWindSpeed = this._convertWindSpeed(raw);
+        return x`
+          <div class="wind-detail">
+            ${showArrow ? x`
               <ha-icon class="wind-icon" icon="hass:${this.getWindDirIcon(item.wind_bearing)}"></ha-icon>
+            ` : ''}
+            <span class="wind-value">
               <span class="wind-speed">${dWindSpeed ?? ''}</span>
-              <span class="wind-unit">${this.ll('units')[this.unitSpeed]}</span>
-            </div>
-          `;
-        })}
-      ` : ''}
+              <span class="wind-unit">${unit}</span>
+            </span>
+          </div>
+        `;
+      })}
     </div>
   `;
 }
