@@ -10,7 +10,7 @@
 // Both expose subscribe(callback) → unsubscribe and emit
 // { forecast, error? } events.
 
-import { classifyDay, clearSkyNoonLux, clearSkyLuxAt } from './condition-classifier.js';
+import { classifyDay, clearSkyNoonLux, clearSkyLuxAt, clearSkyLuxFactory } from './condition-classifier.js';
 import { WeatherEntityFeature } from './const.js';
 
 const POLL_INTERVAL_MS = 60 * 60 * 1000;
@@ -266,6 +266,13 @@ export class MeasuredDataSource {
       byHour[eid] = m;
     }
 
+    // Precompute lat/lon trig once and cache declination per day-of-year.
+    // ~168 hourly rows × ~5 trig calls in clearSkyLuxAt would be ~840 trig
+    // ops; with this factory it's ~168 (one cos(hourAngle) per row, the
+    // rest reused from the cache).
+    const cfg = this.hass && this.hass.config;
+    const luxFor = clearSkyLuxFactory(cfg ? cfg.latitude : null, cfg ? cfg.longitude : null);
+
     const hourMs = (date) => {
       const d = new Date(date);
       d.setMinutes(0, 0, 0);
@@ -370,6 +377,7 @@ export class MeasuredDataSource {
           gust_max: gustMax,
           dew_point_mean: dewPointMean,
           hourStart,
+          clearsky_lux: luxFor(hourStart),
         }),
       });
     }
@@ -377,13 +385,20 @@ export class MeasuredDataSource {
   }
 
   _mapHourCondition(hour) {
-    const cfg = this.hass && this.hass.config;
-    const lat = cfg ? cfg.latitude : null;
-    const lon = cfg ? cfg.longitude : null;
-    const clearsky_lux = (lat != null && lon != null)
-      ? clearSkyLuxAt(lat, lon, hour.hourStart)
-      : 110000;
-    const { hourStart: _ignored, ...inputs } = hour;
+    // Caller (_buildHourlyForecast) precomputes clearsky_lux via the
+    // cached factory so we don't redo per-row trig. Fall back to a
+    // per-call clearSkyLuxAt if a caller passes the raw hour bag without
+    // it (e.g. tests).
+    let clearsky_lux = hour.clearsky_lux;
+    if (clearsky_lux == null) {
+      const cfg = this.hass && this.hass.config;
+      const lat = cfg ? cfg.latitude : null;
+      const lon = cfg ? cfg.longitude : null;
+      clearsky_lux = (lat != null && lon != null)
+        ? clearSkyLuxAt(lat, lon, hour.hourStart)
+        : 110000;
+    }
+    const { hourStart: _ignored, clearsky_lux: _ignoredLux, ...inputs } = hour;
     return classifyDay({ ...inputs, clearsky_lux }, this.config.condition_mapping || {}, 'hour');
   }
 }

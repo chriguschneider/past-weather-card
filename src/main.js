@@ -187,6 +187,12 @@ setConfig(config) {
 
   cardConfig.units.speed = config.speed ? config.speed : cardConfig.units.speed;
 
+  // Live-condition memoization (set hass) keys partly off `condition_mapping`;
+  // wipe the cached entry so the next hass tick reclassifies with the new
+  // mapping instead of returning a stale label.
+  this._liveConditionKey = null;
+  this._liveCondition = null;
+
   this.baseIconPath = cardConfig.icon_style === 'style2' ?
     'https://cdn.jsdelivr.net/gh/chriguschneider/weather-station-card/dist/icons2/':
     'https://cdn.jsdelivr.net/gh/chriguschneider/weather-station-card/dist/icons/' ;
@@ -250,23 +256,44 @@ set hass(hass) {
   const precipRateNow = precipIsRate ? numOrNull(valueOf(sensors.precipitation)) : null;
   const lat = hass.config && hass.config.latitude;
   const lon = hass.config && hass.config.longitude;
-  const clearskyNow = lat != null && lon != null
-    ? clearSkyLuxAt(lat, lon, new Date())
-    : 110000;
-  // precip_total here is precipRateNow — an instantaneous rate (mm/h)
-  // when the sensor reports a /h unit. Use period: 'hour' so the
-  // precipitation thresholds match the rate semantics, not 24 h totals.
-  const currentCondition = classifyDay({
-    temp_max: nowTemp,
-    temp_min: nowTemp,
-    humidity: numOrNull(this.humidity),
-    lux_max: luxNow,
-    precip_total: precipRateNow,
-    wind_mean: numOrNull(this.windSpeed),
-    gust_max: numOrNull(this.wind_gust_speed),
-    dew_point_mean: numOrNull(this.dew_point),
-    clearsky_lux: clearskyNow,
-  }, this.config.condition_mapping || {}, 'hour');
+
+  // Memoize: classifyDay walks an ~80-line decision tree and clearSkyLuxAt
+  // does ~4 trig ops + cos. Across the 2–5 hass ticks per second that
+  // arrive when many entities update at once, the inputs rarely change
+  // — sensors update at a far slower cadence than HA's WebSocket fan-out.
+  // Cache key buckets the time at minute precision so clearskyNow drift
+  // doesn't break the cache (lux moves ~50 lx/minute under a clear sky,
+  // immaterial to the cloud-ratio threshold). Cache invalidates on
+  // setConfig (condition_mapping changes) — see setConfig.
+  const minuteKey = Math.floor(Date.now() / 60_000);
+  const conditionKey =
+    nowTemp + '|' + luxNow + '|' + precipRateNow + '|' +
+    this.humidity + '|' + this.windSpeed + '|' + this.wind_gust_speed + '|' +
+    this.dew_point + '|' + minuteKey;
+  let currentCondition;
+  if (this._liveConditionKey === conditionKey) {
+    currentCondition = this._liveCondition;
+  } else {
+    const clearskyNow = lat != null && lon != null
+      ? clearSkyLuxAt(lat, lon, new Date())
+      : 110000;
+    // precip_total here is precipRateNow — an instantaneous rate (mm/h)
+    // when the sensor reports a /h unit. Use period: 'hour' so the
+    // precipitation thresholds match the rate semantics, not 24 h totals.
+    currentCondition = classifyDay({
+      temp_max: nowTemp,
+      temp_min: nowTemp,
+      humidity: numOrNull(this.humidity),
+      lux_max: luxNow,
+      precip_total: precipRateNow,
+      wind_mean: numOrNull(this.windSpeed),
+      gust_max: numOrNull(this.wind_gust_speed),
+      dew_point_mean: numOrNull(this.dew_point),
+      clearsky_lux: clearskyNow,
+    }, this.config.condition_mapping || {}, 'hour');
+    this._liveConditionKey = conditionKey;
+    this._liveCondition = currentCondition;
+  }
 
   // Synthesized stand-in for the original weather entity. The *_unit fields
   // here represent the SOURCE units (what the data layer actually emits);
