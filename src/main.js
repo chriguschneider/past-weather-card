@@ -1986,8 +1986,17 @@ _convertWindSpeed(raw) {
     // map to viewport-pixel coordinates.
     const leftIdx = Math.max(0, Math.min(total - 1, Math.floor(wrapper.scrollLeft / barWidth)));
     const rightIdx = Math.max(0, Math.min(total - 1, Math.floor((wrapper.scrollLeft + wrapper.clientWidth - 1) / barWidth)));
-    const leftCenterX = (leftIdx + 0.5) * barWidth - wrapper.scrollLeft;
-    const rightCenterX = (rightIdx + 0.5) * barWidth - wrapper.scrollLeft;
+    const rawLeftCenterX = (leftIdx + 0.5) * barWidth - wrapper.scrollLeft;
+    const rawRightCenterX = (rightIdx + 0.5) * barWidth - wrapper.scrollLeft;
+    // Clamp the centre so translateX(-50%) doesn't push half the text
+    // outside the card. Reserved half-text-width is conservative (handles
+    // "Sep 12" at ~30 px half-width across the locales we ship). Without
+    // clamping, a leftmost bar that's 60-90 % scrolled past the viewport
+    // gives a small positive centre (e.g. 15 px) and the label still
+    // pokes off the left card edge.
+    const TEXT_HALF = 30;
+    const leftCenterX = Math.max(TEXT_HALF, rawLeftCenterX);
+    const rightCenterX = Math.min(wrapper.clientWidth - TEXT_HALF, rawRightCenterX);
 
     const lang = this.config.locale || this.language || 'en';
     const fmt = (idx) => {
