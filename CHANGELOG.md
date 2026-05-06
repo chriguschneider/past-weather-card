@@ -4,6 +4,77 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] — 2026-05-07
+
+Quality release after the v1.4 feature push: performance polish,
+test-coverage gap-fill, and small dead-code cleanup. No user-facing
+behaviour changes — same modes, same look, smoother on touch devices
+and better protected against regressions.
+
+### Performance
+
+- **rAF-coalesced scroll redraws.** Scrolling the hourly chart on a
+  touch device fires scroll events at 60+ Hz; the v1.4 redraw on
+  every event was visibly janky on Pi-class hardware. Now multiple
+  scroll events between two paint frames collapse into a single
+  `chart.draw()` via `requestAnimationFrame`, with the latest
+  `scrollLeft` always read inside the rAF callback.
+- **Per-tick label cache in the daily/hourly tick-labels plugin.**
+  Hourly mode at 168 ticks was constructing 168 `Date` objects and
+  making 168+ `Intl` calls every frame; with scroll-driven redraws
+  that compounded into the dominant per-frame cost. The plugin now
+  caches the derived per-column values keyed on `dataIdx` (cache
+  invalidates automatically when the orchestrator rebuilds the
+  plugin on data refresh), and pre-instantiates
+  `Intl.DateTimeFormat` formatters (~3× faster than calling
+  `toLocaleTimeString` per tick).
+
+### Tests (+19 unit tests; total 366 → 385)
+
+- `aggregateThreeHour` (3-hour-block aggregator for `today` mode):
+  10 new unit tests covering the mean / sum / mode aggregators,
+  partial trailing blocks, null-handling, and one-decimal rounding.
+- `dailyTickLabelsPlugin` today-branch: left-aligned time + sparse
+  date label rendering, bold midnight day-boundary stroke, and the
+  scroll-aware `leftmostVisibleIdx` detection (mocks the
+  `.forecast-scroll` wrapper's `scrollLeft`).
+- `MeasuredDataSource` `today`-mode branching: combination mode
+  fetches a 12 h station window, station-only expands to 24 h, and
+  the user's `days:` config is correctly ignored when
+  `forecast.type` is `today`.
+- `nextForecastType` (3-way mode-toggle cycle): cycle integrity and
+  unknown-input fallback.
+
+### Code health
+
+- `aggregateThreeHour` extracted from `main.ts` (62 LOC) into
+  `forecast-utils.ts` alongside the other forecast aggregators
+  (`filterMidnightStaleForecast`, `dropEmptyStationToday`).
+- `nextForecastType` extracted from `_onModeToggleClick` so the
+  mode-cycle logic is testable in isolation as a pure function.
+- Removed dead `backgroundColor` parameter from
+  `createDailyTickLabelsPlugin` (leftover from the v1.4 mask-and-
+  redraw rewrite).
+- Removed dead `language` field from `BuildChartOpts` and the
+  orchestrator call site (the chart's tick callback returns empty
+  strings, so `draw.ts` never used `language` for label
+  formatting).
+
+### Documentation
+
+- README slimmed to a hero-and-overview shape; reference content
+  extracted into `docs/CONFIGURATION.md`, `docs/CONDITIONS.md`,
+  `docs/SENSORS.md`. New `docs/STYLE-GUIDE.md` codifies file
+  conventions; `docs/TROUBLESHOOTING.md` lists common setup pitfalls.
+- Hero block now sources adaptive light / dark previews directly
+  from the e2e visual baselines so README screenshots stay aligned
+  with what the card actually renders, with no manual upkeep.
+
+### Bundle
+
+- `dist/weather-station-card.js`: 348 KB unchanged (cache machinery
+  is closure-level and adds < 0.1 KB).
+
 ## [1.4.0] — 2026-05-06
 
 UX polish release. Two user-visible features that came up during real
