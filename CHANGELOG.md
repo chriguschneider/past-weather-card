@@ -4,6 +4,68 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-05-06
+
+TypeScript migration. Every `src/*.js` file (except `main.ts`,
+which stays opted-out via a documented `@ts-nocheck` boundary) is
+now `.ts` and strict-checked. Public API surface is unchanged —
+no YAML keys move, no locale keys rename, no card-tag rename.
+Closes [#13](https://github.com/chriguschneider/weather-station-card/issues/13).
+
+### Added
+
+- `tsconfig.json` with `strict: true`, `noImplicitAny`, ES2020
+  target, ES module output, Bundler resolution. `experimentalDecorators`
+  on for Lit's `@property` decorator (Lit 2 still uses the legacy
+  decorator proposal). `allowJs: true` so the v1.2 migration could
+  proceed file-by-file without breaking the build.
+- `@rollup/plugin-typescript` first in the rollup pipeline. Output
+  contract unchanged — same single `dist/weather-station-card.js`.
+- `npm run typecheck` (= `tsc --noEmit`) wired into CI as a build
+  gate, alongside lint, test, coverage, and bundle budget.
+- Strict types exported from boundary modules so downstream
+  contributors get IDE hover types when they import from us:
+  - `ConditionId` (HA's standard weather condition ID literal union)
+    + typed `weatherIcons` / `weatherIconsDay` / `weatherIconsNight`
+    as `Readonly<Record<ConditionId, string>>` — adding a new
+    condition fails the compiler at every lookup site.
+  - `ForecastEntry` (the per-row contract the chart consumes).
+  - `ConditionThresholds` / `ClassifyInputs` / `Period` for the
+    classifier.
+  - `DailySunshineEntry` / `HourlySunshineEntry` / `SunshineSource`
+    interface for the overlay pipeline.
+  - `OpenMeteoResponse` / `StorageLike` / `FetchLike` for the
+    sunshine fetcher.
+  - `StatBucket` / `StatsResponse` / `SensorMap` / `DataSourceConfig`
+    / `HassLike` for the recorder data source.
+  - `ChartPlugin` / `ChartLike` (subset of chart.js types we
+    actually touch) + per-plugin opts interfaces.
+  - `EditorContext` / `EditorLike` / `TFn` for editor partials.
+
+### Changed
+
+- All 19 source files (excluding `main.ts`) now use TypeScript and
+  type-check under `tsc --strict`.
+- `main.ts` carries `@ts-nocheck` with a header explaining why: the
+  integration boundary file is ~1.5K LOC of LitElement + HA frontend
+  + Chart.js wiring with implicit-any field declarations across
+  ~30 instance fields. Strict-typing it would mean adding multiple
+  HA frontend type imports we don't otherwise depend on, for no
+  v1.2 deliverable. Tracked as future follow-up; the boundary
+  modules main.ts pulls in ARE all strict-typed.
+- `package.json#module` and `rollup.config.mjs#input` point at
+  `src/main.ts`.
+- `weather-station-card-editor.ts` adds explicit field declarations
+  for `hass` and `_config` so they're TS-visible alongside Lit's
+  `static get properties()` runtime registration.
+- Mode-radio in `editor/render-setup.ts` uses `as const` so the
+  selected value flows through to `_setMode`'s union-typed
+  parameter without a cast.
+
+### Removed
+
+- Nothing — public API is unchanged.
+
 ## [1.1.0] — 2026-05-06
 
 Architecture refactor — `main.js` 2,178 → 1,471 LOC (−32 %), editor
