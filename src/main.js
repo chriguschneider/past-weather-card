@@ -23,6 +23,7 @@ import { safeQuery } from './utils/safe-query.js';
 import { parseNumericSafe } from './utils/numeric.js';
 import { setupScrollUx } from './scroll-ux.js';
 import { setupActionHandler } from './action-handler.js';
+import { drawChartUnsafe } from './chart/orchestrator.js';
 import { cardStyles } from './chart/styles.js';
 import {
   createSeparatorPlugin,
@@ -766,14 +767,14 @@ _teardownForecast() {
 
 drawChart(args) {
   try {
-    const result = this._drawChartUnsafe(args);
+    const result = drawChartUnsafe(this, args);
     if (this._chartError) {
       this._chartError = null;
       this.requestUpdate();
     }
     return result;
   } catch (e) {
-    // The phase tag (set by _drawChartUnsafe before calling each sub-step)
+    // The phase tag (set by chart/orchestrator's drawChartUnsafe before each sub-step)
     // tells us where we crashed — without it, the banner just says "render
     // failed" and we have to repro to find the spot. Falls back to "draw"
     // for failures that happen outside any tagged step.
@@ -788,300 +789,6 @@ drawChart(args) {
     this._chartPhase = null;
     this.requestUpdate();
   }
-}
-
-_drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this) {
-  if (!this.forecasts || !this.forecasts.length) {
-    return [];
-  }
-  // All downstream references read `config` — by binding it to the
-  // normalized result we get one consistent view of the mode (and
-  // forecast.type fallback to 'daily' for typo'd YAML) across the
-  // chart code path.
-  const { config } = normalizeForecastMode(rawConfig);
-
-  const chartCanvas = this.renderRoot && this.renderRoot.querySelector('#forecastChart');
-  if (!chartCanvas) {
-    console.error('Canvas element not found:', this.renderRoot);
-    return;
-  }
-
-  if (this.forecastChart) {
-    this.forecastChart.destroy();
-  }
-  this._chartPhase = 'compute';
-  const tempUnit = this._hass.config.unit_system.temperature;
-  const lengthUnit = this._hass.config.unit_system.length;
-  const precipUnit = lengthUnit === 'km' ? this.ll('units')['mm'] : this.ll('units')['in'];
-  const data = this.computeForecastData();
-
-  const style = getComputedStyle(document.body);
-  const backgroundColor = style.getPropertyValue('--card-background-color');
-  const textColor = style.getPropertyValue('--primary-text-color');
-  const dividerColor = style.getPropertyValue('--divider-color');
-  const canvas = this.renderRoot.querySelector('#forecastChart');
-  if (!canvas) {
-    requestAnimationFrame(() => this.drawChart());
-    return;
-  }
-
-  const ctx = canvas.getContext('2d');
-
-  let precipMax;
-  if (config.forecast.type === 'hourly') {
-    precipMax = lengthUnit === 'km' ? 4 : 1;
-  } else {
-    precipMax = lengthUnit === 'km' ? 20 : 1;
-  }
-
-  Chart.defaults.color = textColor;
-  Chart.defaults.scale.grid.color = dividerColor;
-  Chart.defaults.elements.line.fill = false;
-  Chart.defaults.elements.line.tension = 0.3;
-  Chart.defaults.elements.line.borderWidth = 1.5;
-  Chart.defaults.elements.point.radius = 2;
-  Chart.defaults.elements.point.hitRadius = 10;
-
-  // Boundary handling between station and forecast blocks differs by mode:
-  //
-  // - Daily combination: "today" appears as a doubled column (station-today
-  //   on the left, forecast-today on the right). The segment between those
-  //   two columns is suppressed (transparent) — measured vs. predicted of
-  //   the SAME day shouldn't visually flow into each other.
-  //
-  // - Hourly combination: there's no doubled hour. Station and forecast
-  //   meet at "now" with one bar each side. The boundary segment is
-  //   drawn DASHED — same visual cue we use for the rest of the forecast
-  //   block, but applied to the transition itself, so the user reads the
-  //   line as "measured up to now → predicted from now on" without a
-  //   confusing transparent gap.
-  const stationCountForGap = this._stationCount || 0;
-  const forecastCountForGap = this._forecastCount || 0;
-  const hasBothBlocks = stationCountForGap > 0 && forecastCountForGap > 0;
-  const gapStartIdx = stationCountForGap - 1;
-  const isHourlyCombo = hasBothBlocks && config.forecast.type === 'hourly';
-  const isBoundarySegment = (ctx) =>
-    ctx.p0DataIndex === gapStartIdx && ctx.p1DataIndex === gapStartIdx + 1;
-  const segmentSkip = (ctx) => {
-    if (!hasBothBlocks) return undefined;
-    // Hourly combo: boundary is drawn (dashed by segmentDash); only daily
-    // combo suppresses it.
-    if (!isHourlyCombo && isBoundarySegment(ctx)) return 'transparent';
-    return undefined;
-  };
-  // Dash forecast segments to mark "predicted, not measured". A segment is
-  // entirely in the forecast block when its left endpoint is at or past
-  // the first forecast index (stationCount). At hourly combo we also dash
-  // the boundary segment itself (the "is → soll" transition).
-  const segmentDash = (ctx) => {
-    if (ctx.p0DataIndex >= stationCountForGap && forecastCountForGap > 0) {
-      return [6, 4];
-    }
-    if (isHourlyCombo && isBoundarySegment(ctx)) return [6, 4];
-    return undefined;
-  };
-  const tempSegmentOpts = { borderColor: segmentSkip, borderDash: segmentDash };
-
-  const precipColor = config.forecast.precipitation_color;
-  const precipColorLight = lightenColor(precipColor);
-  const precipPerBarColor = (data.precip || []).map(
-    (_, i) => (hasBothBlocks && i >= stationCountForGap) ? precipColorLight
-            : (!hasBothBlocks && stationCountForGap === 0) ? precipColorLight
-            : precipColor,
-  );
-
-  // Sunshine row toggle. Works in both daily and hourly modes — the
-  // OpenMeteoSunshineSource fetches `daily=…` and (when in hourly mode)
-  // also `hourly=…` from Open-Meteo in a single call, and
-  // attachSunshine matches each entry's datetime against the right
-  // array. The chart adds a second bar dataset; Chart.js auto-groups
-  // precip + sunshine side-by-side per column (precip left half,
-  // sunshine right half).
-  const isHourlyChart = config.forecast.type === 'hourly';
-  const showSunshine = config.forecast.show_sunshine === true;
-  // Per-column "Xh" / "0.5h" labels only in daily mode — at hourly the
-  // 168 narrow columns over a 7-day window can't fit a label per bar,
-  // and the bar height itself encodes the value.
-  const showSunshineLabels = showSunshine && !isHourlyChart;
-  const sunshineColor = config.forecast.sunshine_color || 'rgba(255, 193, 7, 1.0)';
-  const sunshineColorLight = lightenColor(sunshineColor);
-  const sunshinePerBarColor = (data.sunshine || []).map(
-    (_, i) => (hasBothBlocks && i >= stationCountForGap) ? sunshineColorLight
-            : (!hasBothBlocks && stationCountForGap === 0) ? sunshineColorLight
-            : sunshineColor,
-  );
-  // Convert raw hours into 0..1 fractions of day length. Null values
-  // pass through so the bar slot stays empty for missing data.
-  const sunshineFractionData = sunshineFractions(data.sunshine, data.dayLength);
-
-  const datasets = [
-    {
-      label: this.ll('tempHi'),
-      type: 'line',
-      data: data.tempHigh,
-      yAxisID: 'TempAxis',
-      borderColor: config.forecast.temperature1_color,
-      backgroundColor: config.forecast.temperature1_color,
-      segment: tempSegmentOpts,
-    },
-    {
-      label: this.ll('tempLo'),
-      type: 'line',
-      data: data.tempLow,
-      yAxisID: 'TempAxis',
-      borderColor: config.forecast.temperature2_color,
-      backgroundColor: config.forecast.temperature2_color,
-      segment: tempSegmentOpts,
-      // Hourly forecasts carry only `temperature` per entry, no separate
-      // low — hide the second line dataset entirely (vs. drawing a flat
-      // empty line). precipPlugin still indexes dataset[2] so we must not
-      // remove this slot.
-      hidden: !data.tempLowAvailable,
-    },
-    {
-      label: this.ll('precip'),
-      type: 'bar',
-      data: data.precip,
-      yAxisID: 'PrecipAxis',
-      borderColor: precipPerBarColor,
-      backgroundColor: precipPerBarColor,
-      barPercentage: config.forecast.precip_bar_size / 100,
-      categoryPercentage: 1.0,
-      // datalabels handled by precipLabelPlugin so the unit can render
-      // at a smaller font next to the number. The default chartjs-
-      // datalabels render is suppressed via display:false here; the
-      // plugin reads dataset.data[i] directly to draw number + unit.
-      datalabels: {
-        display: function () { return false; },
-        textAlign: 'center',
-        textBaseline: 'middle',
-        align: 'top',
-        anchor: 'start',
-        offset: -10,
-      },
-    },
-  ];
-
-  if (showSunshine) {
-    datasets.push({
-      label: this.ll('sunshine'),
-      type: 'bar',
-      data: sunshineFractionData,
-      yAxisID: 'SunshineAxis',
-      borderColor: sunshinePerBarColor,
-      backgroundColor: sunshinePerBarColor,
-      barPercentage: 1.0,
-      categoryPercentage: 1.0,
-      // Hours label is drawn by createSunshineLabelPlugin at the top of
-      // the column — suppress chartjs-datalabels for this dataset so the
-      // bar itself stays clean.
-      datalabels: { display: function () { return false; } },
-    });
-  }
-
-  const chart_text_color = (config.forecast.chart_text_color === 'auto') ? textColor : config.forecast.chart_text_color;
-
-  if (config.forecast.style === 'style2') {
-    const todayBoldFont = (context) => {
-      const dt = data.dateTime[context.dataIndex];
-      const k = dt ? new Date(dt) : null;
-      if (k) k.setHours(0, 0, 0, 0);
-      const t = new Date(); t.setHours(0, 0, 0, 0);
-      const isToday = k && k.getTime() === t.getTime();
-      return {
-        size: parseInt(config.forecast.labels_font_size) + 1,
-        lineHeight: 0.7,
-        weight: isToday ? 'bold' : 'normal',
-      };
-    };
-
-    datasets[0].datalabels = {
-      display: function (context) {
-        return 'true';
-      },
-      formatter: function (value, context) {
-        return context.dataset.data[context.dataIndex] + '°';
-      },
-      align: 'top',
-      anchor: 'center',
-      backgroundColor: 'transparent',
-      borderColor: 'transparent',
-      color: chart_text_color || config.forecast.temperature1_color,
-      font: todayBoldFont,
-    };
-
-    datasets[1].datalabels = {
-      display: function (context) {
-        return 'true';
-      },
-      formatter: function (value, context) {
-        return context.dataset.data[context.dataIndex] + '°';
-      },
-      align: 'bottom',
-      anchor: 'center',
-      backgroundColor: 'transparent',
-      borderColor: 'transparent',
-      color: chart_text_color || config.forecast.temperature2_color,
-      font: todayBoldFont,
-    };
-  }
-
-  const stationCount = this._stationCount || 0;
-  const forecastCount = this._forecastCount || 0;
-  const isHourly = config.forecast.type === 'hourly';
-  // doubled-today only makes sense at daily — at hourly station and
-  // forecast meet at "now" with a single separator line.
-  const doubledToday = !isHourly && stationCount > 0 && forecastCount > 0;
-  // When sunshine is on, draw.js grows the x-axis box by sunshineLabelBand
-  // pixels via afterFit. dailyTickLabelsPlugin then shifts weekday + date
-  // up by that amount so the new bottom strip is free for the sunshine
-  // box. When sunshine is off, sunshineLabelBand stays 0 and chart
-  // layout is byte-identical to v0.8.
-  const labelsBaseSize = parseInt(config.forecast.labels_font_size) || 11;
-  const sunshineLabelBand = showSunshineLabels ? Math.max(16, labelsBaseSize + 6) : 0;
-  const separatorPlugin = createSeparatorPlugin({
-    stationCount, forecastCount, style, dividerColor,
-    mode: isHourly ? 'hourly' : 'daily',
-  });
-  const dailyTickLabelsPlugin = createDailyTickLabelsPlugin({
-    config, language, data, textColor, backgroundColor, style, stationCount, doubledToday,
-    sunshineLabelBand,
-  });
-  const precipLabelPlugin = createPrecipLabelPlugin({
-    config, data, precipUnit, precipPerBarColor, precipColor, textColor, backgroundColor,
-    chartTextColor: chart_text_color,
-  });
-
-  const plugins = [separatorPlugin, dailyTickLabelsPlugin, precipLabelPlugin];
-  if (showSunshineLabels) {
-    plugins.push(createSunshineLabelPlugin({
-      config, data, textColor, backgroundColor,
-      chartTextColor: chart_text_color,
-      sunshineColor, sunshinePerBarColor,
-      bandHeight: sunshineLabelBand,
-    }));
-  }
-
-  this._chartPhase = 'init';
-  this.forecastChart = buildChart(ctx, {
-    datasets,
-    plugins,
-    data,
-    config,
-    language,
-    textColor,
-    backgroundColor,
-    dividerColor,
-    chartTextColor: chart_text_color,
-    precipMax,
-    precipUnit,
-    tempUnit,
-    doubledToday,
-    stationCount,
-    style,
-    sunshineLabelBand,
-  });
-  this._chartPhase = null;
 }
 
 computeForecastData({ config, forecastItems } = this) {
@@ -1103,7 +810,7 @@ computeForecastData({ config, forecastItems } = this) {
     // tempLow is null when no entry has `templow` (hourly forecast). Coerce
     // to [] so the dataset builder downstream — which indexes by position —
     // doesn't choke. The single-line decision (hide dataset[1]) lives in
-    // _drawChartUnsafe, gated on `tempLow === null` from hourlyTempSeries.
+    // chart/orchestrator, gated on `tempLow === null` from hourlyTempSeries.
     tempLow: tempLow || [],
     // Track the high/low intent separately so the chart layer can decide
     // whether to render a second temperature line; null means hourly /
