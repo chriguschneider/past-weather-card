@@ -73,7 +73,7 @@ classifier, and (where relevant) the attribute readouts. Only
 | `sensors.wind_direction` | Wind direction attribute & arrow |
 | `sensors.uv_index` | UV attribute |
 | `sensors.dew_point` | Fog detection (combined with humidity) |
-| `sensors.sunshine_duration` | Today's live sunshine value (scalar, seconds or hours auto-detected at the `≥ 30` threshold). Past columns fall back to the recorder's daily-max for this same sensor. Only used when `forecast.show_sunshine: true`. |
+| `sensors.sunshine_duration` | Today's live sunshine value (scalar, seconds or hours auto-detected at the `≥ 30` threshold). Past columns fall back to the recorder's daily-max for this same sensor. Only used when `forecast.show_sunshine: true`. *(since v0.9; fully wired in daily fetch since v1.4.)* |
 
 ## C. Layout
 
@@ -169,7 +169,7 @@ ON; in YAML the sub-keys are evaluated regardless.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `forecast.type` | `'daily' \| 'hourly'` | `'daily'` | At hourly, station data is fetched at hour resolution (mean per hour, single temperature line) and the forecast is subscribed with `forecast_type: hourly`. `days` / `forecast_days` define the data window (so `days: 4` at hourly = 96 hours of station history). Editor radio in Setup. See [Daily vs. hourly resolution](#daily-vs-hourly-resolution) below. |
+| `forecast.type` | `'daily' \| 'hourly' \| 'today'` | `'daily'` | At hourly, station data is fetched at hour resolution (mean per hour, single temperature line) and the forecast is subscribed with `forecast_type: hourly`. `days` / `forecast_days` define the data window (so `days: 4` at hourly = 96 hours of station history). The `'today'` mode (since v1.4) renders a 24-hour window centred on "now". Editor radio in Setup. See [Daily vs. hourly resolution](#daily-vs-hourly-resolution) below. |
 | `forecast.number_of_forecasts` | integer | `8` | Number of bars visible in the viewport at once. Default `8` works across both modes — at daily with `days: 7` everything fits without scrolling, at hourly it caps the viewport at ~8 hours and the user scrolls. Set `0` for "fit all" (no scrolling). When more bars are loaded than visible, the chart row + wind row + conditions row scroll horizontally in lockstep. Initial scroll position is "now" (centred at the station/forecast boundary in combination mode). |
 | `locale` | string | HA's selected language | Override locale (e.g. `de`, `fr`). Falls back to English for missing keys. |
 
