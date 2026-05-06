@@ -1,80 +1,200 @@
 # Architecture
 
-Reading order for new contributors. Skim top-to-bottom; come back to the
-section your change touches.
+How the card is wired together. The current shape is the result of the
+v1.1 refactor — what was a single 2,200-line `main.js` with most of the
+behaviour as inline methods is now an orchestrator (~1,470 LOC) that
+delegates to seven focused modules.
+
+If you're new to the codebase, read this in order: **[Module map](#module-map)**
+→ **[Lifecycle](#lifecycle)** → **[Data flow](#data-flow)**, then dive
+into the file you need to change.
 
 ## Module map
 
-| File | Responsibility |
-| ---- | -------------- |
-| `src/main.js` | Lit element, lifecycle (`set hass` / `updated` / `disconnectedCallback`), `render()` template, chart construction (`drawChart` / `_drawChartUnsafe`), inline Chart.js plugins, error banner, attribute panels. |
-| `src/data-source.js` | Two data sources behind a common contract. `MeasuredDataSource` polls `recorder/statistics_during_period`. `ForecastDataSource` subscribes to `weather/subscribe_forecast`. Both emit `{forecast, error?}` via a `subscribe(callback) → unsubscribe` interface. |
-| `src/condition-classifier.js` | Pure function `classifyDay(day, overrides)` that maps daily aggregates to a Home Assistant `weather.*` condition. Threshold defaults are sourced from WMO / NWS / AMS / IES — see `DEFAULTS` block. |
-| `src/format-utils.js` | Stateless helpers shared by tests + render: `lightenColor` (rgba/hex/hsl/hsla → reduced-alpha rgba/hsla) and `computeBlockSeparatorPositions` (where today-framing lines go). |
-| `src/const.js` | `WeatherEntityFeature` bitflag constants, weather-icon name maps (mdi: + day/night). |
-| `src/locale.js` | Language → translation table. Each entry has condition labels + an optional `editor: { … }` block. Falls back lang → base-lang → English → key. |
-| `src/weather-station-card-editor.js` | Visual config editor (LitElement). `ha-form` schemas, dynamic device_class detection for sensor pickers. |
+```
+src/
+├── main.js                    LitElement WeatherStationCard. Entry
+│                              point + thin orchestrator. Holds reactive
+│                              properties (hass, config, forecasts),
+│                              wires the data sources, calls into the
+│                              modules below.
+│
+├── data-source.js             MeasuredDataSource (recorder polling)
+│                              and ForecastDataSource (weather/subscribe_
+│                              forecast). Both expose subscribe(cb) →
+│                              unsubscribe and emit { forecast, error? }.
+│
+├── condition-classifier.js    Pure decision-tree classifier — feed it
+│                              temp/humidity/wind/lux/precip and it
+│                              returns one of HA's weather condition
+│                              IDs. Day / hour period dispatch.
+│
+├── forecast-utils.js          Pure helpers: pickHourlyTickIndices,
+│                              hourlyTempSeries, normalizeForecastMode,
+│                              startOfTodayMs + the v1.0.2 midnight-
+│                              transition guards.
+│
+├── format-utils.js            Pure helpers for color parsing,
+│                              separator-position algebra,
+│                              computeInitialScrollLeft.
+│
+├── sunshine-source.js         attachSunshine + overlayFromOpenMeteo —
+│                              tags every forecast entry with a daily
+│                              or hourly sunshine value.
+│
+├── openmeteo-source.js        Open-Meteo API fetcher with localStorage
+│                              caching, abortable on disconnect.
+│
+├── scroll-ux.js               (v1.1)  Wraps the .forecast-scroll-block:
+│                              drag-to-scroll, indicator chevrons,
+│                              jump-to-now button, scroll-date
+│                              overlays. setupScrollUx(card) returns a
+│                              teardown.
+│
+├── action-handler.js          (v1.1)  Pointer-based tap / hold /
+│                              double-tap detection on ha-card +
+│                              dispatcher (more-info, navigate, url,
+│                              toggle, perform-action, assist,
+│                              fire-dom-event). setupActionHandler(card)
+│                              + runAction(card, actionConfig).
+│
+├── teardown-registry.js       (v1.1)  Lifecycle-cleanup primitive used
+│                              by extracted modules so disconnectedCallback
+│                              drains them in lockstep.
+│
+├── utils/
+│   ├── safe-query.js          (v1.1)  shadowRoot?.querySelector helper.
+│   └── numeric.js             (v1.1)  parseNumericSafe — returns null
+│                              instead of NaN on un-parseable input.
+│
+├── chart/
+│   ├── orchestrator.js        (v1.1)  drawChartUnsafe(card, args) —
+│   │                          assembles datasets + plugins, calls
+│   │                          buildChart(). Was main.js's largest
+│   │                          method (~290 LOC) before extraction.
+│   │
+│   ├── config.js              (planned for v1.2)  Reserved for the
+│   │                          options-builder split out of draw.js.
+│   │
+│   ├── draw.js                Chart.js instance builder — buildChart(ctx,
+│   │                          opts) returns a configured Chart.
+│   │
+│   ├── plugins.js             Chart.js plugin factories: separator,
+│   │                          dailyTickLabels, precipLabel,
+│   │                          sunshineLabel.
+│   │
+│   └── styles.js              cardStyles({...}) — returns the CSS
+│                              string for the card's <style> block.
+│
+├── editor/                    (v1.1)  Editor render partials.
+│   ├── render-setup.js        Section A — title, mode, days, weather
+│   │                          entity, forecast type, actions.
+│   ├── render-sensors.js      Section B — sensor pickers (ha-form +
+│   │                          buildSensorsSchema).
+│   ├── render-layout.js       Section C — main panel + attributes +
+│   │                          chart rows.
+│   ├── render-style.js        Section D — chart style, sizing, icons,
+│   │                          colours.
+│   ├── render-units.js        Section E — units ha-form.
+│   └── render-advanced.js     Section F — locale, condition_mapping
+│                              overrides.
+│
+├── weather-station-card-editor.js   LitElement editor. Owns mutator
+│                              methods (_valueChanged, _sensorsChanged
+│                              etc.); render() delegates to the partials
+│                              above.
+│
+├── const.js                   weatherIcons / cardinal-direction tables.
+└── locale.js                  Per-language string tables.
+```
 
-The 3 modules with pure logic (`data-source`, `condition-classifier`,
-`format-utils`) are unit-tested via Vitest. `main.js` and the editor are
-not — see [Testing scope](#testing-scope).
+### Module dependency graph
+
+```mermaid
+graph TD
+    main[main.js]
+    main --> data[data-source.js]
+    main --> classifier[condition-classifier.js]
+    main --> fcutils[forecast-utils.js]
+    main --> fmtutils[format-utils.js]
+    main --> sunshine[sunshine-source.js]
+    main --> openmeteo[openmeteo-source.js]
+    main --> scroll[scroll-ux.js]
+    main --> action[action-handler.js]
+    main --> orchestrator[chart/orchestrator.js]
+    main --> styles[chart/styles.js]
+    main --> safeq[utils/safe-query.js]
+    main --> num[utils/numeric.js]
+    main --> editor[weather-station-card-editor.js]
+    sunshine --> openmeteo
+    data --> classifier
+    orchestrator --> draw[chart/draw.js]
+    orchestrator --> plugins[chart/plugins.js]
+    orchestrator --> fcutils
+    orchestrator --> fmtutils
+    orchestrator --> sunshine
+    plugins --> fmtutils
+    scroll --> safeq
+    scroll --> fmtutils
+    action --> safeq
+    editor --> editorParts[editor/render-*.js]
+```
+
+## Lifecycle
+
+The card is a Lit reactive element. The interesting hooks:
+
+```
+setConfig(config)
+  └─ defaults applied + invalidation flags reset
+
+set hass(hass)
+  ├─ live "current condition" classifier (memoized at minute precision)
+  ├─ MeasuredDataSource subscribe (if !this._dataSource)
+  └─ ForecastDataSource subscribe (if !this._forecastSource)
+
+connectedCallback()
+  └─ schedules attachResizeObserver
+
+firstUpdated()
+  └─ measureCard → drawChart
+
+updated(changedProperties)
+  ├─ setupActionHandler(this)        ← idempotent on stable ha-card
+  ├─ _maybeApplyInitialScroll(...)
+  ├─ setupScrollUx(this)             ← idempotent on stable wrapper
+  └─ if config changed:
+       _invalidateStaleSources(oldConfig)
+
+data callbacks (from sources):
+  this._stationData / this._forecastData ← event.forecast
+  └─ _refreshForecasts()
+       ├─ midnight-transition guards
+       │   (filterMidnightStaleForecast, dropEmptyStationToday)
+       ├─ overlayFromOpenMeteo (sunshine attach)
+       └─ measureCard → drawChart
+
+disconnectedCallback()
+  ├─ detachResizeObserver
+  ├─ _teardownStation / _teardownForecast
+  ├─ _teardownInitialScrollObserver
+  ├─ _scrollUxTeardown / _actionHandlerTeardown
+  └─ clearInterval(this._clockTimer)
+```
+
+The phase tag (`this._chartPhase`) is set at three points in
+`drawChartUnsafe` (`'compute'`, `'init'`, then cleared on success). When
+something throws, the catch block in `main.js` `drawChart()` reads it
+to label the error banner — useful when the error message is generic
+and you need to know whether the crash was during data shaping vs.
+Chart.js init vs. plugin draw.
 
 ## Data flow
 
-```
-HA WebSocket / sensor states
-     │
-     ▼
-┌─────────────────────┐    ┌──────────────────────┐
-│ MeasuredDataSource  │    │ ForecastDataSource   │
-│  - polls statistics │    │  - subscribes to     │
-│    every 60 min     │    │    weather/forecast  │
-│  - classifies via   │    │  - passes through    │
-│    classifyDay()    │    │    integration data  │
-└──────────┬──────────┘    └──────────┬───────────┘
-           │                          │
-           │ subscribe callback       │
-           ▼                          ▼
-   this._stationData            this._forecastData
-                  │              │
-                  └──────┬───────┘
-                         ▼
-              _refreshForecasts()
-                         │  this.forecasts = [...station, ...forecast]
-                         ▼
-                 measureCard()
-                         │  forecastItems = forecasts.length
-                         ▼
-                 drawChart()
-                         │  destroys + rebuilds Chart.js instance
-                         ▼
-                  Chart.js + plugins
-                         │
-                         ▼
-                  <canvas id="forecastChart">
-```
+The render layer always reads from `this.forecasts` — a single array
+of merged station + forecast entries. Every entry has:
 
-Three guarantees:
-
-1. **Single merge point.** `_refreshForecasts` is the only place that
-   writes `this.forecasts`. Both data callbacks plus `updated()` after
-   config edits route through it. Anywhere you see `this.forecasts = …`
-   outside this method is a bug.
-2. **Idempotent redraw.** `measureCard → drawChart` rebuilds the Chart.js
-   instance from scratch every time. There is no incremental update path
-   (the previous `updateChart` was simplified to a `drawChart` shim
-   precisely because incremental was a footgun).
-3. **`set hass` decides which sources exist.** The two `if (wantStation)` /
-   `if (wantForecast)` blocks in `set hass` are the source-of-truth for
-   "should this data source be alive right now?". `updated()` only tears
-   down stale ones via `_invalidateStaleSources`; recreation happens on
-   the next `set hass` tick.
-
-## The `forecasts` array shape
-
-Both data sources emit objects of this shape (one per day):
-
-```js
+```ts
 {
   datetime: ISOString,             // midnight of the day, local
   temperature: number | null,      // daily max
@@ -86,68 +206,28 @@ Both data sources emit objects of this shape (one per day):
   pressure: number | null,
   humidity: number | null,
   uv_index: number | null,
-  condition: string,               // e.g. 'cloudy', 'sunny', 'rainy'
+  condition: string,               // HA condition ID
+  sunshine?: number | null,        // hours of sunshine for the day
+  day_length?: number | null,      // hours from sunrise to sunset
 }
 ```
 
-Anything that consumes `this.forecasts` (chart, condition icons, wind row,
-tooltip) reads from this shape. Adding a new metric means adding a field
-here AND its source field in `_buildForecast` (data-source.js).
+`_refreshForecasts` is the single concatenation point:
 
-## Lifecycle
+```js
+const station = this._stationData;       // 7 days
+const forecast = filterMidnightStaleForecast(this._forecastData, todayStartMs)
+  .slice(0, limit);                       // 7 days, no leftover yesterday
+const cleaned = dropEmptyStationToday(station, todayStartMs);
+this.forecasts = overlayFromOpenMeteo(
+  [...cleaned, ...forecast], hass, sunshineSource, granularity
+);
+```
 
-`set hass` runs on every HA state update — many times per second when the
-dashboard is busy. The work it does is intentionally cheap:
-
-1. Re-derive `currentCondition` from current sensor states (synthesised
-   "weather" object for the main panel).
-2. Decide `wantStation` / `wantForecast` from current config.
-3. Create or `setHass(hass)` the data sources accordingly.
-4. **Do not** call `_refreshForecasts` directly except for the one-time
-   initial-empty case (`if (!this.forecasts) this._refreshForecasts()`).
-   The data sources call back into `_refreshForecasts` themselves when
-   they have new data.
-
-`_refreshForecasts` checks `this.shadowRoot` before scheduling a redraw —
-data callbacks can fire before Lit's first render builds the shadow DOM.
-In that window we just store the data; `firstUpdated` triggers the first
-draw.
-
-`updated(changedProperties)` handles config changes:
-
-- `_invalidateStaleSources(oldConfig)` walks two declarative key tables
-  (`STATION_KEYS`, `FORECAST_KEYS`) and tears down whichever source's
-  driving config changed. The next `set hass` tick rebuilds it.
-- Pure render-only changes (colours, labels, `forecast_days`) just trigger
-  a `_refreshForecasts` redraw.
-
-Adding a new config field that drives a data source = add it to the
-relevant `*_KEYS` array. Do not add a new branch.
-
-## Chart.js plugin contract
-
-The chart uses three custom plugins (defined inside `_drawChartUnsafe` for
-now — they close over the data + counts of the current draw). Every plugin
-follows the same rules:
-
-1. **Read pixel positions from the chart, never compute them.** Use
-   `chart.scales.x.getPixelForTick(i)` for tick centres, `meta.data[i].x`
-   for bar/point centres. Both follow whatever scale type and any
-   downstream plugin's mutations — e.g. if a future plugin shifts a bar's
-   `.x`, label/separator plugins will follow automatically.
-2. **Save / restore the canvas context.** Always wrap drawing in
-   `c.save()` / `c.restore()`.
-3. **Bail out cleanly when the layout isn't ready.** Plugins can fire
-   before `chart.scales.x.ticks` exists; check, and `return` if so.
-4. **Never throw.** A throw kills the whole `drawChart` and the chart
-   disappears. The outer `try/catch` will catch it and surface a
-   `_chartError` banner, but you'll have lost the chart for the user.
-
-The phase tag (`this._chartPhase`) is set at three points in
-`_drawChartUnsafe` (`'compute'`, `'init'`, then cleared on success). When
-something throws, the catch block reads it to label the error banner —
-useful when the error message is generic and you need to know whether the
-crash was during data shaping vs. Chart.js init vs. plugin draw.
+The two midnight-transition guards (added in v1.0.2) handle the corner
+case where station's "today" bucket is empty (recorder hasn't
+aggregated yet) and forecast's first entry is still labeled "yesterday"
+(weather integration's daily forecast hasn't refreshed).
 
 ## Why we have two label-rendering systems
 
@@ -156,26 +236,29 @@ points (configurable via `forecast.style: 'style1' | 'style2'`). The
 precipitation labels are rendered by a custom `precipLabelPlugin` because
 the plugin can't render a single label with two different font sizes
 (number at base, "mm" at half size). This is documented inline in
-`_drawChartUnsafe` — see the comment block above `precipLabelPlugin`.
+`chart/orchestrator.js` — see the comment block above `precipLabelPlugin`.
 
 ## Build pipeline
 
 ```
 npm run lint    →  eslint src        (style)
-npm run test    →  vitest run        (236 tests across 7 modules)
+npm run test    →  vitest run        (361 tests across 12 modules)
 npm run rollup  →  rollup -c         (single dist/weather-station-card.js)
 npm run build   =  lint + test + rollup
 ```
 
 CI (`.github/workflows/build.yml`) runs all three on every push, plus:
 
-- Verifies `dist/weather-station-card.js` is in sync with source (so a
-  contributor who forgets `npm run rollup` fails CI immediately).
-- On tag pushes, verifies `package.json` version matches the tag, then
-  uploads the bundle as a release asset via `softprops/action-gh-release`.
+- Coverage gate at ≥ 80 % (statements, branches, functions, lines).
+  Configured in `vitest.config.js`. Failing the gate fails the build.
+- Bundle budget at < 800 KB. Tripping signals a regression in
+  tree-shaking or an accidental large dep.
+- Verifies `dist/weather-station-card.js` is in sync with source.
+- On tag pushes, verifies `package.json` version matches the tag,
+  then uploads the bundle as a release asset.
 
 `permissions: contents: write` is set at job level so the release action
-can attach the bundle (commit `4530a60` fixed the missing permission).
+can attach the bundle.
 
 ## Distribution
 
@@ -191,23 +274,35 @@ to re-fetch.
 
 ## Testing scope
 
-What's tested (Vitest, `tests/*.test.js`, 236 tests as of v1.0):
+What's tested (Vitest, `tests/*.test.js`, 361 tests as of v1.1):
 
 - `condition-classifier.js` — every decision-tree branch, threshold
   edges, override merging, per-period (daily / hourly) thresholds.
 - `data-source.js` — `bucketPrecipitation` for all three state-class
-  paths (daily + hourly buckets), `_buildForecast` and
-  `_buildHourlyForecast` chronology / shape / live-fallback,
-  `ForecastDataSource` subscribe / error / dispose for both modes.
-- `format-utils.js` — colour parsers (rgba/hex/hsl), separator-position
-  algebra (incl. hourly mode), `computeInitialScrollLeft` positioning.
+  paths (daily + hourly buckets), `_buildForecast` / `_buildHourlyForecast`
+  chronology / shape / live-fallback, both data-source classes' subscribe
+  / error / dispose for both modes.
+- `format-utils.js` — colour parsers, separator-position algebra,
+  `computeInitialScrollLeft` positioning.
 - `forecast-utils.js` — `pickHourlyTickIndices`, `hourlyTempSeries`,
-  `normalizeForecastMode`.
-- `sunshine-source.js`, `openmeteo-source.js` — sunshine derivation
-  paths (v0.9).
-- `chart/plugins.js` — plugin factories: `createSeparatorPlugin` (daily
-  + hourly), `createDailyTickLabelsPlugin` (hourly early-return,
-  doubled-today seam), `createSunshineLabelPlugin`.
+  `normalizeForecastMode`, `startOfTodayMs`,
+  `filterMidnightStaleForecast`, `dropEmptyStationToday`.
+- `sunshine-source.js`, `openmeteo-source.js` — attach + URL-build +
+  parse paths.
+- `chart/plugins.js` — every plugin factory (separator, dailyTickLabels,
+  precipLabel, sunshineLabel).
+- `scroll-ux.js` — updateScrollIndicators visibility math,
+  updateScrollDateStamps clamping, setupScrollUx idempotency on stable
+  wrapper.
+- `action-handler.js` — fake-timer-driven tap / hold / double-tap
+  sequencing, isCardControl filter, drag-suppress, every runAction
+  branch.
+- `teardown-registry.js` — push / drain / error-isolation / reusability.
+- `utils/safe-query.js`, `utils/numeric.js` — defensive null paths.
+- Editor mutator methods (`tests/editor.test.js`) — `_valueChanged` with
+  dotted-key writes, `_sensorPickerChanged` add/replace/delete,
+  `_actionChanged`, `_conditionMappingChanged`, `_setMode`, `_mode`
+  getter.
 
 CI gates branch + line coverage at **80 %** (vitest v8 provider).
 
@@ -215,16 +310,14 @@ What's intentionally **not** unit-tested (planned for v1.3 via
 Playwright E2E + visual regression — issue #14):
 
 - `main.js` Lit lifecycle — that's framework contract (LitElement spec).
-  Tests would mostly assert "Lit calls our methods" — the framework has
-  its own test suite for that.
 - Chart.js render output — it's a canvas, asserting pixels is brittle in
   unit tests. v1.3 closes this via Playwright visual regression.
-- Editor DOM — `ha-form` is an HA-supplied component. We test the schema
-  shape via lint + visual review, not rendered DOM. v1.3 will add E2E
-  click-path coverage.
+- Editor render() and the 5 render partials — DOM-render assertions
+  belong in E2E. The mutator methods that *do* have unit tests cover
+  the actual config-shape behaviour.
 - Pointer / touch gesture sequences (drag-vs-tap, pointercancel) —
   unit tests can mock pointer events, but the macrotask vs. microtask
-  ordering only manifests in a real browser. Covered by v1.3.
+  ordering only manifests in a real browser.
 
 If you're adding logic that crosses these boundaries (e.g. "does setting
 config X cause data source Y to re-subscribe?"), prefer extracting the
@@ -235,12 +328,12 @@ testing it there.
 
 The current design supports several near-term extensions without rework:
 
-- **New data source type** (e.g. `HourlyForecastDataSource`) — implement
-  `subscribe(cb) → unsubscribe` emitting the forecast shape; merge logic
-  in `_refreshForecasts` already concatenates arbitrary segments.
-- **New metric on the chart** — add the field to `_buildForecast`, then a
-  new dataset in `_drawChartUnsafe`. The plugins read from `meta.data[i]`
-  generically and don't need to know.
+- **New data source type** — implement `subscribe(cb) → unsubscribe`
+  emitting the forecast shape; merge logic in `_refreshForecasts`
+  already concatenates arbitrary segments.
+- **New metric on the chart** — add the field to `_buildForecast`, then
+  a new dataset assembly in `chart/orchestrator.js`. The plugins read
+  from `meta.data[i]` generically.
 - **Schema validation** — wrap `_refreshForecasts`'s input with a
   validator (`zod` or hand-rolled); drop bad entries before they reach
   Chart.js. Currently we trust the data sources.
@@ -248,35 +341,30 @@ The current design supports several near-term extensions without rework:
 Things that would require structural work:
 
 - **Per-bar widths or non-uniform column spacing.** Tried during v0.5
-  development and reverted — see git history of `feat/v06-debts`. Chart.js
-  category scale doesn't support per-bar widths; linear-scale workarounds
-  redistribute *all* spacing, which contradicted user intent. If revived,
-  it needs a clear UX contract first.
+  development and reverted. Chart.js category scale doesn't support
+  per-bar widths; linear-scale workarounds redistribute *all* spacing.
+  If revived, it needs a clear UX contract first.
 - **Sub-hour granularity.** Daily and hourly are both supported as of
-  v0.8 (`forecast.type: 'daily' | 'hourly'`), with viewport scrolling
-  via `forecast.number_of_forecasts` for the dense hourly case. Going
-  finer (15-min, 5-min) would need a new bucket-size primitive in
-  `bucketPrecipitation` and likely a different chart layout — Chart.js
-  category-scale runs out of horizontal pixels around ~200 columns
-  even with scrolling.
+  v0.8. Going finer (15-min, 5-min) would need a new bucket-size
+  primitive in `bucketPrecipitation` and likely a different chart layout
+  — Chart.js category-scale runs out of horizontal pixels around ~200
+  columns even with scrolling.
 
-## v1.1+ planned work
+## v1.2+ planned work
 
 Tracked as a sequence of release-tracking issues so each step ships
 independently:
 
-- [#12](https://github.com/chriguschneider/weather-station-card/issues/12) **v1.1 — Architecture refactor**: split `main.js` (currently
-  ~2.2k LOC) into `scroll-ux.js`, `action-handler.js`,
-  `chart/orchestrator.js`; split the monolithic editor into 5 render
-  partials; introduce a `TeardownRegistry` pattern.
 - [#13](https://github.com/chriguschneider/weather-station-card/issues/13) **v1.2 — TypeScript migration**: full `.ts` migration in
-  dependency order, Lit `@property` decorators.
+  dependency order, Lit `@property` decorators. The post-v1.1 module
+  graph above is the typing surface.
 - [#14](https://github.com/chriguschneider/weather-station-card/issues/14) **v1.3 — Playwright E2E + visual regression**: closes the
-  test-coverage gap for `main.js`, editor click-paths, and Chart.js
-  rendering — the surfaces excluded from the v1.0 80 % unit-test gate.
+  test-coverage gap for `main.js`'s Lit lifecycle, editor click-paths,
+  and Chart.js rendering — the surfaces excluded from the v1.0 / v1.1
+  unit-test gate.
 - [#15](https://github.com/chriguschneider/weather-station-card/issues/15) **v1.4 — Mode-toggle perf** (closes [#10](https://github.com/chriguschneider/weather-station-card/issues/10)):
   parallel data-sources or lazy cache so the daily ↔ hourly toggle
-  is instant instead of a 1–3 s teardown + re-subscribe.
+  is instant.
 
 Each release is independently shippable; the maintainer can pause
 between any two without leaving the codebase in a half-state.
