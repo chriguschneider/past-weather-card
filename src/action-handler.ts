@@ -25,37 +25,87 @@ import { safeQuery } from './utils/safe-query.js';
 const HOLD_MS = 500;
 const DBL_MS = 250;
 
+/** A single configured user action. Mirrors HA's `ui_action` selector
+ *  output — every shape the editor can produce, plus a few legacy
+ *  aliases (`service` for `perform_action`, `service_data` for `data`)
+ *  that older YAML may carry. */
+export interface ActionConfig {
+  action?: 'none' | 'more-info' | 'navigate' | 'url' | 'toggle'
+    | 'perform-action' | 'call-service' | 'assist' | 'fire-dom-event'
+    | string;
+  entity?: string;
+  navigation_path?: string;
+  navigation_replace?: boolean;
+  url_path?: string;
+  perform_action?: string;
+  service?: string;
+  data?: Record<string, unknown>;
+  service_data?: Record<string, unknown>;
+  target?: { entity_id?: string | string[]; device_id?: string | string[]; area_id?: string | string[] };
+  [k: string]: unknown;
+}
+
+/** Subset of HA's `HomeAssistant` we touch: just `callService`. The
+ *  full type lives in custom-card-helpers — keeping it loose here
+ *  avoids a cross-cutting dependency at this layer. */
+interface HassLike {
+  callService(domain: string, service: string, data?: Record<string, unknown>, target?: ActionConfig['target']): unknown;
+}
+
+/** Subset of the card the handler reads/writes. */
+export interface ActionHandlerCard {
+  shadowRoot: ShadowRoot | null;
+  config: {
+    tap_action?: ActionConfig;
+    hold_action?: ActionConfig;
+    double_tap_action?: ActionConfig;
+    sensors?: { temperature?: string };
+    [k: string]: unknown;
+  } | null;
+  _hass: HassLike | null;
+  _dragMoved: boolean;
+  _actionHandlerTeardown: (() => void) | null;
+  _fire(eventName: string, detail: unknown): void;
+}
+
+interface BoundHaCard extends HTMLElement {
+  _wsActionHandlerBound?: boolean;
+}
+
 // Pointer events that originate on a card-internal control button
 // (mode-toggle, jump-to-now, scroll indicators) are part of that
 // control's own gesture — they must NOT trigger the card-level
 // tap/hold/double-tap action.
-function isCardControl(target) {
-  return target && target.closest && target.closest('button, ha-icon-button, [role="button"]') !== null;
+function isCardControl(target: EventTarget | null): boolean {
+  if (!target) return false;
+  const el = target as Element;
+  return typeof el.closest === 'function'
+    && el.closest('button, ha-icon-button, [role="button"]') !== null;
 }
 
-export function setupActionHandler(card) {
-  const haCard = safeQuery(card.shadowRoot, 'ha-card');
+export function setupActionHandler(card: ActionHandlerCard): void {
+  const haCard = safeQuery<BoundHaCard>(card.shadowRoot, 'ha-card');
   if (!haCard) return;
 
   // Cursor reflects "is anything wired" — refresh on every call so
   // toggling tap_action in the editor flips the hand cursor on/off
   // immediately, not only on first render.
-  const cfg0 = card.config || {};
-  const isLive = (a) => a && a.action && a.action !== 'none';
+  const cfg0 = card.config || ({} as ActionHandlerCard['config'] & object);
+  const isLive = (a: ActionConfig | undefined): boolean => !!(a && a.action && a.action !== 'none');
   haCard.style.cursor = (isLive(cfg0.tap_action) || isLive(cfg0.hold_action) || isLive(cfg0.double_tap_action))
     ? 'pointer' : '';
 
   if (haCard._wsActionHandlerBound) return;
   haCard._wsActionHandlerBound = true;
 
-  let holdTimer = null;
+  let holdTimer: ReturnType<typeof setTimeout> | null = null;
   let holdFired = false;
   let lastTapAt = 0;
-  let pendingTap = null;
+  let pendingTap: ReturnType<typeof setTimeout> | null = null;
 
-  const fire = (kind) => {
-    const cfg = card.config || {};
-    const map = {
+  const fire = (kind: 'tap' | 'hold' | 'double_tap'): void => {
+    const cfg = card.config || ({} as ActionHandlerCard['config'] & object);
+    const map: Record<typeof kind, ActionConfig | undefined> = {
       tap: cfg.tap_action,
       hold: cfg.hold_action,
       double_tap: cfg.double_tap_action,
@@ -63,11 +113,11 @@ export function setupActionHandler(card) {
     runAction(card, map[kind]);
   };
 
-  const clearHold = () => {
+  const clearHold = (): void => {
     if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
   };
 
-  const onPointerDown = (ev) => {
+  const onPointerDown = (ev: PointerEvent): void => {
     if (isCardControl(ev.target)) return;
     holdFired = false;
     clearHold();
@@ -80,7 +130,7 @@ export function setupActionHandler(card) {
     }, HOLD_MS);
   };
 
-  const onPointerUp = (ev) => {
+  const onPointerUp = (ev: PointerEvent): void => {
     if (isCardControl(ev.target)) return;
     clearHold();
     if (holdFired) return;
@@ -105,7 +155,7 @@ export function setupActionHandler(card) {
     }, DBL_MS);
   };
 
-  const onPointerCancel = () => {
+  const onPointerCancel = (): void => {
     clearHold();
     holdFired = false;
   };
@@ -126,16 +176,16 @@ export function setupActionHandler(card) {
   };
 }
 
-// Dispatches a configured action via the HA frontend's standard event /
-// service contract. Mirrors the surface the editor exposes through
-// ha-selector ui_action: more-info, navigate, url, toggle,
-// perform-action (a.k.a. call-service), assist, fire-dom-event.
-// 'none' / unconfigured actions are no-ops.
-//
-// Exported so unit tests can exercise each branch without rigging up
-// pointer-event timing; the runtime path is via the fire() closure
-// inside setupActionHandler above.
-export function runAction(card, actionConfig) {
+/** Dispatches a configured action via the HA frontend's standard
+ *  event / service contract. Mirrors the surface the editor exposes
+ *  through ha-selector ui_action: more-info, navigate, url, toggle,
+ *  perform-action (a.k.a. call-service), assist, fire-dom-event.
+ *  'none' / unconfigured actions are no-ops.
+ *
+ *  Exported so unit tests can exercise each branch without rigging up
+ *  pointer-event timing; the runtime path is via the fire() closure
+ *  inside `setupActionHandler` above. */
+export function runAction(card: ActionHandlerCard, actionConfig: ActionConfig | undefined): void {
   if (!actionConfig || !actionConfig.action || actionConfig.action === 'none') return;
   const hass = card._hass;
   const fallbackEntity = (card.config && card.config.sensors && card.config.sensors.temperature) || '';
@@ -151,7 +201,7 @@ export function runAction(card, actionConfig) {
     window.history.pushState(null, '', actionConfig.navigation_path);
     // HA listens for `location-changed` on window to drive the router;
     // bubbles:true so it reaches the panel regardless of who fired it.
-    const ev = new Event('location-changed', { bubbles: true, composed: true, cancelable: false });
+    const ev = new Event('location-changed', { bubbles: true, composed: true, cancelable: false }) as Event & { detail?: unknown };
     ev.detail = { replace: actionConfig.navigation_replace === true };
     window.dispatchEvent(ev);
     return;

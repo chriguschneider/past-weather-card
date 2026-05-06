@@ -15,13 +15,9 @@
 //   - the leftmost / rightmost visible-date overlay at hourly mode
 //   - indicator visibility tracking via the wrapper's scroll event
 //
-// Coupling to the card instance: `card.shadowRoot`, `card._dragMoved`
-// (writes — read by action-handler so a drag-to-scroll suppresses
-// the trailing tap), `card._stationCount` / `card._forecastCount`
-// (jump-to-now target), `card.forecasts` (date stamps),
-// `card.config.locale` / `card.language`, `card._scrollUxTeardown`
-// (mutated for the disconnectedCallback path). Refactor v1.2
-// (TypeScript) will introduce a typed interface here.
+// Coupling to the card instance: see `ScrollUxCard` interface below.
+// `_dragMoved` is shared with action-handler so a drag-to-scroll
+// suppresses the trailing tap.
 //
 // Idempotent on stable wrapper elements via a `_wsScrollUxBound`
 // flag — Lit reuses the wrapper across data refreshes, so re-binding
@@ -31,13 +27,30 @@
 
 import { safeQuery } from './utils/safe-query.js';
 import { computeInitialScrollLeft } from './format-utils.js';
+import type { ForecastEntry } from './forecast-utils.js';
 
 const DRAG_THRESHOLD = 5;
 const STEP_BY = 0.85; // scroll about one viewport, leave a hint of overlap
 const TEXT_HALF = 30; // half-width reserved so date stamps stay inside card edges
 
-export function setupScrollUx(card) {
-  const wrapper = safeQuery(card.shadowRoot, '.forecast-scroll.scrolling');
+/** Subset of the card the scroll-ux module reads / writes. */
+export interface ScrollUxCard {
+  shadowRoot: ShadowRoot | null;
+  forecasts: ReadonlyArray<ForecastEntry> | null;
+  config: { locale?: string; [k: string]: unknown };
+  language?: string;
+  _stationCount?: number;
+  _forecastCount?: number;
+  _dragMoved: boolean;
+  _scrollUxTeardown: (() => void) | null;
+}
+
+interface BoundWrapper extends HTMLElement {
+  _wsScrollUxBound?: boolean;
+}
+
+export function setupScrollUx(card: ScrollUxCard): void {
+  const wrapper = safeQuery<BoundWrapper>(card.shadowRoot, '.forecast-scroll.scrolling');
   if (!wrapper) {
     // Non-scrolling render (daily default fits all). Detach any
     // previously bound handlers so a daily↔hourly toggle doesn't leak.
@@ -56,9 +69,9 @@ export function setupScrollUx(card) {
   wrapper._wsScrollUxBound = true;
 
   const block = wrapper.parentElement; // .forecast-scroll-block
-  const leftBtn = block && block.querySelector('.scroll-indicator-left');
-  const rightBtn = block && block.querySelector('.scroll-indicator-right');
-  const jumpBtn = block && block.querySelector('.jump-to-now');
+  const leftBtn = block ? block.querySelector<HTMLElement>('.scroll-indicator-left') : null;
+  const rightBtn = block ? block.querySelector<HTMLElement>('.scroll-indicator-right') : null;
+  const jumpBtn = block ? block.querySelector<HTMLElement>('.jump-to-now') : null;
 
   // ── Drag-to-scroll + tap suppression ──────────────────────────────
   // We listen to ALL pointer types so a swipe / drag — whether mouse
@@ -75,9 +88,9 @@ export function setupScrollUx(card) {
   let dragMoved = false;
   let startX = 0;
   let startScrollLeft = 0;
-  let activePointerId = null;
+  let activePointerId: number | null = null;
 
-  const onPointerDown = (ev) => {
+  const onPointerDown = (ev: PointerEvent): void => {
     isDown = true;
     dragMoved = false;
     activePointerId = ev.pointerId;
@@ -88,7 +101,7 @@ export function setupScrollUx(card) {
     }
   };
 
-  const onPointerMove = (ev) => {
+  const onPointerMove = (ev: PointerEvent): void => {
     if (!isDown || ev.pointerId !== activePointerId) return;
     const dx = ev.clientX - startX;
     if (!dragMoved && Math.abs(dx) > DRAG_THRESHOLD) {
@@ -104,7 +117,7 @@ export function setupScrollUx(card) {
     }
   };
 
-  const onPointerEnd = (ev) => {
+  const onPointerEnd = (ev: PointerEvent): void => {
     if (!isDown || (ev && ev.pointerId !== activePointerId)) return;
     isDown = false;
     activePointerId = null;
@@ -137,16 +150,16 @@ export function setupScrollUx(card) {
   // ── Indicator + jump-to-now click ─────────────────────────────────
   // stopPropagation prevents the action handler (bound on ha-card)
   // from interpreting the indicator click as a card-level tap.
-  const stopDown = (ev) => ev.stopPropagation();
-  const onLeftClick = (ev) => {
+  const stopDown = (ev: Event): void => { ev.stopPropagation(); };
+  const onLeftClick = (ev: Event): void => {
     ev.stopPropagation();
     wrapper.scrollBy({ left: -wrapper.clientWidth * STEP_BY, behavior: 'smooth' });
   };
-  const onRightClick = (ev) => {
+  const onRightClick = (ev: Event): void => {
     ev.stopPropagation();
     wrapper.scrollBy({ left: wrapper.clientWidth * STEP_BY, behavior: 'smooth' });
   };
-  const onJumpClick = (ev) => {
+  const onJumpClick = (ev: Event): void => {
     ev.stopPropagation();
     const target = computeInitialScrollLeft({
       stationCount: card._stationCount || 0,
@@ -170,7 +183,7 @@ export function setupScrollUx(card) {
   }
 
   // ── Indicator visibility on scroll ───────────────────────────────
-  const onScroll = () => updateScrollIndicators(card);
+  const onScroll = (): void => updateScrollIndicators(card);
   wrapper.addEventListener('scroll', onScroll, { passive: true });
   updateScrollIndicators(card);
 
@@ -197,16 +210,17 @@ export function setupScrollUx(card) {
   };
 }
 
-// Public — mainly invoked internally on scroll events, but also after
-// data refreshes so the chevron and jump-to-now visibility reflects
-// the new scrollWidth without waiting for the user to scroll.
-export function updateScrollIndicators(card) {
-  const block = safeQuery(card.shadowRoot, '.forecast-scroll-block');
+/** Public — mainly invoked internally on scroll events, but also
+ *  after data refreshes so the chevron and jump-to-now visibility
+ *  reflects the new scrollWidth without waiting for the user to
+ *  scroll. */
+export function updateScrollIndicators(card: ScrollUxCard): void {
+  const block = safeQuery<HTMLElement>(card.shadowRoot, '.forecast-scroll-block');
   if (!block) return;
-  const wrapper = block.querySelector('.forecast-scroll.scrolling');
+  const wrapper = block.querySelector<HTMLElement>('.forecast-scroll.scrolling');
   if (!wrapper) return;
-  const left = block.querySelector('.scroll-indicator-left');
-  const right = block.querySelector('.scroll-indicator-right');
+  const left = block.querySelector<HTMLElement>('.scroll-indicator-left');
+  const right = block.querySelector<HTMLElement>('.scroll-indicator-right');
   if (left && right) {
     const slop = 1; // sub-pixel rounding tolerance
     const max = wrapper.scrollWidth - wrapper.clientWidth;
@@ -219,7 +233,7 @@ export function updateScrollIndicators(card) {
   // ~10% of one viewport width of the canonical "now" position. The
   // threshold is relative so it scales with display size; phones get a
   // tighter band than desktops in absolute pixels.
-  const jump = block.querySelector('.jump-to-now');
+  const jump = block.querySelector<HTMLElement>('.jump-to-now');
   if (jump) {
     const target = computeInitialScrollLeft({
       stationCount: card._stationCount || 0,
@@ -235,22 +249,31 @@ export function updateScrollIndicators(card) {
   updateScrollDateStamps(block, wrapper, card);
 }
 
-// At hourly: surface the date of the leftmost and rightmost visible
-// bar by overlaying it directly above the corresponding tick — same
-// visual style as the chart's own midnight marker (e.g. "May 6"
-// above "00:00"). The chart only prints a date at midnight ticks,
-// so a viewport that doesn't span 00:00 would otherwise leave the
-// user without context which day they're looking at.
-//
-// When the leftmost / rightmost visible IS a midnight, the chart
-// already shows the date there — we hide our overlay to avoid
-// a duplicate.
-//
-// Exported for unit-test reach; the runtime call goes through
-// updateScrollIndicators above.
-export function updateScrollDateStamps(block, wrapper, card) {
-  const leftEl = block.querySelector('.scroll-date-left');
-  const rightEl = block.querySelector('.scroll-date-right');
+interface DateStampInfo {
+  date: string;
+  isMidnight: boolean;
+}
+
+/** At hourly: surface the date of the leftmost and rightmost visible
+ *  bar by overlaying it directly above the corresponding tick — same
+ *  visual style as the chart's own midnight marker (e.g. "May 6" above
+ *  "00:00"). The chart only prints a date at midnight ticks, so a
+ *  viewport that doesn't span 00:00 would otherwise leave the user
+ *  without context which day they're looking at.
+ *
+ *  When the leftmost / rightmost visible IS a midnight, the chart
+ *  already shows the date there — we hide our overlay to avoid a
+ *  duplicate.
+ *
+ *  Exported for unit-test reach; the runtime call goes through
+ *  `updateScrollIndicators` above. */
+export function updateScrollDateStamps(
+  block: HTMLElement,
+  wrapper: HTMLElement,
+  card: ScrollUxCard,
+): void {
+  const leftEl = block.querySelector<HTMLElement>('.scroll-date-left');
+  const rightEl = block.querySelector<HTMLElement>('.scroll-date-right');
   if (!leftEl || !rightEl) return;
 
   const total = (card.forecasts || []).length;
@@ -272,18 +295,12 @@ export function updateScrollDateStamps(block, wrapper, card) {
   const rightIdx = Math.max(0, Math.min(total - 1, Math.floor((wrapper.scrollLeft + wrapper.clientWidth - 1) / barWidth)));
   const rawLeftCenterX = (leftIdx + 0.5) * barWidth - wrapper.scrollLeft;
   const rawRightCenterX = (rightIdx + 0.5) * barWidth - wrapper.scrollLeft;
-  // Clamp the centre so translateX(-50%) doesn't push half the text
-  // outside the card. Reserved half-text-width is conservative
-  // (handles "Sep 12" at ~30 px half-width across the locales we
-  // ship). Without clamping, a leftmost bar that's 60-90 % scrolled
-  // past the viewport gives a small positive centre (e.g. 15 px) and
-  // the label still pokes off the left card edge.
   const leftCenterX = Math.max(TEXT_HALF, rawLeftCenterX);
   const rightCenterX = Math.min(wrapper.clientWidth - TEXT_HALF, rawRightCenterX);
 
   const lang = card.config.locale || card.language || 'en';
-  const fmt = (idx) => {
-    const item = card.forecasts[idx];
+  const fmt = (idx: number): DateStampInfo => {
+    const item = card.forecasts ? card.forecasts[idx] : undefined;
     if (!item || !item.datetime) return { date: '', isMidnight: false };
     try {
       const d = new Date(item.datetime);
@@ -301,7 +318,7 @@ export function updateScrollDateStamps(block, wrapper, card) {
   // the viewport — those dates are already drawn by the chart's own
   // tick callback as a "May 6" stamp above the 00:00 tick. If our
   // edge overlay would show the same date, it's redundant.
-  const visibleMidnightDates = new Set();
+  const visibleMidnightDates = new Set<string>();
   for (let i = leftIdx; i <= rightIdx; i++) {
     const info = fmt(i);
     if (info.isMidnight) visibleMidnightDates.add(info.date);
@@ -310,7 +327,7 @@ export function updateScrollDateStamps(block, wrapper, card) {
   const leftInfo = fmt(leftIdx);
   const rightInfo = fmt(rightIdx);
 
-  const apply = (el, info, centerX) => {
+  const apply = (el: HTMLElement, info: DateStampInfo, centerX: number): void => {
     if (!info.date || info.isMidnight || visibleMidnightDates.has(info.date)) {
       el.setAttribute('hidden', '');
       return;
