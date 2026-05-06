@@ -4,11 +4,15 @@
 // precip-bar), icons (style radio + animated + custom URL), and the
 // collapsed Colours sub-section.
 
-import { html } from 'lit';
+import { html, type TemplateResult } from 'lit';
+import type { EditorLike, EditorContext } from './types.js';
 
-export function renderStyleSection(editor, ctx) {
+type ChangeEvt = Event & { target: HTMLInputElement };
+
+export function renderStyleSection(editor: EditorLike, ctx: EditorContext): TemplateResult {
   const { t, cfg, fcfg } = ctx;
-  const valueChanged = (e, key) => editor._valueChanged(e, key);
+  const valueChanged = (e: ChangeEvt | { target: { value: string } }, key: string): void =>
+    editor._valueChanged(e as { target: { value: string } }, key);
 
   return html`
     <!-- ─── D. Style & Colours ──────────────────────────────────── -->
@@ -39,14 +43,14 @@ export function renderStyleSection(editor, ctx) {
       </div>
       <div class="switch-container">
         <ha-switch
-          @change="${(e) => valueChanged(e, 'forecast.round_temp')}"
+          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'forecast.round_temp')}"
           .checked="${fcfg.round_temp === true}"
         ></ha-switch>
         <label class="switch-label">${t('round_temp')}</label>
       </div>
       <div class="switch-container">
         <ha-switch
-          @change="${(e) => valueChanged(e, 'forecast.disable_animation')}"
+          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'forecast.disable_animation')}"
           .checked="${fcfg.disable_animation === true}"
         ></ha-switch>
         <label class="switch-label">${t('disable_animation')}</label>
@@ -59,42 +63,42 @@ export function renderStyleSection(editor, ctx) {
         <ha-textfield
           label="${t('icon_size')}" type="number"
           .value="${cfg.icons_size || '25'}"
-          @change="${(e) => valueChanged(e, 'icons_size')}"
+          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'icons_size')}"
         ></ha-textfield>
         <ha-textfield
           label="${t('current_temp_size')}" type="number"
           .value="${cfg.current_temp_size || '28'}"
-          @change="${(e) => valueChanged(e, 'current_temp_size')}"
+          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'current_temp_size')}"
         ></ha-textfield>
       </div>
       <div class="flex-container">
         <ha-textfield
           label="${t('time_size')}" type="number"
           .value="${cfg.time_size || '26'}"
-          @change="${(e) => valueChanged(e, 'time_size')}"
+          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'time_size')}"
         ></ha-textfield>
         <ha-textfield
           label="${t('day_date_size')}" type="number"
           .value="${cfg.day_date_size || '15'}"
-          @change="${(e) => valueChanged(e, 'day_date_size')}"
+          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'day_date_size')}"
         ></ha-textfield>
       </div>
       <div class="flex-container">
         <ha-textfield
           label="${t('labels_font_size')}" type="number"
           .value="${fcfg.labels_font_size || '11'}"
-          @change="${(e) => valueChanged(e, 'forecast.labels_font_size')}"
+          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'forecast.labels_font_size')}"
         ></ha-textfield>
         <ha-textfield
           label="${t('chart_height')}" type="number"
           .value="${fcfg.chart_height || '180'}"
-          @change="${(e) => valueChanged(e, 'forecast.chart_height')}"
+          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'forecast.chart_height')}"
         ></ha-textfield>
       </div>
       <ha-textfield
         label="${t('precip_bar_size')}" type="number" min="0" max="100"
         .value="${fcfg.precip_bar_size || '100'}"
-        @change="${(e) => valueChanged(e, 'forecast.precip_bar_size')}"
+        @change="${(e: Event) => valueChanged(e as ChangeEvt, 'forecast.precip_bar_size')}"
       ></ha-textfield>
     </div>
 
@@ -123,7 +127,7 @@ export function renderStyleSection(editor, ctx) {
       </div>
       <div class="switch-container">
         <ha-switch
-          @change="${(e) => valueChanged(e, 'animated_icons')}"
+          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'animated_icons')}"
           .checked="${cfg.animated_icons === true}"
         ></ha-switch>
         <label class="switch-label">${t('animated_icons')}</label>
@@ -131,7 +135,7 @@ export function renderStyleSection(editor, ctx) {
       <ha-textfield
         label="${t('custom_icons_url')}"
         .value="${cfg.icons || ''}"
-        @change="${(e) => valueChanged(e, 'icons')}"
+        @change="${(e: Event) => valueChanged(e as ChangeEvt, 'icons')}"
       ></ha-textfield>
     </div>
 
@@ -142,37 +146,37 @@ export function renderStyleSection(editor, ctx) {
           label="${t('temperature1_color')}"
           .value="${fcfg.temperature1_color || ''}"
           placeholder="rgba(255, 152, 0, 1.0)"
-          @change="${(e) => valueChanged(e, 'forecast.temperature1_color')}"
+          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'forecast.temperature1_color')}"
         ></ha-textfield>
         <ha-textfield
           label="${t('temperature2_color')}"
           .value="${fcfg.temperature2_color || ''}"
           placeholder="rgba(68, 115, 158, 1.0)"
-          @change="${(e) => valueChanged(e, 'forecast.temperature2_color')}"
+          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'forecast.temperature2_color')}"
         ></ha-textfield>
         <ha-textfield
           label="${t('precipitation_color')}"
           .value="${fcfg.precipitation_color || ''}"
           placeholder="rgba(132, 209, 253, 1.0)"
-          @change="${(e) => valueChanged(e, 'forecast.precipitation_color')}"
+          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'forecast.precipitation_color')}"
         ></ha-textfield>
         <ha-textfield
           label="${t('sunshine_color')}"
           .value="${fcfg.sunshine_color || ''}"
           placeholder="rgba(255, 193, 7, 1.0)"
-          @change="${(e) => valueChanged(e, 'forecast.sunshine_color')}"
+          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'forecast.sunshine_color')}"
         ></ha-textfield>
         <ha-textfield
           label="${t('chart_text_color')}"
           .value="${fcfg.chart_text_color || ''}"
           placeholder="auto"
-          @change="${(e) => valueChanged(e, 'forecast.chart_text_color')}"
+          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'forecast.chart_text_color')}"
         ></ha-textfield>
         <ha-textfield
           label="${t('chart_datetime_color')}"
           .value="${fcfg.chart_datetime_color || ''}"
           placeholder="auto"
-          @change="${(e) => valueChanged(e, 'forecast.chart_datetime_color')}"
+          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'forecast.chart_datetime_color')}"
         ></ha-textfield>
       </div>
     </details>

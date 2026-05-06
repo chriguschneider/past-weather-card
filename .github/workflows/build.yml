@@ -28,8 +28,14 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Lint
-        run: npm run lint
+      - name: Typecheck
+        # `tsc --noEmit` against tsconfig.json with strict + noImplicitAny.
+        # All sources are TypeScript as of v1.2; this replaced the prior
+        # ESLint step (which had nothing to lint once .js was retired).
+        # `main.ts` carries `@ts-nocheck` (integration boundary —
+        # see header) but its imports are still resolved and contracts
+        # checked.
+        run: npm run typecheck
 
       - name: Test
         run: npm test
@@ -37,7 +43,7 @@ jobs:
       - name: Coverage gate
         # Fails the build if any of statements / branches / functions /
         # lines drops below the threshold configured in vitest.config.js.
-        # Scope is the modules listed there — main.js / editor / chart
+        # Scope is the modules listed there — main.ts / editor / chart
         # orchestration are deferred to v1.3 (Playwright E2E).
         run: npm run coverage
 

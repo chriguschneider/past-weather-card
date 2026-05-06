@@ -1,4 +1,22 @@
-const locale = {
+// Per-language string table. Top level keys are language tags (cs,
+// de, en, …). Each language carries the condition-name labels (one per
+// `ConditionId`), unit labels, the 17-element cardinalDirections
+// array, and an optional `editor` block with the visual-editor field
+// labels. Only de + en ship a complete editor block today; others
+// fall through to en at runtime via the editor's `tEditor` resolver.
+//
+// Loose shape on purpose — the dictionary mixes scalar strings, an
+// inner units object, an array, and a nested editor block. A tighter
+// type would force every contributor adding a language to fill in
+// every editor key, which historically caused PRs to stall on busywork.
+// The fallback resolver tolerates missing keys at runtime.
+export interface LocaleEntry {
+  [key: string]: string | readonly string[] | { [key: string]: string | undefined } | undefined;
+}
+
+export type Locale = Record<string, LocaleEntry>;
+
+const locale: Locale = {
   cs: {
     'tempHi': 'Teplota',
     'tempLo': 'Teplota v noci',

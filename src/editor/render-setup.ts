@@ -5,9 +5,10 @@
 // Coupling: editor._valueChanged, editor._setMode, editor._actionChanged,
 // editor._renderSunshineAvailabilityHint, editor.hass.
 
-import { html } from 'lit';
+import { html, type TemplateResult } from 'lit';
+import type { EditorLike, EditorContext } from './types.js';
 
-export function renderSetupSection(editor, ctx) {
+export function renderSetupSection(editor: EditorLike, ctx: EditorContext): TemplateResult {
   const { t, cfg, fcfg, mode, showsStation, showsForecast } = ctx;
 
   return html`
@@ -17,16 +18,12 @@ export function renderSetupSection(editor, ctx) {
       <ha-textfield
         label="${t('title')}"
         .value="${cfg.title || ''}"
-        @change="${(e) => editor._valueChanged(e, 'title')}"
+        @change="${(e: Event) => editor._valueChanged(e as unknown as { target: { value: string } }, 'title')}"
       ></ha-textfield>
 
       <div class="radio-group">
         <span style="margin-right:8px;font-weight:500;">${t('mode_label')}:</span>
-        ${[
-          ['station', 'mode_station'],
-          ['forecast', 'mode_forecast'],
-          ['combination', 'mode_combination'],
-        ].map(([value, key]) => html`
+        ${(['station', 'forecast', 'combination'] as const).map((value) => html`
           <div class="radio-item">
             <ha-radio
               name="ws-mode"
@@ -34,7 +31,7 @@ export function renderSetupSection(editor, ctx) {
               .checked=${mode === value}
               @change=${() => editor._setMode(value)}
             ></ha-radio>
-            <label>${t(key)}</label>
+            <label>${t(`mode_${value}`)}</label>
           </div>
         `)}
       </div>
@@ -45,7 +42,7 @@ export function renderSetupSection(editor, ctx) {
             label="${t('days')}"
             type="number" min="1" max="14"
             .value="${cfg.days || 7}"
-            @change="${(e) => editor._valueChanged(e, 'days')}"
+            @change="${(e: Event) => editor._valueChanged(e as unknown as { target: { value: string } }, 'days')}"
           ></ha-textfield>
         ` : ''}
         ${showsForecast ? html`
@@ -53,7 +50,7 @@ export function renderSetupSection(editor, ctx) {
             label="${t('forecast_days')}"
             type="number" min="1" max="14"
             .value="${cfg.forecast_days != null ? cfg.forecast_days : (cfg.days || 7)}"
-            @change="${(e) => editor._valueChanged(e, 'forecast_days')}"
+            @change="${(e: Event) => editor._valueChanged(e as unknown as { target: { value: string } }, 'forecast_days')}"
           ></ha-textfield>
         ` : ''}
       </div>
@@ -65,7 +62,7 @@ export function renderSetupSection(editor, ctx) {
           .includeDomains=${['weather']}
           label="${t('weather_entity')}"
           allow-custom-entity
-          @value-changed=${(e) => editor._valueChanged({ target: { value: e.detail.value } }, 'weather_entity')}
+          @value-changed=${(e: CustomEvent<{ value: string }>) => editor._valueChanged({ target: { value: e.detail.value } }, 'weather_entity')}
         ></ha-entity-picker>
       ` : ''}
       <!-- forecast.type drives both the forecast subscription and the
@@ -93,7 +90,7 @@ export function renderSetupSection(editor, ctx) {
         label="${t('number_of_forecasts')}"
         type="number" min="0"
         .value="${fcfg.number_of_forecasts != null ? fcfg.number_of_forecasts : ''}"
-        @change="${(e) => editor._valueChanged(e, 'forecast.number_of_forecasts')}"
+        @change="${(e: Event) => editor._valueChanged(e as unknown as { target: { value: string } }, 'forecast.number_of_forecasts')}"
       ></ha-textfield>
       <p class="hint">${t('number_of_forecasts_hint')}</p>
     </div>
@@ -110,7 +107,7 @@ export function renderSetupSection(editor, ctx) {
           .selector=${{ ui_action: {} }}
           .value=${cfg[key]}
           .label=${t(labelKey)}
-          @value-changed=${(e) => editor._actionChanged(key, e.detail.value)}
+          @value-changed=${(e: CustomEvent<{ value: unknown }>) => editor._actionChanged(key, e.detail.value)}
         ></ha-selector>
       `)}
     </div>

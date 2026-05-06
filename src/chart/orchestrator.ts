@@ -18,15 +18,13 @@
 //     precip, optional sunshine
 //   - assemble plugins[]: separator, dailyTickLabels, precipLabel,
 //     optional sunshineLabel (gated on daily + show_sunshine)
-//   - call buildChart() in chart/draw.js for the actual instance
+//   - call buildChart() in chart/draw.ts for the actual instance
 //
-// Coupling to the card instance: card.forecasts, card.renderRoot,
-// card.forecastChart (assigned), card._hass, card._stationCount,
-// card._forecastCount, card._chartPhase (assigned for the error-banner
-// labelling in the safe-wrapper drawChart()), card.computeForecastData()
-// (data shaping that lives on the card, used both here and from
-// updateChart for incremental refreshes), card.ll() (locale lookup
-// for dataset labels), card.drawChart() (re-entrant RAF retry).
+// Coupling to the card instance is captured by the `CardLike` interface
+// below — the union of card fields and methods this function reads or
+// writes. Keeping it as a structural interface (rather than importing
+// the LitElement class) avoids a circular type dependency between
+// main.ts and this module.
 
 import { Chart } from 'chart.js';
 import { normalizeForecastMode } from '../forecast-utils.js';
@@ -38,10 +36,79 @@ import {
   createDailyTickLabelsPlugin,
   createPrecipLabelPlugin,
   createSunshineLabelPlugin,
+  type ChartPlugin,
+  type PluginCardConfig,
+  type PluginRenderData,
 } from './plugins.js';
 
-export function drawChartUnsafe(card, args) {
-  const { config: rawConfig, language, weather, forecastItems } = args || card;
+/** Per-render data bag — what `card.computeForecastData()` returns.
+ *  All arrays are positional. `tempLowAvailable` lets the caller hide
+ *  the second line dataset entirely when the upstream forecast had no
+ *  `templow` field (hourly mode). */
+export interface ForecastChartData extends PluginRenderData {
+  tempHigh: ReadonlyArray<number | null | undefined>;
+  tempLow: ReadonlyArray<number | null | undefined>;
+  tempLowAvailable: boolean;
+  precip: ReadonlyArray<number | null | undefined>;
+  dateTime: ReadonlyArray<string | undefined>;
+  sunshine?: ReadonlyArray<number | null | undefined> | null;
+  dayLength?: ReadonlyArray<number | null | undefined> | null;
+}
+
+/** Subset of the card config the orchestrator reads. */
+export interface OrchestratorConfig extends PluginCardConfig {
+  forecast: PluginCardConfig['forecast'] & {
+    show_sunshine?: boolean;
+    sunshine_color?: string;
+    precipitation_color?: string;
+    precip_bar_size?: number;
+    style?: string;
+    chart_text_color?: string;
+    temperature1_color?: string;
+    temperature2_color?: string;
+    disable_animation?: boolean;
+  };
+  use_12hour_format?: boolean;
+}
+
+/** Structural interface for the card instance the orchestrator
+ *  cooperates with. `forecastChart` is read AND written; `_chartPhase`
+ *  is set at the boundaries of the long-running phases. */
+export interface CardLike {
+  forecasts: ReadonlyArray<unknown> | null;
+  forecastChart: Chart | null;
+  renderRoot: ParentNode;
+  _hass: { config: { unit_system: { temperature: string; length: string } } };
+  _stationCount?: number;
+  _forecastCount?: number;
+  _chartPhase: string | null;
+  computeForecastData(): ForecastChartData;
+  ll(key: string): string | Record<string, string>;
+  drawChart(): void;
+}
+
+/** Args bag — `forecastItems` and `weather` are kept in the contract
+ *  for future callers and to mirror the destructure shape used in
+ *  main.ts. */
+export interface DrawChartArgs {
+  config: OrchestratorConfig;
+  language: string;
+  weather?: unknown;
+  forecastItems?: unknown;
+}
+
+interface SegmentCtx {
+  p0DataIndex: number;
+  p1DataIndex: number;
+}
+
+interface DataLabelsCtx {
+  dataset: { data: ReadonlyArray<unknown> };
+  dataIndex: number;
+}
+
+export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unknown[] | undefined {
+  const { config: rawConfig, language, weather, forecastItems } = args || (card as unknown as DrawChartArgs);
   // Silence "unused" lint — `weather` is part of the destructure-from-`card`
   // contract and may be needed by future callers (and was in the prior
   // signature). Discarding here keeps the destructure shape stable.
@@ -56,10 +123,10 @@ export function drawChartUnsafe(card, args) {
   // chart code path.
   const { config } = normalizeForecastMode(rawConfig);
 
-  const chartCanvas = card.renderRoot && card.renderRoot.querySelector('#forecastChart');
+  const chartCanvas = card.renderRoot && (card.renderRoot as ParentNode).querySelector('#forecastChart');
   if (!chartCanvas) {
     console.error('Canvas element not found:', card.renderRoot);
-    return;
+    return undefined;
   }
 
   if (card.forecastChart) {
@@ -68,35 +135,47 @@ export function drawChartUnsafe(card, args) {
   card._chartPhase = 'compute';
   const tempUnit = card._hass.config.unit_system.temperature;
   const lengthUnit = card._hass.config.unit_system.length;
-  const precipUnit = lengthUnit === 'km' ? card.ll('units')['mm'] : card.ll('units')['in'];
+  const llUnits = card.ll('units') as Record<string, string>;
+  const precipUnit = lengthUnit === 'km' ? llUnits['mm'] : llUnits['in'];
   const data = card.computeForecastData();
 
   const style = getComputedStyle(document.body);
   const backgroundColor = style.getPropertyValue('--card-background-color');
   const textColor = style.getPropertyValue('--primary-text-color');
   const dividerColor = style.getPropertyValue('--divider-color');
-  const canvas = card.renderRoot.querySelector('#forecastChart');
+  const canvas = (card.renderRoot as ParentNode).querySelector('#forecastChart') as HTMLCanvasElement | null;
   if (!canvas) {
     requestAnimationFrame(() => card.drawChart());
-    return;
+    return undefined;
   }
 
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 
-  let precipMax;
+  let precipMax: number;
   if (config.forecast.type === 'hourly') {
     precipMax = lengthUnit === 'km' ? 4 : 1;
   } else {
     precipMax = lengthUnit === 'km' ? 20 : 1;
   }
 
-  Chart.defaults.color = textColor;
-  Chart.defaults.scale.grid.color = dividerColor;
-  Chart.defaults.elements.line.fill = false;
-  Chart.defaults.elements.line.tension = 0.3;
-  Chart.defaults.elements.line.borderWidth = 1.5;
-  Chart.defaults.elements.point.radius = 2;
-  Chart.defaults.elements.point.hitRadius = 10;
+  // chart.js Chart.defaults are nested optional objects in the type
+  // definitions; runtime they're plain objects. Cast once at the top
+  // so subsequent assignments don't each need their own.
+  const defaults = Chart.defaults as unknown as {
+    color: string;
+    scale: { grid: { color: string } };
+    elements: {
+      line: { fill: boolean; tension: number; borderWidth: number };
+      point: { radius: number; hitRadius: number };
+    };
+  };
+  defaults.color = textColor;
+  defaults.scale.grid.color = dividerColor;
+  defaults.elements.line.fill = false;
+  defaults.elements.line.tension = 0.3;
+  defaults.elements.line.borderWidth = 1.5;
+  defaults.elements.point.radius = 2;
+  defaults.elements.point.hitRadius = 10;
 
   // Boundary handling between station and forecast blocks differs by mode:
   //
@@ -116,20 +195,14 @@ export function drawChartUnsafe(card, args) {
   const hasBothBlocks = stationCountForGap > 0 && forecastCountForGap > 0;
   const gapStartIdx = stationCountForGap - 1;
   const isHourlyCombo = hasBothBlocks && config.forecast.type === 'hourly';
-  const isBoundarySegment = (segCtx) =>
+  const isBoundarySegment = (segCtx: SegmentCtx): boolean =>
     segCtx.p0DataIndex === gapStartIdx && segCtx.p1DataIndex === gapStartIdx + 1;
-  const segmentSkip = (segCtx) => {
+  const segmentSkip = (segCtx: SegmentCtx): string | undefined => {
     if (!hasBothBlocks) return undefined;
-    // Hourly combo: boundary is drawn (dashed by segmentDash); only daily
-    // combo suppresses it.
     if (!isHourlyCombo && isBoundarySegment(segCtx)) return 'transparent';
     return undefined;
   };
-  // Dash forecast segments to mark "predicted, not measured". A segment is
-  // entirely in the forecast block when its left endpoint is at or past
-  // the first forecast index (stationCount). At hourly combo we also dash
-  // the boundary segment itself (the "is → soll" transition).
-  const segmentDash = (segCtx) => {
+  const segmentDash = (segCtx: SegmentCtx): number[] | undefined => {
     if (segCtx.p0DataIndex >= stationCountForGap && forecastCountForGap > 0) {
       return [6, 4];
     }
@@ -138,10 +211,10 @@ export function drawChartUnsafe(card, args) {
   };
   const tempSegmentOpts = { borderColor: segmentSkip, borderDash: segmentDash };
 
-  const precipColor = config.forecast.precipitation_color;
-  const precipColorLight = lightenColor(precipColor);
-  const precipPerBarColor = (data.precip || []).map(
-    (_, i) => (hasBothBlocks && i >= stationCountForGap) ? precipColorLight
+  const precipColor = config.forecast.precipitation_color as string;
+  const precipColorLight = lightenColor(precipColor) as string;
+  const precipPerBarColor: string[] = (data.precip || []).map(
+    (_v, i) => (hasBothBlocks && i >= stationCountForGap) ? precipColorLight
             : (!hasBothBlocks && stationCountForGap === 0) ? precipColorLight
             : precipColor,
   );
@@ -160,17 +233,23 @@ export function drawChartUnsafe(card, args) {
   // and the bar height itself encodes the value.
   const showSunshineLabels = showSunshine && !isHourlyChart;
   const sunshineColor = config.forecast.sunshine_color || 'rgba(255, 193, 7, 1.0)';
-  const sunshineColorLight = lightenColor(sunshineColor);
-  const sunshinePerBarColor = (data.sunshine || []).map(
-    (_, i) => (hasBothBlocks && i >= stationCountForGap) ? sunshineColorLight
+  const sunshineColorLight = lightenColor(sunshineColor) as string;
+  const sunshinePerBarColor: string[] = (data.sunshine || []).map(
+    (_v, i) => (hasBothBlocks && i >= stationCountForGap) ? sunshineColorLight
             : (!hasBothBlocks && stationCountForGap === 0) ? sunshineColorLight
             : sunshineColor,
   );
   // Convert raw hours into 0..1 fractions of day length. Null values
   // pass through so the bar slot stays empty for missing data.
-  const sunshineFractionData = sunshineFractions(data.sunshine, data.dayLength);
+  const sunshineFractionData = sunshineFractions(
+    data.sunshine ?? [],
+    data.dayLength,
+  );
 
-  const datasets = [
+  // Datasets are loose-typed: chart.js's `ChartDataset` is generic over
+  // chart type and dataset-type which forces a discriminated-union
+  // narrowing at every push. The runtime contract is what matters here.
+  const datasets: Array<Record<string, unknown>> = [
     {
       label: card.ll('tempHi'),
       type: 'line',
@@ -188,10 +267,6 @@ export function drawChartUnsafe(card, args) {
       borderColor: config.forecast.temperature2_color,
       backgroundColor: config.forecast.temperature2_color,
       segment: tempSegmentOpts,
-      // Hourly forecasts carry only `temperature` per entry, no separate
-      // low — hide the second line dataset entirely (vs. drawing a flat
-      // empty line). precipPlugin still indexes dataset[2] so we must not
-      // remove this slot.
       hidden: !data.tempLowAvailable,
     },
     {
@@ -201,14 +276,10 @@ export function drawChartUnsafe(card, args) {
       yAxisID: 'PrecipAxis',
       borderColor: precipPerBarColor,
       backgroundColor: precipPerBarColor,
-      barPercentage: config.forecast.precip_bar_size / 100,
+      barPercentage: (config.forecast.precip_bar_size as number) / 100,
       categoryPercentage: 1.0,
-      // datalabels handled by precipLabelPlugin so the unit can render
-      // at a smaller font next to the number. The default chartjs-
-      // datalabels render is suppressed via display:false here; the
-      // plugin reads dataset.data[i] directly to draw number + unit.
       datalabels: {
-        display: function () { return false; },
+        display: () => false,
         textAlign: 'center',
         textBaseline: 'middle',
         align: 'top',
@@ -228,36 +299,31 @@ export function drawChartUnsafe(card, args) {
       backgroundColor: sunshinePerBarColor,
       barPercentage: 1.0,
       categoryPercentage: 1.0,
-      // Hours label is drawn by createSunshineLabelPlugin at the top of
-      // the column — suppress chartjs-datalabels for this dataset so the
-      // bar itself stays clean.
-      datalabels: { display: function () { return false; } },
+      datalabels: { display: () => false },
     });
   }
 
-  const chart_text_color = (config.forecast.chart_text_color === 'auto') ? textColor : config.forecast.chart_text_color;
+  const chart_text_color = (config.forecast.chart_text_color === 'auto')
+    ? textColor
+    : config.forecast.chart_text_color;
 
   if (config.forecast.style === 'style2') {
-    const todayBoldFont = (context) => {
+    const todayBoldFont = (context: DataLabelsCtx) => {
       const dt = data.dateTime[context.dataIndex];
       const k = dt ? new Date(dt) : null;
       if (k) k.setHours(0, 0, 0, 0);
       const t = new Date(); t.setHours(0, 0, 0, 0);
-      const isToday = k && k.getTime() === t.getTime();
+      const isToday = !!(k && k.getTime() === t.getTime());
       return {
-        size: parseInt(config.forecast.labels_font_size) + 1,
+        size: parseInt(String(config.forecast.labels_font_size)) + 1,
         lineHeight: 0.7,
         weight: isToday ? 'bold' : 'normal',
       };
     };
 
     datasets[0].datalabels = {
-      display: function () {
-        return 'true';
-      },
-      formatter: function (value, context) {
-        return context.dataset.data[context.dataIndex] + '°';
-      },
+      display: () => true,
+      formatter: (_v: unknown, context: DataLabelsCtx) => context.dataset.data[context.dataIndex] + '°',
       align: 'top',
       anchor: 'center',
       backgroundColor: 'transparent',
@@ -267,12 +333,8 @@ export function drawChartUnsafe(card, args) {
     };
 
     datasets[1].datalabels = {
-      display: function () {
-        return 'true';
-      },
-      formatter: function (value, context) {
-        return context.dataset.data[context.dataIndex] + '°';
-      },
+      display: () => true,
+      formatter: (_v: unknown, context: DataLabelsCtx) => context.dataset.data[context.dataIndex] + '°',
       align: 'bottom',
       anchor: 'center',
       backgroundColor: 'transparent',
@@ -288,12 +350,12 @@ export function drawChartUnsafe(card, args) {
   // doubled-today only makes sense at daily — at hourly station and
   // forecast meet at "now" with a single separator line.
   const doubledToday = !isHourly && stationCount > 0 && forecastCount > 0;
-  // When sunshine is on, draw.js grows the x-axis box by sunshineLabelBand
+  // When sunshine is on, draw.ts grows the x-axis box by sunshineLabelBand
   // pixels via afterFit. dailyTickLabelsPlugin then shifts weekday + date
   // up by that amount so the new bottom strip is free for the sunshine
   // box. When sunshine is off, sunshineLabelBand stays 0 and chart
   // layout is byte-identical to v0.8.
-  const labelsBaseSize = parseInt(config.forecast.labels_font_size) || 11;
+  const labelsBaseSize = parseInt(String(config.forecast.labels_font_size)) || 11;
   const sunshineLabelBand = showSunshineLabels ? Math.max(16, labelsBaseSize + 6) : 0;
   const separatorPlugin = createSeparatorPlugin({
     stationCount, forecastCount, style, dividerColor,
@@ -308,7 +370,7 @@ export function drawChartUnsafe(card, args) {
     chartTextColor: chart_text_color,
   });
 
-  const plugins = [separatorPlugin, dailyTickLabelsPlugin, precipLabelPlugin];
+  const plugins: ChartPlugin[] = [separatorPlugin, dailyTickLabelsPlugin, precipLabelPlugin];
   if (showSunshineLabels) {
     plugins.push(createSunshineLabelPlugin({
       config, data, textColor, backgroundColor,
@@ -338,4 +400,5 @@ export function drawChartUnsafe(card, args) {
     sunshineLabelBand,
   });
   card._chartPhase = null;
+  return undefined;
 }

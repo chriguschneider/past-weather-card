@@ -14,6 +14,9 @@
 //
 // Returns null if `root` is falsy or if the query finds nothing —
 // callers must continue to check the result.
-export function safeQuery(root, selector) {
-  return root ? root.querySelector(selector) : null;
+export function safeQuery<T extends Element = Element>(
+  root: ParentNode | null | undefined,
+  selector: string,
+): T | null {
+  return root ? root.querySelector<T>(selector) : null;
 }

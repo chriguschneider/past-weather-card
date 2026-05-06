@@ -10,36 +10,127 @@
 // Both expose subscribe(callback) → unsubscribe and emit
 // { forecast, error? } events.
 
-import { classifyDay, clearSkyNoonLux, clearSkyLuxAt, clearSkyLuxFactory } from './condition-classifier.js';
-import { WeatherEntityFeature } from './const.js';
+import {
+  classifyDay,
+  clearSkyNoonLux,
+  clearSkyLuxAt,
+  clearSkyLuxFactory,
+  type ClassifyInputs,
+  type ConditionThresholdOverrides,
+} from './condition-classifier.js';
+import { WeatherEntityFeature, type ConditionId } from './const.js';
+import type { ForecastEntry } from './forecast-utils.js';
 
 const POLL_INTERVAL_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 
-function dayOfYearFromDate(date) {
-  const start = new Date(date.getFullYear(), 0, 0);
-  return Math.floor((date - start) / DAY_MS);
+/** A single recorder/statistics_during_period bucket. The recorder
+ *  fills only the keys for the `types` requested in the WS call. */
+export interface StatBucket {
+  start: string;
+  end?: string;
+  min?: number | null;
+  max?: number | null;
+  mean?: number | null;
+  change?: number | null;
+  sum?: number | null;
+  state?: number | null;
+  last_reset?: string | null;
 }
 
-// Bucket-relative rainfall extraction that adapts to the sensor's
-// `state_class`:
-//   total_increasing → API returns `change`     (use as-is)
-//   total            → API returns `sum`        (use as-is)
-//   measurement      → API returns `max` only   (diff current.max − previous.max)
-//
-// For the diff path a non-positive delta means the lifetime counter
-// reset between buckets (battery swap, device reinstall, integration
-// restart); fall back to current bucket's max as the bucket total
-// in that case.
-//
-// The function is bucket-size-agnostic — it works the same for daily
-// and hourly statistics. Callers pass keys that match whatever bucket
-// granularity they fetched (`period: 'day'` or `period: 'hour'`).
-//
-// Exported as a free function so the unit tests don't need to instantiate
-// MeasuredDataSource.
-export function bucketPrecipitation(byBucket, currentKey, previousKey) {
+/** WS response shape: `{ entity_id: StatBucket[] }`. */
+export type StatsResponse = Record<string, StatBucket[] | undefined>;
+
+/** Sensor-id config bag. All keys optional — the user can wire only
+ *  the sensors they have. Each value is a HA entity id (or undefined
+ *  when the user hasn't picked one). */
+export interface SensorMap {
+  temperature?: string;
+  humidity?: string;
+  pressure?: string;
+  wind_speed?: string;
+  wind_direction?: string;
+  gust_speed?: string;
+  illuminance?: string;
+  dew_point?: string;
+  precipitation?: string;
+  uv_index?: string;
+  /** Sunshine duration entity (handled by the sunshine overlay, not
+   *  this module — listed so config-typing stays accurate). */
+  sunshine_duration?: string;
+}
+
+/** Card config subset the data sources read from. The full config has
+ *  more fields (display, layout, …) but those don't reach this layer. */
+export interface DataSourceConfig {
+  days?: number | string;
+  forecast?: { type?: 'daily' | 'hourly' } | null;
+  sensors?: SensorMap;
+  condition_mapping?: ConditionThresholdOverrides;
+  weather_entity?: string;
+}
+
+/** Event payload emitted by both sources via `_listener`. */
+export interface DataSourceEvent {
+  forecast: ForecastEntry[];
+  error?: string;
+}
+
+export type DataSourceListener = (event: DataSourceEvent) => void;
+export type Unsubscribe = () => void;
+
+/** Subset of the HA Connection API used by `ForecastDataSource`.
+ *  `subscribeMessage` resolves to an unsubscribe callback. */
+interface HassConnection {
+  subscribeMessage(
+    callback: (event: { forecast?: ForecastEntry[] } & Record<string, unknown>) => void,
+    msg: Record<string, unknown>,
+  ): Promise<Unsubscribe>;
+}
+
+/** Subset of `HomeAssistant` the data sources read. The full type
+ *  comes from custom-card-helpers but importing it here would pull
+ *  Lit and a chunk of the editor types. */
+export interface HassLike {
+  config?: { latitude?: number | null; longitude?: number | null };
+  states?: Record<string, { state: string; attributes?: Record<string, unknown> } | undefined>;
+  connection?: HassConnection;
+  callWS<T = unknown>(msg: Record<string, unknown>): Promise<T>;
+}
+
+/** Map indexed by bucket-start ms — used by `bucketPrecipitation` to
+ *  diff adjacent buckets for `state_class: measurement` sensors. */
+export type BucketMap = Map<number, StatBucket>;
+
+function dayOfYearFromDate(date: Date): number {
+  const start = new Date(date.getFullYear(), 0, 0);
+  return Math.floor((date.getTime() - start.getTime()) / DAY_MS);
+}
+
+/** Bucket-relative rainfall extraction that adapts to the sensor's
+ *  `state_class`:
+ *
+ *    total_increasing → API returns `change`     (use as-is)
+ *    total            → API returns `sum`        (use as-is)
+ *    measurement      → API returns `max` only   (diff current.max − previous.max)
+ *
+ *  For the diff path a non-positive delta means the lifetime counter
+ *  reset between buckets (battery swap, device reinstall, integration
+ *  restart); fall back to current bucket's max as the bucket total in
+ *  that case.
+ *
+ *  The function is bucket-size-agnostic — it works the same for daily
+ *  and hourly statistics. Callers pass keys that match whatever bucket
+ *  granularity they fetched (`period: 'day'` or `period: 'hour'`).
+ *
+ *  Exported as a free function so the unit tests don't need to
+ *  instantiate `MeasuredDataSource`. */
+export function bucketPrecipitation(
+  byBucket: BucketMap | null | undefined,
+  currentKey: number,
+  previousKey: number,
+): number | null {
   if (!byBucket) return null;
   const current = byBucket.get(currentKey);
   if (!current) return null;
@@ -56,32 +147,43 @@ export function bucketPrecipitation(byBucket, currentKey, previousKey) {
   return current.max;
 }
 
-// Backwards-compatible alias for the daily-only call sites and existing
-// tests that import the daily name. Internally identical to
-// `bucketPrecipitation`.
+/** Backwards-compatible alias for the daily-only call sites and
+ *  existing tests that import the daily name. Internally identical to
+ *  `bucketPrecipitation`. */
 export const dailyPrecipitation = bucketPrecipitation;
 
+/** Internal shape of the bag passed to `_mapHourCondition` —
+ *  `ClassifyInputs` plus the contextual fields the data source uses
+ *  to drive `classifyDay`. */
+interface HourClassifyBag extends ClassifyInputs {
+  hourStart?: Date;
+}
+
 export class MeasuredDataSource {
-  constructor(hass, config) {
+  hass: HassLike | null;
+  config: DataSourceConfig;
+
+  private _timer: ReturnType<typeof setInterval> | null = null;
+  private _listener: DataSourceListener | null = null;
+  private _failureCount = 0;
+
+  constructor(hass: HassLike | null, config: DataSourceConfig) {
     this.hass = hass;
     this.config = config;
-    this._timer = null;
-    this._listener = null;
-    this._failureCount = 0;
   }
 
-  setHass(hass) {
+  setHass(hass: HassLike | null): void {
     this.hass = hass;
   }
 
-  subscribe(callback) {
+  subscribe(callback: DataSourceListener): Unsubscribe {
     this._listener = callback;
     this._poll();
     this._timer = setInterval(() => this._poll(), POLL_INTERVAL_MS);
     return () => this.unsubscribe();
   }
 
-  unsubscribe() {
+  unsubscribe(): void {
     this._listener = null;
     if (this._timer) {
       clearInterval(this._timer);
@@ -89,7 +191,7 @@ export class MeasuredDataSource {
     }
   }
 
-  async _poll() {
+  private async _poll(): Promise<void> {
     if (!this._listener || !this.hass) return;
     try {
       const forecast = await this._fetchAggregates();
@@ -101,17 +203,19 @@ export class MeasuredDataSource {
       // After a few consecutive failures, surface to the render layer so
       // the card can display a banner instead of hanging on stale data.
       if (this._failureCount >= 3 && this._listener) {
-        this._listener({ forecast: [], error: String(err && err.message ? err.message : err) });
+        const e = err as { message?: string } | null;
+        this._listener({ forecast: [], error: String(e && e.message ? e.message : err) });
       }
     }
   }
 
-  async _fetchAggregates() {
-    const days = parseInt(this.config.days, 10) || 7;
+  private async _fetchAggregates(): Promise<ForecastEntry[]> {
+    if (!this.hass) return [];
+    const days = parseInt(String(this.config.days), 10) || 7;
     const isHourly = (this.config.forecast && this.config.forecast.type) === 'hourly';
-    const sensors = this.config.sensors || {};
+    const sensors: SensorMap = this.config.sensors || {};
 
-    const entityIds = Object.values(sensors).filter(Boolean);
+    const entityIds = Object.values(sensors).filter(Boolean) as string[];
     if (entityIds.length === 0) return [];
 
     if (isHourly) {
@@ -124,7 +228,7 @@ export class MeasuredDataSource {
       end.setHours(end.getHours() + 1);
       const start = new Date(end.getTime() - (hours + 1) * HOUR_MS);
 
-      const stats = await this.hass.callWS({
+      const stats = await this.hass.callWS<StatsResponse>({
         type: 'recorder/statistics_during_period',
         start_time: start.toISOString(),
         end_time: end.toISOString(),
@@ -146,7 +250,7 @@ export class MeasuredDataSource {
     const start = new Date(end);
     start.setDate(start.getDate() - (days + 1));
 
-    const stats = await this.hass.callWS({
+    const stats = await this.hass.callWS<StatsResponse>({
       type: 'recorder/statistics_during_period',
       start_time: start.toISOString(),
       end_time: end.toISOString(),
@@ -158,12 +262,17 @@ export class MeasuredDataSource {
     return this._buildForecast(stats, sensors, start, days);
   }
 
-  _buildForecast(stats, sensors, start, days) {
+  private _buildForecast(
+    stats: StatsResponse,
+    sensors: SensorMap,
+    start: Date,
+    days: number,
+  ): ForecastEntry[] {
     // Index each entity's series by midnight-of-day so day alignment doesn't
     // depend on positional indices (the API omits entries for empty days).
-    const byDate = {};
+    const byDate: Record<string, BucketMap> = {};
     for (const [eid, series] of Object.entries(stats || {})) {
-      const m = new Map();
+      const m: BucketMap = new Map();
       for (const entry of series || []) {
         const d = new Date(entry.start);
         d.setHours(0, 0, 0, 0);
@@ -172,26 +281,27 @@ export class MeasuredDataSource {
       byDate[eid] = m;
     }
 
-    const dayMs = (date) => {
+    const dayMs = (date: Date): number => {
       const d = new Date(date);
       d.setHours(0, 0, 0, 0);
       return d.getTime();
     };
 
-    const out = [];
+    const out: ForecastEntry[] = [];
     for (let i = 1; i <= days; i++) {
       const dayStart = new Date(start);
       dayStart.setDate(start.getDate() + i);
       const dayKey = dayMs(dayStart);
       const prevKey = dayKey - DAY_MS;
 
-      const at = (eid, field) => {
+      const at = (eid: string | undefined, field: keyof StatBucket): number | null => {
+        if (!eid) return null;
         const m = byDate[eid];
         if (!m) return null;
         const e = m.get(dayKey);
         if (!e) return null;
         const v = e[field];
-        return v === undefined ? null : v;
+        return v === undefined ? null : (v as number | null);
       };
 
       const tempMax = at(sensors.temperature, 'max');
@@ -203,7 +313,9 @@ export class MeasuredDataSource {
       const luxMax = at(sensors.illuminance, 'max');
       const dewPointMean = at(sensors.dew_point, 'mean');
 
-      const precipitation = dailyPrecipitation(byDate[sensors.precipitation], dayKey, prevKey);
+      const precipitation = sensors.precipitation
+        ? dailyPrecipitation(byDate[sensors.precipitation], dayKey, prevKey)
+        : null;
 
       out.push({
         datetime: dayStart.toISOString(),
@@ -225,39 +337,43 @@ export class MeasuredDataSource {
           wind_mean: windMean,
           gust_max: gustMax,
           dew_point_mean: dewPointMean,
-          dayOfYear: dayOfYearFromDate(dayStart),
-        }),
+        }, dayOfYearFromDate(dayStart)),
       });
     }
     return out;
   }
 
-  _mapCondition(day) {
+  private _mapCondition(day: ClassifyInputs, dayOfYear: number): ConditionId {
     const lat = this.hass && this.hass.config ? this.hass.config.latitude : null;
     const clearsky_lux = lat != null
-      ? clearSkyNoonLux(lat, day.dayOfYear)
+      ? clearSkyNoonLux(lat, dayOfYear)
       : 110000; // sea-level perpendicular-sun fallback (IES)
     return classifyDay({ ...day, clearsky_lux }, this.config.condition_mapping || {});
   }
 
-  // Hourly counterpart to _buildForecast. Emits one entry per hour
-  // (datetime = hour-start ISO). Differences from daily:
-  //   - temperature is the hourly `mean` (single-line render — see
-  //     hourlyTempSeries in forecast-utils.js).
-  //   - templow is omitted; the chart hides dataset[1] when no entry
-  //     carries a low.
-  //   - precipitation uses bucketPrecipitation against the previous
-  //     hour as baseline (same logic as daily, just at hour scale).
-  //   - condition still goes through classifyDay; clear-sky lux is
-  //     computed for the actual hour rather than the day's noon, so
-  //     the cloud-cover ratio reflects the relevant solar geometry.
-  //     Threshold semantics (rainy_threshold_mm etc.) are kept as-is
-  //     and known to be conservative at hour scale — refining hourly
-  //     thresholds is tracked as a v0.9 issue.
-  _buildHourlyForecast(stats, sensors, start, hours) {
-    const byHour = {};
+  /** Hourly counterpart to _buildForecast. Emits one entry per hour
+   *  (datetime = hour-start ISO). Differences from daily:
+   *    - temperature is the hourly `mean` (single-line render — see
+   *      hourlyTempSeries in forecast-utils).
+   *    - templow is omitted; the chart hides dataset[1] when no entry
+   *      carries a low.
+   *    - precipitation uses `bucketPrecipitation` against the previous
+   *      hour as baseline (same logic as daily, just at hour scale).
+   *    - condition still goes through `classifyDay`; clear-sky lux is
+   *      computed for the actual hour rather than the day's noon, so
+   *      the cloud-cover ratio reflects the relevant solar geometry.
+   *      Threshold semantics (rainy_threshold_mm etc.) are kept as-is
+   *      and known to be conservative at hour scale — refining hourly
+   *      thresholds is tracked as a v0.9 issue. */
+  private _buildHourlyForecast(
+    stats: StatsResponse,
+    sensors: SensorMap,
+    start: Date,
+    hours: number,
+  ): ForecastEntry[] {
+    const byHour: Record<string, BucketMap> = {};
     for (const [eid, series] of Object.entries(stats || {})) {
-      const m = new Map();
+      const m: BucketMap = new Map();
       for (const entry of series || []) {
         const d = new Date(entry.start);
         d.setMinutes(0, 0, 0);
@@ -273,7 +389,7 @@ export class MeasuredDataSource {
     const cfg = this.hass && this.hass.config;
     const luxFor = clearSkyLuxFactory(cfg ? cfg.latitude : null, cfg ? cfg.longitude : null);
 
-    const hourMs = (date) => {
+    const hourMs = (date: Date): number => {
       const d = new Date(date);
       d.setMinutes(0, 0, 0);
       return d.getTime();
@@ -284,7 +400,7 @@ export class MeasuredDataSource {
     // last entry we fall back to the entity's live state — which is what
     // the dashboard's "now" panel shows anyway, so it's both correct and
     // consistent UX.
-    const liveOf = (eid) => {
+    const liveOf = (eid: string | undefined): number | null => {
       if (!eid || !this.hass || !this.hass.states) return null;
       const s = this.hass.states[eid];
       if (!s) return null;
@@ -292,32 +408,33 @@ export class MeasuredDataSource {
       return Number.isFinite(v) ? v : null;
     };
 
-    const out = [];
+    const out: ForecastEntry[] = [];
     for (let i = 1; i <= hours; i++) {
       const hourStart = new Date(start.getTime() + i * HOUR_MS);
       const hourKey = hourMs(hourStart);
       const prevKey = hourKey - HOUR_MS;
       const isLastHour = i === hours;
 
-      const at = (eid, field) => {
+      const at = (eid: string | undefined, field: keyof StatBucket): number | null => {
+        if (!eid) return null;
         const m = byHour[eid];
         if (!m) return null;
         const e = m.get(hourKey);
         if (!e) return null;
         const v = e[field];
-        return v === undefined ? null : v;
+        return v === undefined ? null : (v as number | null);
       };
       // For the last (current, partial) hour: when the recorder hasn't
       // got the bucket yet, use the live state. For complete past hours
       // a missing entry is genuine missing data — keep null so Chart.js
       // draws a gap.
-      const atOrLive = (eid, field) => {
+      const atOrLive = (eid: string | undefined, field: keyof StatBucket): number | null => {
         const v = at(eid, field);
         if (v != null || !isLastHour) return v;
         return liveOf(eid);
       };
 
-      let tempMean = atOrLive(sensors.temperature, 'mean');
+      const tempMean = atOrLive(sensors.temperature, 'mean');
       let tempMax = at(sensors.temperature, 'max');
       let tempMin = at(sensors.temperature, 'min');
       const humidityMean = atOrLive(sensors.humidity, 'mean');
@@ -335,19 +452,14 @@ export class MeasuredDataSource {
         if (tempMin == null) tempMin = tempMean;
       }
 
-      let precipitation = bucketPrecipitation(byHour[sensors.precipitation], hourKey, prevKey);
+      let precipitation = sensors.precipitation
+        ? bucketPrecipitation(byHour[sensors.precipitation], hourKey, prevKey)
+        : null;
       if (isLastHour && precipitation == null && sensors.precipitation) {
         // Mirror the live-fill we do for temperature, scaled to the
         // bucketPrecipitation semantics: treat the entity's live state
         // as a synthetic "current.max" for the in-progress hour and
-        // diff against the previous hour's recorded max. Works for
-        // measurement-class cumulative counters (the user's typical
-        // weather-station rain gauge); for total / total_increasing
-        // sensors the recorder usually has `change` even for partial
-        // hours, so this branch is only taken when it's actually
-        // missing. Negative delta = counter reset between buckets,
-        // mirror dailyPrecipitation by falling back to live as the
-        // bucket total.
+        // diff against the previous hour's recorded max.
         const live = liveOf(sensors.precipitation);
         const map = byHour[sensors.precipitation];
         const prev = map ? map.get(prevKey) : null;
@@ -384,7 +496,7 @@ export class MeasuredDataSource {
     return out;
   }
 
-  _mapHourCondition(hour) {
+  private _mapHourCondition(hour: HourClassifyBag): ConditionId {
     // Caller (_buildHourlyForecast) precomputes clearsky_lux via the
     // cached factory so we don't redo per-row trig. Fall back to a
     // per-call clearSkyLuxAt if a caller passes the raw hour bag without
@@ -399,21 +511,27 @@ export class MeasuredDataSource {
         : 110000;
     }
     const { hourStart: _ignored, clearsky_lux: _ignoredLux, ...inputs } = hour;
+    void _ignored;
+    void _ignoredLux;
     return classifyDay({ ...inputs, clearsky_lux }, this.config.condition_mapping || {}, 'hour');
   }
 }
 
 export class ForecastDataSource {
-  constructor(hass, config) {
+  hass: HassLike | null;
+  config: DataSourceConfig;
+
+  private _listener: DataSourceListener | null = null;
+  private _unsubPromise: Promise<Unsubscribe> | null = null;
+  private _lastEntity: string | null = null;
+  private _lastType: string | null = null;
+
+  constructor(hass: HassLike | null, config: DataSourceConfig) {
     this.hass = hass;
     this.config = config;
-    this._listener = null;
-    this._unsubPromise = null;
-    this._lastEntity = null;
-    this._lastType = null;
   }
 
-  setHass(hass) {
+  setHass(hass: HassLike | null): void {
     this.hass = hass;
     // Resubscribe if entity or forecast type changed via config edit.
     const entity = this.config.weather_entity;
@@ -423,13 +541,13 @@ export class ForecastDataSource {
     }
   }
 
-  subscribe(callback) {
+  subscribe(callback: DataSourceListener): Unsubscribe {
     this._listener = callback;
     this._resubscribe();
     return () => this.unsubscribe();
   }
 
-  async unsubscribe() {
+  async unsubscribe(): Promise<void> {
     this._listener = null;
     const pending = this._unsubPromise;
     // Always clear the slot first so a subsequent unsubscribe() doesn't
@@ -443,12 +561,12 @@ export class ForecastDataSource {
     } catch (_) { /* already gone or never landed */ }
   }
 
-  _resubscribe() {
+  private _resubscribe(): void {
     if (this._unsubPromise) {
       const pending = this._unsubPromise;
       this._unsubPromise = null;
       pending.then(
-        (unsub) => { try { if (typeof unsub === 'function') unsub(); } catch (_) {} },
+        (unsub) => { try { if (typeof unsub === 'function') unsub(); } catch (_) { /* ignore */ } },
         () => { /* rejected — nothing to dispose */ },
       );
     }
@@ -465,7 +583,7 @@ export class ForecastDataSource {
     const type = (this.config.forecast && this.config.forecast.type) || 'daily';
     const isHourly = type === 'hourly';
     const feature = isHourly ? WeatherEntityFeature.FORECAST_HOURLY : WeatherEntityFeature.FORECAST_DAILY;
-    const supported = state.attributes && state.attributes.supported_features;
+    const supported = state.attributes && state.attributes.supported_features as number | undefined;
     if (!supported || (supported & feature) === 0) {
       this._emit({ forecast: [], error: `entity "${entity}" does not support ${isHourly ? 'hourly' : 'daily'} forecasts` });
       return;
@@ -473,8 +591,12 @@ export class ForecastDataSource {
     this._lastEntity = entity;
     this._lastType = type;
     try {
+      if (!this.hass || !this.hass.connection) {
+        this._emit({ forecast: [], error: 'hass connection unavailable' });
+        return;
+      }
       this._unsubPromise = this.hass.connection.subscribeMessage(
-        (event) => this._emit({ forecast: event.forecast || [] }),
+        (event) => this._emit({ forecast: (event.forecast as ForecastEntry[]) || [] }),
         {
           type: 'weather/subscribe_forecast',
           forecast_type: isHourly ? 'hourly' : 'daily',
@@ -482,11 +604,12 @@ export class ForecastDataSource {
         },
       );
     } catch (err) {
-      this._emit({ forecast: [], error: String(err && err.message ? err.message : err) });
+      const e = err as { message?: string } | null;
+      this._emit({ forecast: [], error: String(e && e.message ? e.message : err) });
     }
   }
 
-  _emit(event) {
+  private _emit(event: DataSourceEvent): void {
     if (this._listener) this._listener(event);
   }
 }

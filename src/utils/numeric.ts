@@ -14,8 +14,8 @@
 //
 // Returns null for: undefined, null, "", "unknown", "unavailable",
 // "NaN", any non-numeric string, or a finite-check failure.
-export function parseNumericSafe(value) {
+export function parseNumericSafe(value: unknown): number | null {
   if (value == null) return null;
-  const n = parseFloat(value);
+  const n = parseFloat(value as string);
   return Number.isFinite(n) ? n : null;
 }

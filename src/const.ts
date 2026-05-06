@@ -1,10 +1,31 @@
-const cardinalDirectionsIcon = [
+// Static lookups shared across the card. Pure data — no DOM, no Lit.
+
+/** HA's standard weather condition IDs.
+ *  https://developers.home-assistant.io/docs/core/entity/weather/ */
+export type ConditionId =
+  | 'clear-night'
+  | 'cloudy'
+  | 'exceptional'
+  | 'fog'
+  | 'hail'
+  | 'lightning'
+  | 'lightning-rainy'
+  | 'partlycloudy'
+  | 'pouring'
+  | 'rainy'
+  | 'snowy'
+  | 'snowy-rainy'
+  | 'sunny'
+  | 'windy'
+  | 'windy-variant';
+
+const cardinalDirectionsIcon: ReadonlyArray<string> = [
   'arrow-down', 'arrow-bottom-left', 'arrow-left',
   'arrow-top-left', 'arrow-up', 'arrow-top-right',
   'arrow-right', 'arrow-bottom-right', 'arrow-down'
 ];
 
-const weatherIcons = {
+const weatherIcons: Readonly<Record<ConditionId, string>> = {
   'clear-night': 'hass:weather-night',
   'cloudy': 'hass:weather-cloudy',
   'exceptional': 'mdi:alert-circle-outline',
@@ -22,7 +43,7 @@ const weatherIcons = {
   'windy-variant': 'hass:weather-windy-variant'
 };
 
-const weatherIconsDay = {
+const weatherIconsDay: Readonly<Record<ConditionId, string>> = {
   'clear-night': 'clear-night',
   'cloudy': 'cloudy',
   'exceptional': 'exceptional',
@@ -40,7 +61,7 @@ const weatherIconsDay = {
   'windy-variant': 'wind',
 };
 
-const weatherIconsNight = {
+const weatherIconsNight: Readonly<Record<ConditionId, string>> = {
   ...weatherIconsDay,
   'sunny': 'clear-night',
   'partlycloudy': 'partlycloudy-night',
@@ -50,7 +71,7 @@ const WeatherEntityFeature = {
   FORECAST_DAILY: 1,
   FORECAST_HOURLY: 2,
   FORECAST_TWICE_DAILY: 4,
-};
+} as const;
 
 export {
   cardinalDirectionsIcon,

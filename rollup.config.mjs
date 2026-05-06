@@ -2,6 +2,7 @@ import resolve from 'rollup-plugin-node-resolve';
 import serve from 'rollup-plugin-serve';
 import copy from 'rollup-plugin-copy';
 import terser from '@rollup/plugin-terser';
+import typescript from '@rollup/plugin-typescript';
 
 const dev = process.env.ROLLUP_WATCH;
 
@@ -16,7 +17,7 @@ const serveopts = {
 };
 
 export default {
-  input: 'src/main.js',
+  input: 'src/main.ts',
   output: {
     file: 'dist/weather-station-card.js',
     format: 'cjs',
@@ -24,6 +25,22 @@ export default {
     sourcemap: dev ? true : false,
   },
   plugins: [
+    // TypeScript first so it sees raw .ts/.tsx and emits ESM JS for
+    // the rest of the pipeline. allowJs=true (in tsconfig) lets us
+    // migrate one file at a time during v1.2 — .js files pass through
+    // unchanged. noEmitOnError stays false so a type error is a CI
+    // signal but doesn't stall a local watch build.
+    typescript({
+      tsconfig: './tsconfig.json',
+      noEmitOnError: false,
+      // Rollup emits the bundle; we only want type checking + transpile
+      // here, no separate .d.ts output.
+      compilerOptions: {
+        noEmit: false,
+        declaration: false,
+        sourceMap: dev ? true : false,
+      },
+    }),
     resolve(),
     dev && serve(serveopts),
     copy({

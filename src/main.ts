@@ -1,3 +1,26 @@
+// @ts-nocheck
+//
+// main.ts — integration boundary file. ~1500 LOC of LitElement +
+// Home Assistant + Chart.js wiring. Every other file in src/ is fully
+// type-checked under `tsc --strict`; this one is renamed to .ts so it
+// participates in the build but isn't strict-checked yet.
+//
+// Why the opt-out: this class touches ~30 instance fields (forecasts,
+// weather, current sensor readings, scroll-ux teardowns, animation
+// controllers, …), most of which were declared implicitly via runtime
+// assignment in `set hass` / `setConfig`. Strict-typing them all means
+// porting half a dozen HA frontend type imports we don't currently
+// depend on, mocking them where the types are missing, and threading
+// `HassLike` through the entire render path. None of that adds value
+// to the v1.2 milestone, which is "the codebase compiles under TS and
+// downstream contributors get types when they import from us".
+//
+// The boundary modules main.ts pulls in (data-source, chart/*,
+// sunshine-source, openmeteo-source, scroll-ux, action-handler,
+// editor/*) ARE all strictly typed — anyone importing from this card
+// gets typed exports. Tightening main.ts itself is tracked as future
+// follow-up.
+
 import locale from './locale.js';
 import {
   cardinalDirectionsIcon,
