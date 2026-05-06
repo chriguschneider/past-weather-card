@@ -337,9 +337,27 @@ export function buildLiveStates(): Record<string, HassState> {
   };
 }
 
+interface FullFixtureOpts {
+  /** Days of daily station data + days of daily forecast data. */
+  days?: number;
+  /** Hours of hourly station data. The mock recorder returns ALL of
+   *  these on a callWS hit (no time-window filtering on the mock
+   *  side), so for tests that configure a shorter horizon — e.g. a
+   *  24-hour zoom — pass an explicit `hours` matching the test's
+   *  `days × 24` so the chart doesn't see more buckets than it
+   *  asked for. */
+  hours?: number;
+  /** Hours of hourly forecast data. Same reasoning. */
+  forecastHours?: number;
+}
+
 /** One-call composition for the common case: 7-day daily + 168-hour
- *  hourly window with both station + forecast data. */
-export function buildFullFixture(): FixtureBag {
+ *  hourly window with both station + forecast data. Pass an opts bag
+ *  for shorter horizons (e.g. a future days=1 zoom variant). */
+export function buildFullFixture(opts: FullFixtureOpts = {}): FixtureBag {
+  const days = opts.days ?? 7;
+  const hours = opts.hours ?? days * 24;
+  const forecastHours = opts.forecastHours ?? hours;
   return {
     config: {
       latitude: 46.91,
@@ -347,10 +365,10 @@ export function buildFullFixture(): FixtureBag {
       language: 'en',
     },
     states: buildLiveStates(),
-    recorderDaily: buildDailyStats({ days: 7 }),
-    recorderHourly: buildHourlyStats({ hours: 168 }),
-    forecastDaily: buildDailyForecast(7),
-    forecastHourly: buildHourlyForecast(168),
+    recorderDaily: buildDailyStats({ days }),
+    recorderHourly: buildHourlyStats({ hours }),
+    forecastDaily: buildDailyForecast(days),
+    forecastHourly: buildHourlyForecast(forecastHours),
   };
 }
 
