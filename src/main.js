@@ -844,6 +844,43 @@ updateChart({ forecasts, forecastChart } = this) {
   }
 }
 
+// Renders the daily ↔ hourly mode toggle as a small circular button
+// overlaid on the chart at the precipitation-baseline level. Only
+// visible when there's a station OR forecast block to switch
+// (`forecast.type` drives both MeasuredDataSource period:hour|day
+// and ForecastDataSource forecast_type — toggling is meaningful
+// whenever any block renders, including station-only).
+renderModeToggle() {
+  const cfg = this.config || {};
+  const showsStation = cfg.show_station !== false;
+  const showsForecast = cfg.show_forecast === true && !!cfg.weather_entity;
+  if (!showsStation && !showsForecast) return '';
+  const isHourly = (cfg.forecast || {}).type === 'hourly';
+  const icon = isHourly ? 'mdi:calendar-month-outline' : 'mdi:clock-time-eight-outline';
+  const label = isHourly ? 'Switch to daily forecast' : 'Switch to hourly forecast';
+  return html`
+    <button type="button" class="mode-toggle" aria-label="${label}"
+            aria-pressed="${isHourly ? 'true' : 'false'}" title="${label}"
+            @click=${this._onModeToggleClick}>
+      <ha-icon icon=${icon} aria-hidden="true"></ha-icon>
+    </button>
+  `;
+}
+
+// Toggle between daily and hourly via the same setConfig path the
+// editor uses. _invalidateStaleSources picks up the forecast.type
+// change and rebuilds both station and forecast data sources, so
+// hourly station aggregates load on demand. The mutation does NOT
+// persist to the user's saved YAML — refresh resets to whatever
+// they configured. For permanent changes, the editor's radio.
+_onModeToggleClick(ev) {
+  if (ev) ev.stopPropagation();
+  const cfg = this.config || {};
+  const fcfg = cfg.forecast || {};
+  const next = fcfg.type === 'hourly' ? 'daily' : 'hourly';
+  this.setConfig({ ...cfg, forecast: { ...fcfg, type: next } });
+}
+
   render({config, _hass, weather} = this) {
     if (!config || !_hass) {
       return html``;
