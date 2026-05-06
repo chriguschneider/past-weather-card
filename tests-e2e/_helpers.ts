@@ -17,11 +17,28 @@
 import type { Page } from '@playwright/test';
 import type { FixtureBag } from './hass-mock.types.js';
 
-/** Open the harness page and wait until the bundle has loaded. */
-export async function openHarness(page: Page): Promise<void> {
-  // Listen for the harness-ready custom event before navigating so
-  // we don't miss it on fast harness loads.
-  await page.goto('/tests-e2e/pages/card.html');
+/** Open the harness page and wait until the bundle has loaded.
+ *
+ *  Pins the browser clock to a fixed instant before the bundle runs.
+ *  Reason: the data source uses `new Date()` to anchor its
+ *  recorder-fetch window. The fixture generators use a fixed
+ *  `2026-05-06` anchor. Without a clock pin, the test runs at real
+ *  wall-clock time and the two windows diverge — most hourly buckets
+ *  miss their fixture entry, the chart renders isolated dots and
+ *  broken lines.
+ *
+ *  17:30 of fixture-day rounds up to 18:00 for the data source's
+ *  "next full hour exclusive" end. With 'today' mode's 12-hour
+ *  station + 12-hour forecast the rolling window spans today-06:00
+ *  to tomorrow-06:00 — midnight falls in the middle of the chart so
+ *  the day-boundary separator is visibly demonstrated in baselines. */
+export async function openHarness(
+  page: Page,
+  opts: { theme?: 'light' | 'dark' } = {},
+): Promise<void> {
+  await page.clock.install({ time: new Date('2026-05-06T17:30:00') });
+  const query = opts.theme === 'dark' ? '?theme=dark' : '';
+  await page.goto(`/tests-e2e/pages/card.html${query}`);
   await page.waitForFunction(() => typeof window.__wsc?.mount === 'function');
 }
 

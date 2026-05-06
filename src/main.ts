@@ -60,6 +60,77 @@ import {Chart, registerables} from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 Chart.register(...registerables, ChartDataLabels);
 
+// 3-hour aggregator for the 'today' mode. Collapses each consecutive
+// run of 3 hourly entries into one 3h block. Numeric fields take the
+// mean (or sum for precipitation), the condition becomes the
+// most-frequent value across the block, and the datetime anchors at
+// the block's first hour. Trailing entries that don't fill a full
+// block (e.g. station = 11 hours = 3+3+3+2) emit a partial block
+// from whatever's left rather than dropping data.
+function aggregateThreeHour(entries) {
+  if (!Array.isArray(entries) || entries.length === 0) return [];
+  const blocks = [];
+  for (let i = 0; i < entries.length; i += 3) {
+    const slice = entries.slice(i, i + 3);
+    if (!slice.length) continue;
+    const meanField = (key) => {
+      const values = slice
+        .map((e) => e[key])
+        .filter((v) => v != null && Number.isFinite(v));
+      if (!values.length) return null;
+      // Round means to one decimal so chart-datalabels render as
+      // "11.1°" rather than "11.0666666666668°" — the raw mean of
+      // three numeric values often has long-tail floating-point
+      // residue. The card's `round_temp` setting still applies on
+      // top via `hourlyTempSeries`.
+      const mean = values.reduce((a, b) => a + b, 0) / values.length;
+      return Math.round(mean * 10) / 10;
+    };
+    const sumField = (key) => {
+      const values = slice
+        .map((e) => e[key])
+        .filter((v) => v != null && Number.isFinite(v));
+      if (!values.length) return null;
+      const sum = values.reduce((a, b) => a + b, 0);
+      return Math.round(sum * 10) / 10;
+    };
+    const modeField = (key) => {
+      const counts = new Map();
+      for (const e of slice) {
+        const v = e[key];
+        if (v == null) continue;
+        counts.set(v, (counts.get(v) || 0) + 1);
+      }
+      let best = null;
+      let bestCount = 0;
+      for (const [v, c] of counts) {
+        if (c > bestCount) { best = v; bestCount = c; }
+      }
+      return best;
+    };
+    blocks.push({
+      datetime: slice[0].datetime,
+      temperature: meanField('temperature'),
+      templow: meanField('templow'),
+      precipitation: sumField('precipitation'),
+      // Sum hourly sunshine duration over the 3-hour block. Each
+      // hourly entry carries 0..1 hours of sun (cap=day_length=1 in
+      // attachSunshine's hourly path); summed across 3 hours, the
+      // block has 0..3 hours of sun. Capped against day_length=3
+      // (set by the caller) when the chart computes the bar fraction.
+      sunshine: sumField('sunshine'),
+      wind_speed: meanField('wind_speed'),
+      wind_gust_speed: meanField('wind_gust_speed'),
+      wind_bearing: meanField('wind_bearing'),
+      pressure: meanField('pressure'),
+      humidity: meanField('humidity'),
+      uv_index: meanField('uv_index'),
+      condition: modeField('condition'),
+    });
+  }
+  return blocks;
+}
+
 class WeatherStationCard extends LitElement {
 
 static getConfigElement() {
@@ -145,7 +216,7 @@ static getStubConfig(hass, unusedEntities, allEntities) {
       // fetches daily sunshine_duration from Open-Meteo directly using
       // hass.config.latitude / longitude — no extra sensor setup.
       show_sunshine: false,
-      sunshine_color: 'rgba(255, 193, 7, 1.0)',
+      sunshine_color: 'rgba(255, 215, 0, 1.0)',
     },
   };
 }
@@ -198,7 +269,7 @@ setConfig(config) {
       // v0.9 sunshine. Off by default to keep the chart unchanged for
       // users who upgrade without configuring a sunshine sensor.
       show_sunshine: false,
-      sunshine_color: 'rgba(255, 193, 7, 1.0)',
+      sunshine_color: 'rgba(255, 215, 0, 1.0)',
       condition_icons: true,
       show_wind_forecast: true,
       show_wind_arrow: true,
@@ -473,28 +544,63 @@ set hass(hass) {
     const isToday = fcType === 'today';
     if (effectiveCfg.show_forecast === true && effectiveCfg.weather_entity) {
       // `days` / `forecast_days` are the data-loading window in days for
-      // both modes; at hourly each day expands to 24 buckets. 'today'
-      // shares the hourly fetch + slice — the visual difference is the
-      // viewport (24 bars, no scroll) and the sparse-3h labelling.
+      // both modes; at hourly each day expands to 24 buckets.
+      //
+      // 'today' caps the forecast slice at end-of-today (tomorrow's
+      // local midnight). Combined with the data source's
+      // today-midnight-to-now station window, the chart shows exactly
+      // today's 24 hours — no yesterday spill, no tomorrow spill.
       const isHourlyish = fcType === 'hourly' || isToday;
       const slotsPerUnit = isHourlyish ? 24 : 1;
       const cap = parseInt(effectiveCfg.forecast_days, 10);
       const dayLimit = cap > 0 ? cap : (parseInt(effectiveCfg.days, 10) || 7);
-      const limit = dayLimit * slotsPerUnit;
+      // 'today': in COMBINATION the forecast block carries 12 hours
+      // forward (paired with 12 station hours back). In FORECAST-ONLY
+      // (no station block) the forecast expands to the full 24 hours
+      // forward so the user still sees a one-day view.
+      const isForecastOnly = isToday && effectiveCfg.show_station === false;
+      const limit = isToday ? (isForecastOnly ? 24 : 12) : dayLimit * slotsPerUnit;
       forecast = filterMidnightStaleForecast(this._forecastData || [], todayStartMs)
         .slice(0, limit);
     }
     station = dropEmptyStationToday(station, todayStartMs);
-    this._stationCount = station.length;
-    this._forecastCount = forecast.length;
     this._ensureSunshineSource(effectiveCfg);
-    const granularity = (fcType === 'hourly' || isToday) ? 'hourly' : 'daily';
-    this.forecasts = overlayFromOpenMeteo(
-      [...station, ...forecast],
-      this._hass,
-      this._sunshineSource,
-      granularity,
-    );
+    if (isToday) {
+      // 'today' flow:
+      //   1. Apply HOURLY sunshine to each entry (per-hour value).
+      //   2. 3-hour aggregate: temp/wind/etc. mean, precip+sunshine
+      //      SUM, condition mode. Day-length stays at hourly
+      //      semantics (1h per block × 3 = 3h denominator).
+      //   3. Recompute day_length to 3 (3 hours per block).
+      const merged = overlayFromOpenMeteo(
+        [...station, ...forecast],
+        this._hass,
+        this._sunshineSource,
+        'hourly',
+      );
+      const stationLen = station.length;
+      const stationWithSun = merged.slice(0, stationLen);
+      const forecastWithSun = merged.slice(stationLen);
+      station = aggregateThreeHour(stationWithSun);
+      forecast = aggregateThreeHour(forecastWithSun);
+      // Each 3h block represents 3 hours of "day". Used as the
+      // denominator for the sunshine fraction (sunshine_h / 3).
+      for (const e of station) e.day_length = 3;
+      for (const e of forecast) e.day_length = 3;
+      this._stationCount = station.length;
+      this._forecastCount = forecast.length;
+      this.forecasts = [...station, ...forecast];
+    } else {
+      this._stationCount = station.length;
+      this._forecastCount = forecast.length;
+      const granularity = fcType === 'hourly' ? 'hourly' : 'daily';
+      this.forecasts = overlayFromOpenMeteo(
+        [...station, ...forecast],
+        this._hass,
+        this._sunshineSource,
+        granularity,
+      );
+    }
     this.requestUpdate();
     // measureCard() recomputes forecastItems from the new this.forecasts
     // length and then redraws. Going through it (instead of calling
@@ -960,11 +1066,10 @@ _onModeToggleClick(ev) {
     // ~8 hours). 0 disables the viewport entirely (legacy "fit-all"
     // for users who explicitly set it).
     //
-    // 'today' (24h zoom): always fits all 24 bars, no scroll. Override
-    // to 24 here so the user's `number_of_forecasts: 8` from a
-    // daily-mode config doesn't accidentally trigger scrolling.
-    const userVisibleBars = parseInt(config.forecast.number_of_forecasts, 10) || 0;
-    const visibleBars = config.forecast.type === 'today' ? 24 : userVisibleBars;
+    // 'today' is 3-hour-aggregated to exactly 8 bars (00-02, 03-05,
+    // …, 21-23) so the default 8-bar viewport fits the whole day
+    // with no scroll.
+    const visibleBars = parseInt(config.forecast.number_of_forecasts, 10) || 0;
     const totalBars = (this.forecasts || []).length;
     const scrolling = visibleBars > 0 && totalBars > visibleBars;
     const contentWidthPct = scrolling ? (totalBars / visibleBars) * 100 : 100;
@@ -1007,10 +1112,6 @@ _onModeToggleClick(ev) {
               <button type="button" class="jump-to-now" aria-label="Jump to now" title="Jump to now" hidden>
                 <ha-icon icon="mdi:crosshairs-gps" aria-hidden="true"></ha-icon>
               </button>
-            ` : ''}
-            ${scrolling && config.forecast.type === 'hourly' ? html`
-              <div class="scroll-date scroll-date-left" hidden></div>
-              <div class="scroll-date scroll-date-right" hidden></div>
             ` : ''}
           </div>
         </div>
@@ -1272,17 +1373,9 @@ renderForecastConditionIcons({ config, forecastItems, sun } = this) {
     return html``;
   }
 
-  // 'today' mode: render an icon only every 3rd column (8 icons across
-  // 24 hours) so the dense view stays legible. Empty cells preserve
-  // column alignment.
-  const sparseEvery = config.forecast.type === 'today' ? 3 : 1;
-
   return html`
     <div class="conditions">
-      ${forecast.map((item, idx) => {
-        if (idx % sparseEvery !== 0) {
-          return html`<div class="forecast-item"></div>`;
-        }
+      ${forecast.map((item) => {
         const forecastTime = new Date(item.datetime);
         const sunriseTime = new Date(sun.attributes.next_rising);
         const sunsetTime = new Date(sun.attributes.next_setting);
@@ -1344,17 +1437,9 @@ renderWind({ config, weather, windSpeed, windDirection, forecastItems } = this) 
   const forecast = this.forecasts ? this.forecasts.slice(0, forecastItems) : [];
   const unit = this.ll('units')[this.unitSpeed];
 
-  // 'today' mode: render a wind value only every 3rd column (8 values
-  // across 24 hours) — matches the sparse icon row. Empty cells
-  // preserve column alignment with the chart bars.
-  const sparseEvery = config.forecast.type === 'today' ? 3 : 1;
-
   return html`
     <div class="wind-details">
-      ${forecast.map((item, idx) => {
-        if (idx % sparseEvery !== 0) {
-          return html`<div class="wind-detail"></div>`;
-        }
+      ${forecast.map((item) => {
         const raw = item.wind_gust_speed != null ? item.wind_gust_speed : item.wind_speed;
         const dWindSpeed = this._convertWindSpeed(raw);
         const hasSpeed = dWindSpeed !== null && dWindSpeed !== undefined;

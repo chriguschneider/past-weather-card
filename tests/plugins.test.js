@@ -149,7 +149,12 @@ describe('createDailyTickLabelsPlugin', () => {
     expect(typeof p.afterDraw).toBe('function');
   });
 
-  it('early-returns at hourly mode (the chart\'s own callback handles labels)', () => {
+  it('renders left-aligned time + sparse date at hourly mode', () => {
+    // Since v1.4 the plugin handles 'hourly' itself — chart.js's own
+    // tick callback returns empty strings for hourly/today so the
+    // overlay below owns all label rendering. Each visible tick gets
+    // a 24h time stamp; the leftmost visible tick (and any midnight
+    // tick) additionally gets a stacked bold date label above.
     const p = createDailyTickLabelsPlugin({
       config: { forecast: { ...baseConfig.forecast, type: 'hourly' } },
       language: 'en', data: baseData,
@@ -157,8 +162,16 @@ describe('createDailyTickLabelsPlugin', () => {
       stationCount: 0, doubledToday: false,
     });
     const chart = mockChart({ tickCount: 3 });
+    chart.scales.x.bottom = 50;
+    chart.scales.x.width = 150;
     p.afterDraw(chart);
-    expect(chart.ctx.fillText).not.toHaveBeenCalled();
+    // 3 visible ticks × 1 time label = 3 calls. Plus a date label on
+    // the leftmost-visible tick (i=0) and on midnight ticks (every
+    // tick in this fixture, since dateTime entries are all 00:00).
+    // Total: 3 time + 3 date = 6 fillText calls.
+    expect(chart.ctx.fillText).toHaveBeenCalledTimes(6);
+    // No background mask — the 'two background colors' artifact path
+    // is gone, the plugin draws straight onto the empty axis box.
     expect(chart.ctx.fillRect).not.toHaveBeenCalled();
   });
 
@@ -173,7 +186,7 @@ describe('createDailyTickLabelsPlugin', () => {
     expect(chart.ctx.fillText).not.toHaveBeenCalled();
   });
 
-  it('paints a background rect and draws weekday + date for each tick', () => {
+  it('draws weekday + date for each tick at daily mode', () => {
     const p = createDailyTickLabelsPlugin({
       config: baseConfig, language: 'en', data: baseData,
       textColor: '#000', backgroundColor: '#fff', style: mockStyle,
@@ -181,9 +194,11 @@ describe('createDailyTickLabelsPlugin', () => {
     });
     const chart = mockChart({ tickCount: 3 });
     p.afterDraw(chart);
-    // 3 ticks × 1 background rect each = 3 fillRect calls
-    expect(chart.ctx.fillRect).toHaveBeenCalledTimes(3);
-    // 3 ticks × (weekday + date) = 6 fillText calls
+    // 3 ticks × (weekday + date) = 6 fillText calls. The legacy
+    // background-mask approach (one fillRect per tick) was removed in
+    // v1.4 — chart.js's tick callback now returns empty strings, so
+    // the axis box is already blank when the plugin draws on top.
+    expect(chart.ctx.fillRect).not.toHaveBeenCalled();
     expect(chart.ctx.fillText).toHaveBeenCalledTimes(6);
   });
 
@@ -196,9 +211,9 @@ describe('createDailyTickLabelsPlugin', () => {
     const chart = mockChart({ tickCount: 3 });
     p.afterDraw(chart);
     // doubledToday=true and stationCount=1: tick i=0 (stationCount-1)
-    // is skipped after the background rect is painted. Background
-    // still fills all 3 ticks; text only on 2 ticks → 4 fillText calls.
-    expect(chart.ctx.fillRect).toHaveBeenCalledTimes(3);
+    // is skipped entirely (continue before the fillText calls).
+    // Remaining 2 ticks each draw weekday + date → 4 fillText calls.
+    expect(chart.ctx.fillRect).not.toHaveBeenCalled();
     expect(chart.ctx.fillText).toHaveBeenCalledTimes(4);
   });
 

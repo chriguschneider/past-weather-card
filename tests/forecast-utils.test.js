@@ -257,6 +257,13 @@ describe('normalizeForecastMode', () => {
     expect(out.warnings).toEqual([]);
   });
 
+  it('passes today forecast-type through unchanged (24h zoom mode)', () => {
+    const cfg = { show_station: true, show_forecast: true, forecast: { type: 'today' } };
+    const out = normalizeForecastMode(cfg);
+    expect(out.config).toEqual(cfg);
+    expect(out.warnings).toEqual([]);
+  });
+
   it('falls back to daily for an unknown forecast.type', () => {
     const cfg = { ...baseDaily(), forecast: { type: 'fortnightly' } };
     const out = normalizeForecastMode(cfg);

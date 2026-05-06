@@ -183,7 +183,15 @@ export function setupScrollUx(card: ScrollUxCard): void {
   }
 
   // ── Indicator visibility on scroll ───────────────────────────────
-  const onScroll = (): void => updateScrollIndicators(card);
+  // Also nudge the chart to redraw so the dailyTickLabelsPlugin
+  // recomputes its leftmost-visible date label against the new
+  // scrollLeft. chart.draw() reruns plugins without recomputing
+  // datasets — fast enough for scroll events.
+  const onScroll = (): void => {
+    updateScrollIndicators(card);
+    const chart = (card as { forecastChart?: { draw?: () => void } }).forecastChart;
+    if (chart && typeof chart.draw === 'function') chart.draw();
+  };
   wrapper.addEventListener('scroll', onScroll, { passive: true });
   updateScrollIndicators(card);
 

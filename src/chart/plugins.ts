@@ -24,7 +24,7 @@ import { computeBlockSeparatorPositions, type SeparatorMode } from '../format-ut
  *  whole `Chart<...>` generic, which is unnecessary noise for plugin
  *  authoring at this layer). */
 export interface ChartScaleLike {
-  ticks: Array<unknown>;
+  ticks: Array<{ value?: number; label?: string }>;
   top: number;
   bottom: number;
   width: number;
@@ -171,20 +171,20 @@ export function createDailyTickLabelsPlugin({
   language,
   data,
   textColor,
-  backgroundColor,
+  // backgroundColor was used by the legacy mask-and-redraw approach
+  // for the daily/today axis labels; now obsolete, kept in the opts
+  // signature for compatibility.
+  backgroundColor: _backgroundColor,
   style,
   stationCount,
   doubledToday,
   sunshineLabelBand = 0,
 }: DailyTickLabelsPluginOpts): ChartPlugin {
+  void _backgroundColor;
   const showDateRow = config.forecast.show_date !== false;
   return {
     id: 'dailyTickLabels',
     afterDraw(chart: ChartLike): void {
-      // Skip the daily-style tick-label overlay for any non-daily mode.
-      // 'hourly' and 'today' both use time-of-day labels rendered by the
-      // chart's own callback in chart/draw.ts, not weekday+date.
-      if (config.forecast.type === 'hourly' || config.forecast.type === 'today') return;
       const xScale = chart.scales.x;
       if (!xScale || !xScale.ticks) return;
       const c = chart.ctx;
@@ -192,6 +192,113 @@ export function createDailyTickLabelsPlugin({
       const lineH = Math.ceil(fontSize * 1.3);
       const weekdayColor = config.forecast.chart_datetime_color || textColor;
       const dateColor = style.getPropertyValue('--secondary-text-color') || weekdayColor;
+
+      // 'today' and 'hourly' share the time-based rendering: 24-hour
+      // format, left-aligned per column, with a stacked date label
+      // (BOLD, primary text colour) on midnight columns. 'today'
+      // additionally draws a thick day-boundary stroke; 'hourly'
+      // is dense enough that just the date label suffices.
+      if (config.forecast.type === 'today' || config.forecast.type === 'hourly') {
+        c.save();
+        c.textAlign = 'left';
+        c.textBaseline = 'bottom';
+        const colW = xScale.width / xScale.ticks.length;
+        // For 'hourly' the chart can scroll horizontally inside an
+        // outer wrapper; the canvas is wider than the viewport. To
+        // mark the LEFTMOST VISIBLE tick (not the leftmost data
+        // point, which may be scrolled off-screen), find the first
+        // tick whose pixel position exceeds the wrapper's scrollLeft.
+        // 'today' has no scroll, so the leftmost visible == i === 0.
+        let leftmostVisibleIdx = 0;
+        if (config.forecast.type === 'hourly') {
+          // Walk up from the canvas to find the .forecast-scroll
+          // wrapper (canvas → chart-container → forecast-scroll).
+          // chart.canvas's wrapper hierarchy isn't fixed depth, so
+          // closest('.forecast-scroll.scrolling') is the safest pick.
+          const canvas = (chart as { canvas?: HTMLElement | null }).canvas || null;
+          const wrapper = canvas
+            ? (canvas.closest('.forecast-scroll.scrolling') as HTMLElement | null)
+            : null;
+          const scrollLeft = wrapper ? wrapper.scrollLeft : 0;
+          // Pixel positions in the canvas/scale coordinates start at
+          // chartArea.left. With scroll, the visible viewport spans
+          // [scrollLeft, scrollLeft + wrapper.clientWidth] in canvas
+          // coords (scrollLeft applies to the canvas's parent which
+          // is canvas-aligned). The leftmost VISIBLE tick is the
+          // first tick whose pixel >= scrollLeft.
+          for (let i = 0; i < xScale.ticks.length; i++) {
+            if (xScale.getPixelForTick(i) >= scrollLeft) {
+              leftmostVisibleIdx = i;
+              break;
+            }
+          }
+        }
+        // Shift the time/date row up by the sunshine label band so
+        // the per-column "Xh" boxes drawn by createSunshineLabelPlugin
+        // don't overlap. Layout from top to bottom:
+        //   1. Date (only on midnight columns)
+        //   2. Time
+        //   3. Sunshine "Xh" box (drawn by the sibling plugin)
+        const dateBaseY = xScale.bottom - 2 - sunshineLabelBand;
+        // Small horizontal gap so the leading glyph doesn't sit
+        // flush against the column boundary.
+        const labelGap = 4;
+        for (let i = 0; i < xScale.ticks.length; i++) {
+          const x = xScale.getPixelForTick(i);
+          const colLeft = x - colW / 2;
+          const labelX = colLeft + labelGap;
+          // chart.js auto-skips overlapping ticks at hourly: the
+          // visible tick array's `tick.value` is the underlying data
+          // INDEX, while `i` is just the position within the visible
+          // subset. Use tick.value to look up the per-bar datetime.
+          const tick = xScale.ticks[i];
+          const dataIdx = (tick && typeof tick.value === 'number') ? tick.value : i;
+          const datetime = data.dateTime ? data.dateTime[dataIdx] : undefined;
+          if (!datetime) continue;
+          // No mask needed — chart.js's tick callback returns '' for
+          // 'today' / 'hourly' (see chart/draw.ts), leaving the
+          // reserved axis box empty for our overlay to draw into.
+          const d = new Date(datetime);
+          const time = d.toLocaleTimeString(language, {
+            hour12: false, hour: '2-digit', minute: '2-digit',
+          });
+          const isMidnight = d.getHours() === 0 && d.getMinutes() === 0;
+          // Date appears ONLY on the leftmost visible column and on
+          // any midnight column (first column of a new calendar
+          // day). Other columns show the time alone — the date
+          // carries over from the most recent labelled column.
+          const showDate = i === leftmostVisibleIdx || isMidnight;
+          if (isMidnight) {
+            // Bold day-boundary marker at midnight columns: thick
+            // vertical line from chart bottom up to the TOP of the
+            // date text, anchored at the column's LEFT edge. Same
+            // visual cue in 'today' and 'hourly' so day transitions
+            // read consistently across both views.
+            c.save();
+            c.strokeStyle = weekdayColor;
+            c.lineWidth = 2;
+            c.beginPath();
+            c.moveTo(colLeft, chart.chartArea.bottom);
+            c.lineTo(colLeft, dateBaseY - lineH - fontSize);
+            c.stroke();
+            c.restore();
+          }
+          if (showDate) {
+            const dateLabel = d.toLocaleDateString(language, {
+              day: 'numeric', month: 'short',
+            });
+            c.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`;
+            c.fillStyle = weekdayColor;
+            c.fillText(dateLabel, labelX, dateBaseY - lineH);
+          }
+          c.font = `${fontSize}px Helvetica, Arial, sans-serif`;
+          c.fillStyle = weekdayColor;
+          c.fillText(time, labelX, dateBaseY);
+        }
+        c.restore();
+        return;
+      }
+
       const todayMs = (() => { const t = new Date(); t.setHours(0, 0, 0, 0); return t.getTime(); })();
       c.save();
       c.textAlign = 'center';
@@ -204,9 +311,9 @@ export function createDailyTickLabelsPlugin({
         const dKey = (() => { const k = new Date(d); k.setHours(0, 0, 0, 0); return k.getTime(); })();
         const isToday = dKey === todayMs;
         const weekday = d.toLocaleString(language, { weekday: 'short' }).toUpperCase();
-        const colW = (xScale.width / xScale.ticks.length);
-        c.fillStyle = backgroundColor;
-        c.fillRect(x - colW / 2, xScale.top, colW, xScale.bottom - xScale.top);
+        // No mask needed — chart.js's tick callback returns ['', '']
+        // for daily mode (see chart/draw.ts), so the reserved axis
+        // box stays empty for our weekday + date overlay below.
 
         // Today is a doubled column when both blocks are active. Skip the
         // station-today label (i = stationCount - 1) and draw a single

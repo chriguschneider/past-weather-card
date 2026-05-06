@@ -47,7 +47,7 @@ export function buildChart(ctx: CanvasRenderingContext2D | HTMLCanvasElement, op
     plugins,
     data,
     config,
-    language,
+    language: _language,
     textColor,
     backgroundColor,
     dividerColor,
@@ -90,9 +90,12 @@ export function buildChart(ctx: CanvasRenderingContext2D | HTMLCanvasElement, op
           border: { width: 0 },
           grid: {
             drawTicks: false,
-            // Suppress only the gridline between station-today and
-            // forecast-today (it sits inside the doubled-today framing);
-            // keep the others as visual day separators.
+            // Per-tick gridline styling: suppress the gridline between
+            // station-today and forecast-today in the daily-doubled
+            // framing. All other gridlines render at the divider
+            // colour at default width — no bold day-boundary line in
+            // 'today' mode (date label in the tick row already marks
+            // the new day).
             color: ((gridCtx: { index: number }) => (doubledToday && gridCtx.index === stationCount)
               ? 'transparent'
               : dividerColor) as never,
@@ -101,48 +104,25 @@ export function buildChart(ctx: CanvasRenderingContext2D | HTMLCanvasElement, op
             maxRotation: 0,
             color: config.forecast.chart_datetime_color || textColor,
             padding: 10,
+            // 'today' renders its time/date labels via the
+            // dailyTickLabelsPlugin (custom positioning, left-aligned,
+            // sparse-stacked). Returning '' from the callback below
+            // would still leave chart.js consuming axis space —
+            // returning the original strings via the callback IS
+            // needed for layout, then the plugin masks/overlays for
+            // the actual visual. Daily mode is the same pattern.
             callback: function (this: { getLabelForValue(v: number): string }, value: number | string, _index: number) {
-              const fcType = config.forecast.type;
-              // 'today' is hourly granularity: route through the
-              // hourly time-format branch, but show a label only on
-              // every 3rd DATA-INDEX column to keep the 24-bar view
-              // legible. `value` is the data position (0..n-1) for a
-              // category scale — stable regardless of chart.js's
-              // auto-skip behaviour at narrow viewports. `index` is
-              // the position in the visible-ticks array, which can
-              // differ from the data index when chart.js skips ticks.
-              const isHourlyish = fcType === 'hourly' || fcType === 'today';
-              if (fcType === 'today' && (value as number) % 3 !== 0) {
-                return '';
-              }
+              void value;
               void _index;
-              const datetime = this.getLabelForValue(value as number);
-              const dateObj = new Date(datetime);
-              const timeFormatOptions: Intl.DateTimeFormatOptions = {
-                hour12: config.use_12hour_format,
-                hour: 'numeric',
-                ...(config.use_12hour_format ? {} : { minute: 'numeric' }),
-              };
-              let time = dateObj.toLocaleTimeString(language, timeFormatOptions);
-
-              if (dateObj.getHours() === 0 && dateObj.getMinutes() === 0 && isHourlyish) {
-                const date = dateObj.toLocaleDateString(language, {
-                  day: 'numeric', month: 'short',
-                });
-                time = time.replace('a.m.', 'AM').replace('p.m.', 'PM');
-                return [date, time];
-              }
-
-              if (!isHourlyish) {
-                const weekday = dateObj.toLocaleString(language, { weekday: 'short' }).toUpperCase();
-                if (config.forecast.show_date === false) return weekday;
-                const dateLabel = dateObj.toLocaleDateString(language, {
-                  day: '2-digit', month: '2-digit',
-                });
-                return [weekday, dateLabel];
-              }
-
-              return time.replace('a.m.', 'AM').replace('p.m.', 'PM');
+              // chart.js's tick callback is unused at runtime —
+              // dailyTickLabelsPlugin renders all axis labels
+              // ('today', 'hourly', and 'daily' all go through that
+              // plugin). Returning a 2-line empty placeholder
+              // reserves enough axis height for stacked date + time
+              // labels without producing a visible glyph. Avoids the
+              // "two background colours" artifact the previous
+              // explicit-mask approach produced.
+              return config.forecast.show_date === false ? '' : ['', ''];
             } as never,
           },
           reverse: document.dir === 'rtl',
@@ -185,12 +165,6 @@ export function buildChart(ctx: CanvasRenderingContext2D | HTMLCanvasElement, op
       plugins: {
         legend: { display: false },
         datalabels: {
-          // 'today' mode: show temp labels only every 3rd column to
-          // keep the dense 24-hour view legible. Other modes show all.
-          display: ((context: { dataIndex: number }) => {
-            if (config.forecast.type !== 'today') return true;
-            return context.dataIndex % 3 === 0;
-          }) as never,
           backgroundColor: backgroundColor,
           borderColor: ((context: { dataset: { backgroundColor: string } }) => context.dataset.backgroundColor) as never,
           borderRadius: 0,

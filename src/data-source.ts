@@ -69,6 +69,8 @@ export interface DataSourceConfig {
   sensors?: SensorMap;
   condition_mapping?: ConditionThresholdOverrides;
   weather_entity?: string;
+  show_station?: boolean;
+  show_forecast?: boolean;
 }
 
 /** Event payload emitted by both sources via `_listener`. */
@@ -230,13 +232,21 @@ export class MeasuredDataSource {
     if (entityIds.length === 0) return [];
 
     if (isHourly) {
-      // Window ends at the next full hour (exclusive). We fetch one extra
-      // hour at the start (hours+1) so a cumulative precipitation sensor
-      // has a baseline value to diff against on the oldest displayed hour.
-      const hours = days * 24;
+      // Window ends at the next full hour (exclusive). We fetch one
+      // extra hour at the start (hours+1) so a cumulative precipitation
+      // sensor has a baseline value to diff against on the oldest
+      // displayed hour.
+      //
+      // 'today' is a rolling-24h view. In COMBINATION the station
+      // takes the past 12 hours and the forecast layer fills the
+      // next 12 hours. In STATION-ONLY (no forecast block) the
+      // station expands to the full 24 hours back from now so the
+      // user still sees a one-day view.
       const end = new Date();
       end.setMinutes(0, 0, 0);
       end.setHours(end.getHours() + 1);
+      const isStationOnly = isToday && this.config.show_forecast !== true;
+      const hours = isToday ? (isStationOnly ? 24 : 12) : days * 24;
       const start = new Date(end.getTime() - (hours + 1) * HOUR_MS);
 
       const stats = await this.hass.callWS<StatsResponse>({

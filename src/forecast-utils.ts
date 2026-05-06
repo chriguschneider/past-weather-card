@@ -190,7 +190,7 @@ export function normalizeForecastMode<T = unknown>(rawConfig: T): NormalizeResul
   const config = { ...raw, forecast: { ...(raw.forecast || {}) } };
 
   const t = config.forecast.type;
-  if (t !== 'daily' && t !== 'hourly') {
+  if (t !== 'daily' && t !== 'hourly' && t !== 'today') {
     if (t !== undefined) warnings.push('forecast_type_invalid');
     config.forecast.type = 'daily';
   }

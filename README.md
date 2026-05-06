@@ -1,16 +1,43 @@
-# Weather Station Card
+<p align="center">
+  <img src="images/logo.svg" alt="Weather Station Card logo" width="160" />
+</p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
-[![hacs](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
-[![coverage ≥ 80%](https://img.shields.io/badge/coverage-%E2%89%A580%25-brightgreen.svg)](TESTING.md)
+<h1 align="center">Weather Station Card</h1>
 
-A Lovelace card that shows **past weather-station measurements** in the same
-per-day layout as [`weather-chart-card`](https://github.com/mlamberts78/weather-chart-card),
-plus a live "current condition" main panel — both driven entirely by your
-sensor history (`recorder/statistics_during_period`) instead of a `weather.*`
-entity's forecast.
+<p align="center"><em>Weather station meets forecast.</em></p>
 
-![Weather Station Card](images/main.png)
+<p align="center">
+  <a href="LICENSE.md"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg" /></a>
+  <a href="https://hacs.xyz/"><img alt="HACS Custom" src="https://img.shields.io/badge/HACS-Custom-orange.svg" /></a>
+  <a href="https://github.com/chriguschneider/weather-station-card/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/chriguschneider/weather-station-card?label=release" /></a>
+  <a href="https://github.com/chriguschneider/weather-station-card/actions/workflows/build.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/chriguschneider/weather-station-card/build.yml?label=build" /></a>
+  <a href="https://github.com/chriguschneider/weather-station-card/releases"><img alt="Total downloads" src="https://img.shields.io/github/downloads/chriguschneider/weather-station-card/total" /></a>
+  <a href="https://github.com/chriguschneider/weather-station-card/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/chriguschneider/weather-station-card?style=flat" /></a>
+  <a href="https://github.com/chriguschneider/weather-station-card/commits/master"><img alt="Last commit" src="https://img.shields.io/github/last-commit/chriguschneider/weather-station-card" /></a>
+  <a href="https://buymeacoffee.com/chriguschneider"><img alt="Buy Me a Coffee" src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-FFDD00.svg" /></a>
+  <a href="#ai-assisted-development"><img alt="AI Assisted" src="https://img.shields.io/badge/AI-assisted-2196F3.svg" /></a>
+</p>
+
+<p align="center">
+  <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=chriguschneider&category=dashboard&repository=weather-station-card"><img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Open in HACS" /></a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/chriguschneider/weather-station-card/issues">Issues</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/chriguschneider/weather-station-card/discussions">Discussions</a>
+  &nbsp;·&nbsp;
+  <a href="ARCHITECTURE.md">Architecture</a>
+  &nbsp;·&nbsp;
+  <a href="CONTRIBUTING.md">Contributing</a>
+  &nbsp;·&nbsp;
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
+
+A Lovelace card that charts your own weather station's history alongside any
+forecast — driven by sensor data, not a `weather.*` entity.
+
+| Main panel + chart | Standalone chart | Visual editor |
+| --- | --- | --- |
+| ![Main](images/main.png) | ![Chart](images/chart.png) | ![Editor](images/editor.png) |
 
 ## What this card does
 
@@ -93,15 +120,13 @@ lockstep. Default `8` works for both modes (fits 7-day daily without
 scrolling and caps the hourly viewport at ~8 hours); set `0` to
 disable the viewport and show everything.
 
-## Screenshots
-
-| Main panel + chart | Standalone chart | Visual editor |
-| --- | --- | --- |
-| ![Main](images/main.png) | ![Chart](images/chart.png) | ![Editor](images/editor.png) |
-
 ## Installation
 
 ### HACS (Custom Repository)
+
+**One-click**: [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=chriguschneider&category=dashboard&repository=weather-station-card)
+
+Or manually:
 
 1. In HACS, go to **Frontend → ⋮ → Custom repositories**.
 2. Add `https://github.com/chriguschneider/weather-station-card` with
@@ -123,6 +148,16 @@ disable the viewport and show everything.
 4. Hard-refresh and add the card.
 
 ## Example config
+
+### Minimal — just a temperature curve
+
+```yaml
+type: custom:weather-station-card
+sensors:
+  temperature: sensor.YOUR_TEMPERATURE_SENSOR
+```
+
+### Typical — all common sensors
 
 ```yaml
 type: custom:weather-station-card
@@ -150,10 +185,13 @@ classifier inputs.
 
 ## Configuration reference
 
-The visual editor groups options into six sections — A. Setup, B. Sensors,
-C. Layout, D. Style & Colours, E. Units, F. Advanced. The reference below
-mirrors that order. Sections C onward are collapsed; click to expand.
+The visual editor groups options into six sections — [A. Setup](#config-setup),
+[B. Sensors](#config-sensors), [C. Layout](#config-layout),
+[D. Style & Colours](#config-style), [E. Units](#config-units),
+[F. Advanced](#config-advanced). The reference below mirrors that order.
+All sections are open by default — use Ctrl-F / Cmd-F to find any key.
 
+<a id="config-setup"></a>
 <details open>
 <summary><b>A. Setup</b></summary>
 
@@ -203,6 +241,7 @@ action is non-`none`, so the default read-only card looks read-only.
 
 </details>
 
+<a id="config-sensors"></a>
 <details open>
 <summary><b>B. Sensors</b></summary>
 
@@ -226,7 +265,8 @@ classifier, and (where relevant) the attribute readouts. Only
 
 </details>
 
-<details>
+<a id="config-layout"></a>
+<details open>
 <summary><b>C. Layout</b> — main panel, attributes row, chart rows</summary>
 
 Three master toggles (`show_main`, `show_attributes`, plus the chart-row
@@ -271,7 +311,8 @@ ON; in YAML the sub-keys are evaluated regardless.
 
 </details>
 
-<details>
+<a id="config-style"></a>
+<details open>
 <summary><b>D. Style & Colours</b></summary>
 
 **Chart appearance**
@@ -315,7 +356,8 @@ ON; in YAML the sub-keys are evaluated regardless.
 
 </details>
 
-<details>
+<a id="config-units"></a>
+<details open>
 <summary><b>E. Units</b></summary>
 
 | Key | Values | Description |
@@ -325,7 +367,8 @@ ON; in YAML the sub-keys are evaluated regardless.
 
 </details>
 
-<details>
+<a id="config-advanced"></a>
+<details open>
 <summary><b>F. Advanced</b> — forecast type, locale, classifier overrides</summary>
 
 | Key | Type | Default | Description |
@@ -590,6 +633,36 @@ Adding a language is a small, well-bounded contribution: see
 PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the build flow.
 For a tour of how the card is wired internally (data sources, the merge
 model, the chart-plugin contract), read [ARCHITECTURE.md](ARCHITECTURE.md).
+
+## AI-assisted development
+
+This card is built by Chrigu & Claude — a human and an LLM working
+together. Architecture decisions, design trade-offs, the
+meteorological grounding of the condition classifier, and the
+"what should this actually do?" calls are mine. A large share of
+the typing, refactors, test scaffolding, and tedious chart-plugin
+plumbing was done by [Claude Code](https://claude.com/claude-code).
+
+Every line is reviewed, tested (`npm run build` runs lint + 80%+
+coverage tests + visual regression on every push), and shipped
+consciously. The badge is here because transparency about how
+software is made matters more than pretending otherwise.
+
+If the card has earned a spot on your dashboard, [buying me a coffee](https://buymeacoffee.com/chriguschneider)
+is the nicest way to say thanks ❤️ *(Claude doesn't drink coffee.
+More for me.)*
+
+## Community
+
+- 💬 **Have a question or idea?** Open a [Discussion](https://github.com/chriguschneider/weather-station-card/discussions) — better than an issue if you're not sure whether something's a bug or just an unfamiliar config knob.
+- 🐛 **Found a bug or want a specific feature?** [Open an issue](https://github.com/chriguschneider/weather-station-card/issues/new/choose).
+- 🔧 **Want to contribute?** See [CONTRIBUTING.md](CONTRIBUTING.md) — adding a translation or a small fix is a well-bounded first PR.
+
+### Contributors
+
+<a href="https://github.com/chriguschneider/weather-station-card/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=chriguschneider/weather-station-card" alt="Contributors" />
+</a>
 
 ## Attribution & licence
 

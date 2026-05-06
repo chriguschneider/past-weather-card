@@ -47,16 +47,22 @@ function todayAnchor(): Date {
   return d;
 }
 
-/** Sinusoidal day-of-week signal. Rounded to one decimal so the
- *  fixture deterministically produces clean numeric values that look
+/** Sinusoidal signal. Rounded to one decimal so the fixture
+ *  deterministically produces clean numeric values that look
  *  reasonable in baseline screenshots (chart-datalabels otherwise
  *  surface 16-digit floats from JS Math.sin). `phase` shifts the
  *  curve so each metric peaks at a different time, producing
- *  visibly distinct lines on the chart instead of stacked sinusoids. */
-function sineSeries(days: number, amplitude: number, mean: number, phase = 0): number[] {
+ *  visibly distinct lines on the chart instead of stacked sinusoids.
+ *  `period` (in samples per full cycle) defaults to 7 — appropriate
+ *  for daily series across a week. Hourly callers should pass
+ *  `period: 24` so a single diurnal cycle spans one calendar day
+ *  (cold early morning, peak afternoon) rather than the unrealistic
+ *  multi-cycles-per-day the default produces at hourly granularity. */
+function sineSeries(samples: number, amplitude: number, mean: number, phase = 0, period = 7): number[] {
+  const omega = (2 * Math.PI) / period;
   const out: number[] = [];
-  for (let i = 0; i < days; i++) {
-    out.push(Math.round((mean + amplitude * Math.sin((i + phase) * (Math.PI / 3.5))) * 10) / 10);
+  for (let i = 0; i < samples; i++) {
+    out.push(Math.round((mean + amplitude * Math.sin((i + phase) * omega)) * 10) / 10);
   }
   return out;
 }
@@ -166,22 +172,31 @@ export function buildHourlyStats({ hours }: HourlyStatsOpts): Record<string, Rec
   const end = new Date();
   end.setMinutes(0, 0, 0);
   end.setHours(end.getHours() + 1);
-  // For deterministic baselines: align end to today's local-noon so
-  // the test always sees a midnight tick somewhere in the visible
-  // window regardless of when the test runs.
-  end.setTime(today.getTime() + 12 * HOUR_MS);
+  // For deterministic baselines: align end to fixture-day 18:00
+  // (matching the test's mock-now of 17:30 rounded up to next-full-
+  // hour). This puts a midnight crossing within the rolling 24-hour
+  // 'today' window — 12h forecast forward from 18:00 reaches into
+  // tomorrow's 06:00, demonstrating the day-boundary separator.
+  end.setTime(today.getTime() + 18 * HOUR_MS);
   const total = hours + 1;
   const start = new Date(end.getTime() - total * HOUR_MS);
 
-  const tempMean = sineSeries(total, 6, 14);
-  const humidity = sineSeries(total, 12, 65, 2);
-  const pressure = sineSeries(total, 3, 1015, 0.3);
-  const wind = sineSeries(total, 3, 5, 1.5);
-  const gust = sineSeries(total, 5, 9, 1.2);
-  const lux = sineSeries(total, 25000, 25000, 0).map((v) => Math.max(0, v));
-  const dew = sineSeries(total, 3, 8, 1.8);
-  const uv = sineSeries(total, 3, 3, 0).map((v) => Math.max(0, Math.round(v)));
-  const dirs = sineSeries(total, 90, 180, 0.7);
+  // Hourly metrics computed by HOUR-OF-DAY of each bucket — one
+  // diurnal cycle per 24 hours, regardless of the fixture window's
+  // start hour. tempMean: cold around 03:00, peak around 15:00.
+  // humidity: anti-correlates with temp. lux: noon-peaked, clamped ≥0.
+  const round1 = (v: number): number => Math.round(v * 10) / 10;
+  const hourly = (mean: number, amplitude: number, offsetHours: number) =>
+    (hour: number): number => round1(mean + amplitude * Math.sin((hour - offsetHours) * Math.PI / 12));
+  const tempAt = hourly(14, 6, 9);     // min 03:00, max 15:00
+  const humidityAt = hourly(65, 12, 21); // anti-phase to temp (max 09:00 — actually min 09:00, max 21:00)
+  const pressureAt = hourly(1015, 3, 12);
+  const windAt = hourly(5, 3, 0);      // min near midnight
+  const gustAt = hourly(9, 5, 0);
+  const luxAt = (hour: number): number => round1(Math.max(0, 25000 + 25000 * Math.sin((hour - 6) * Math.PI / 12)));
+  const dewAt = hourly(8, 3, 12);
+  const uvAt = (hour: number): number => Math.max(0, Math.round(3 + 3 * Math.sin((hour - 6) * Math.PI / 12)));
+  const dirsAt = hourly(180, 90, 12);
   // Per-hour precipitation accumulator. A 4 mm shower over hours
   // 12-15 of the window keeps the precip dataset visually present.
   let precipAccum = 0;
@@ -202,39 +217,42 @@ export function buildHourlyStats({ hours }: HourlyStatsOpts): Record<string, Rec
     out[eid] = [];
     for (let i = 0; i < total; i++) {
       const bucketStart = new Date(start.getTime() + i * HOUR_MS);
+      const hour = bucketStart.getHours();
       const bucket: RecorderStatBucket = { start: bucketStart.toISOString() };
       switch (key) {
-        case 'temperature':
-          bucket.mean = tempMean[i];
-          bucket.max = tempMean[i] + 1;
-          bucket.min = tempMean[i] - 1;
+        case 'temperature': {
+          const t = tempAt(hour);
+          bucket.mean = t;
+          bucket.max = t + 1;
+          bucket.min = t - 1;
           break;
+        }
         case 'humidity':
-          bucket.mean = humidity[i];
+          bucket.mean = humidityAt(hour);
           break;
         case 'pressure':
-          bucket.mean = pressure[i];
+          bucket.mean = pressureAt(hour);
           break;
         case 'illuminance':
-          bucket.max = lux[i];
+          bucket.max = luxAt(hour);
           break;
         case 'wind_speed':
-          bucket.mean = wind[i];
+          bucket.mean = windAt(hour);
           break;
         case 'gust_speed':
-          bucket.max = gust[i];
+          bucket.max = gustAt(hour);
           break;
         case 'wind_direction':
-          bucket.mean = dirs[i];
+          bucket.mean = dirsAt(hour);
           break;
         case 'precipitation':
           bucket.max = precipMax[i];
           break;
         case 'uv_index':
-          bucket.max = uv[i];
+          bucket.max = uvAt(hour);
           break;
         case 'dew_point':
-          bucket.mean = dew[i];
+          bucket.mean = dewAt(hour);
           break;
       }
       out[eid].push(bucket);
@@ -270,18 +288,27 @@ export function buildDailyForecast(days: number): Array<Record<string, unknown>>
 export function buildHourlyForecast(hours: number): Array<Record<string, unknown>> {
   const today = todayAnchor();
   // Future hours start at "now" (rounded to hour). For deterministic
-  // baselines we anchor at noon of today.
-  const start = new Date(today.getTime() + 12 * HOUR_MS);
+  // baselines we anchor at fixture-day 18:00 (matching the test's
+  // mock-now of 17:30 rounded up). 12 forecast hours forward then
+  // reaches tomorrow-06:00, putting the midnight day-boundary in
+  // the middle of the chart for combination 'today' mode.
+  const start = new Date(today.getTime() + 18 * HOUR_MS);
   const round1 = (v: number): number => Math.round(v * 10) / 10;
+  // Diurnal forecast: same temp curve as the station's hourly fixture
+  // (cold around 03:00, peak around 15:00). Forecast values get
+  // dashed-rendered by the chart, so the curve blends visually with
+  // the station-side curve at the now-boundary instead of jumping.
+  const tempAt = (hour: number): number => round1(14 + 6 * Math.sin((hour - 9) * Math.PI / 12));
+  const windAt = (hour: number): number => round1(10 + 3 * Math.sin(hour * Math.PI / 12));
   return Array.from({ length: hours }, (_v, i) => {
     const date = new Date(start.getTime() + i * HOUR_MS);
     const hr = date.getHours();
     const isDay = hr >= 7 && hr <= 19;
     return {
       datetime: date.toISOString(),
-      temperature: round1(14 + Math.sin(i * 0.3) * 5),
+      temperature: tempAt(hr),
       precipitation: (hr >= 14 && hr <= 17) ? 0.5 : 0,
-      wind_speed: round1(10 + Math.sin(i * 0.2) * 3),
+      wind_speed: windAt(hr),
       wind_bearing: 180,
       condition: isDay ? (i % 4 === 0 ? 'rainy' : 'partlycloudy') : 'clear-night',
       humidity: 70,

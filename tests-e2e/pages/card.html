@@ -21,12 +21,17 @@
   <style>
     /* Minimal HA-like theming. The live HA frontend exposes far more
        CSS variables — we only set the ones the card reads, and let
-       the browser's user-agent default cover the rest. */
+       the browser's user-agent default cover the rest. Light theme
+       is the default; the harness toggles to dark via ?theme=dark
+       (handled in script below). */
     :root, body {
       --primary-text-color: #212121;
       --secondary-text-color: #757575;
       --card-background-color: #ffffff;
-      --paper-item-icon-color: #44739e;
+      /* HA's default --paper-item-icon-color is #44739e (blue). For
+         documentation-grade snapshots a neutral dark colour reads
+         better and stays consistent with the primary text. */
+      --paper-item-icon-color: #212121;
       --divider-color: #e0e0e0;
       --warning-color: #ff9800;
       background: #fafafa;
@@ -35,6 +40,21 @@
       font-weight: 400;
       margin: 0;
       padding: 16px;
+    }
+    /* Dark theme — matches HA's default-dark theme tokens. Activated
+       by adding `data-theme="dark"` to <html> when the page is
+       loaded with ?theme=dark. Chart bar / line colours stay the
+       same (they're vivid enough to work on either background); only
+       the text and surface tokens change. */
+    [data-theme="dark"], [data-theme="dark"] body {
+      --primary-text-color: #ffffff;
+      --secondary-text-color: #a3a3a3;
+      --card-background-color: #1c1c1c;
+      --paper-item-icon-color: #ffffff;
+      --divider-color: rgba(225, 225, 225, 0.12);
+      --warning-color: #ff9800;
+      background: #111111;
+      color: var(--primary-text-color);
     }
     /* Stand-ins for ha-card / ha-form / ha-* primitives the card
        uses. The E2E suite isn't testing the HA frontend's own
@@ -196,7 +216,12 @@
                       height: var(--mdc-icon-size, 24px);
                       align-items: center; justify-content: center;
                       vertical-align: middle;
-                      color: var(--paper-item-icon-color, #44739e); }
+                      /* Use primary-text-color (dark grey/black) to match
+                         the documentation-style look the user prefers
+                         over HA's blue accent. The card itself still
+                         drives colour where it sets it explicitly
+                         (e.g. wind-direction icons, mode-toggle). */
+                      color: var(--primary-text-color, #212121); }
               i { font-size: var(--mdc-icon-size, 24px); line-height: 1;
                   display: inline-flex; align-items: center; }
             </style>
@@ -219,6 +244,9 @@
     const dual = params.get('dual') === '1';
 
     if (dual) document.getElementById('harness').classList.add('dual');
+    if (params.get('theme') === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
 
     // Load the card bundle. Done via dynamic import so any throw
     // surfaces in console; spec then fails the test fast rather than

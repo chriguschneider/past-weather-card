@@ -229,14 +229,13 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
   // array. The chart adds a second bar dataset; Chart.js auto-groups
   // precip + sunshine side-by-side per column (precip left half,
   // sunshine right half).
-  const isHourlyChart = isHourlyish;
   const showSunshine = config.forecast.show_sunshine === true;
-  // Per-column "Xh" / "0.5h" labels only in daily mode — at hourly the
-  // 168 narrow columns over a 7-day window can't fit a label per bar,
-  // and the bar height itself encodes the value. 'today' has 24
-  // columns, also too narrow for a per-bar label.
-  const showSunshineLabels = showSunshine && !isHourlyChart;
-  const sunshineColor = config.forecast.sunshine_color || 'rgba(255, 193, 7, 1.0)';
+  // Per-column "Xh" / "0.5h" labels: shown for daily and 'today'
+  // (8 wide columns), suppressed for 'hourly' where 168 narrow
+  // columns over a 7-day window would crowd labels (the bar height
+  // alone encodes the value at that density).
+  const showSunshineLabels = showSunshine && config.forecast.type !== 'hourly';
+  const sunshineColor = config.forecast.sunshine_color || 'rgba(255, 215, 0, 1.0)';
   const sunshineColorLight = lightenColor(sunshineColor) as string;
   const sunshinePerBarColor: string[] = (data.sunshine || []).map(
     (_v, i) => (hasBothBlocks && i >= stationCountForGap) ? sunshineColorLight
@@ -325,15 +324,8 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
       };
     };
 
-    // 'today' mode: thin out temp labels to every 3rd column for
-    // legibility (matches the sparse condition / wind rows).
-    const styleDisplay = (context: DataLabelsCtx): boolean => {
-      if (config.forecast.type !== 'today') return true;
-      return context.dataIndex % 3 === 0;
-    };
-
     datasets[0].datalabels = {
-      display: styleDisplay,
+      display: () => true,
       formatter: (_v: unknown, context: DataLabelsCtx) => context.dataset.data[context.dataIndex] + '°',
       align: 'top',
       anchor: 'center',
@@ -344,7 +336,7 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
     };
 
     datasets[1].datalabels = {
-      display: styleDisplay,
+      display: () => true,
       formatter: (_v: unknown, context: DataLabelsCtx) => context.dataset.data[context.dataIndex] + '°',
       align: 'bottom',
       anchor: 'center',
@@ -381,7 +373,15 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
     chartTextColor: chart_text_color,
   });
 
-  const plugins: ChartPlugin[] = [separatorPlugin, dailyTickLabelsPlugin, precipLabelPlugin];
+  // 'today' and 'hourly' both render without the bold station-vs-
+  // forecast separator: 'today' is 3-hour aggregated and reads as
+  // one continuous diurnal cycle; 'hourly' relies on the dashed
+  // segment of the temperature line itself to mark forecast vs
+  // measured. The separator is reserved for 'daily' where the
+  // doubled-today framing genuinely needs a visual divider.
+  const plugins: ChartPlugin[] = (config.forecast.type === 'today' || config.forecast.type === 'hourly')
+    ? [dailyTickLabelsPlugin, precipLabelPlugin]
+    : [separatorPlugin, dailyTickLabelsPlugin, precipLabelPlugin];
   if (showSunshineLabels) {
     plugins.push(createSunshineLabelPlugin({
       config, data, textColor, backgroundColor,
