@@ -4,6 +4,62 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] — 2026-05-06
+
+UX polish release. Two user-visible features that came up during real
+use of v1.0–v1.3.
+
+### Added
+
+- **`forecast.type: 'today'`** — single-day hourly view as a first-class
+  third mode alongside `daily` and `hourly`. Renders a rolling 24-hour
+  window centred on "now" (12 hours back as station + 12 hours forward
+  as forecast in combination mode). No scrolling, all 24 bars fit the
+  viewport. Labels thinned to one per 3-hour block for legibility:
+  - Tick labels: every 3rd column
+  - Condition icons: every 3rd column
+  - Wind row: every 3rd column
+  - Temperature labels: every 3rd column
+  Closes [#17](https://github.com/chriguschneider/weather-station-card/issues/17).
+- **Mode-toggle button cycle** is now 3-way:
+  `daily → today → hourly → daily`. Icon variants per current mode.
+- **Editor radio** in section A (Setup) gains a third option for the
+  new mode.
+- **`sensors.sunshine_duration`** is now actually consumed in the
+  daily station fetch (was previously listed in the editor but not
+  wired to the recorder).
+
+### Changed
+
+- **Sunshine for today's station column** (`#16`): previously today's
+  station entry showed the recorder's daily-max-so-far — a partial
+  running total that grew through the day. Now the station entry's
+  sunshine for *today* is overridden by the Open-Meteo forecast value
+  (the full-day prediction). Past days still use the recorder value
+  when `sensors.sunshine_duration` is configured. Closes
+  [#16](https://github.com/chriguschneider/weather-station-card/issues/16).
+- `attachSunshine` preserves any pre-existing `entry.sunshine` value
+  and only overlays Open-Meteo where the upstream is null. This is
+  what makes the today-substitution work without disturbing past-day
+  recorder values.
+- `forecast.type` union extended to `'daily' | 'hourly' | 'today'`
+  across all type contracts.
+
+### Deferred to v1.5
+
+- **Mode-toggle performance (#10)** — the slow daily↔hourly transition
+  was originally scoped here but stayed; it deserves its own release
+  given the architectural depth of the fix.
+
+### Tests
+
+- 18 systematic visual baselines (3 forecast types × 3 modes × 2
+  sunshine variants), generated via the `update-baselines.yml`
+  workflow on the GHA runner.
+- 4 new unit tests for `attachSunshine`'s upstream-value preservation
+  and today-substitution behaviour.
+- `mode-toggle-jump-to-now.spec.ts` updated for the 3-way cycle.
+
 ## [1.3.1] — 2026-05-06
 
 Tighten the visual-regression toolchain: baselines now live in the
