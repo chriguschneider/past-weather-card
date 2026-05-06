@@ -3,6 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <title>Weather Station Card — E2E Harness</title>
+  <!-- Roboto matches the HA frontend's primary font. Weight 300/400/500
+       cover the card's title (light), body text (regular), and bold
+       today-column emphasis. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
+  <!-- Material Design Icons font — the same family HA's <ha-icon>
+       renders against. Loaded at document level so the harness CSS
+       can size them; the per-element shadow-root in the ha-icon
+       polyfill (below) re-imports it so icons inside the CARD's
+       shadow tree get the font too (CSS doesn't cross shadow
+       boundaries). -->
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
   <style>
     /* Minimal HA-like theming. The live HA frontend exposes far more
        CSS variables — we only set the ones the card reads, and let
@@ -17,6 +32,7 @@
       background: #fafafa;
       color: var(--primary-text-color);
       font-family: 'Roboto', 'Helvetica', sans-serif;
+      font-weight: 400;
       margin: 0;
       padding: 16px;
     }
@@ -166,49 +182,25 @@
         attributeChangedCallback() { this._render(); }
         _render() {
           if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
-          // Map the icon-name suffix to a single Unicode glyph that
-          // rasterises consistently across systems. A small set is
-          // enough — most icons fall back to the generic dot.
+          // Map `hass:foo` / `mdi:foo` → MDI font class `mdi-foo`. The
+          // MDI font is loaded both at document level (head <link>)
+          // AND here in the shadow root, so icons inside the CARD's
+          // shadow DOM render too — light-DOM CSS doesn't cross
+          // shadow boundaries.
           const name = (this.getAttribute('icon') || '').replace(/^.*:/, '');
-          const map = {
-            'weather-cloudy': '☁',     // ☁
-            'weather-partly-cloudy': '⛅',
-            'weather-sunny': '☀',      // ☀
-            'weather-night': '☽',
-            'weather-rainy': '☔',      // ☔
-            'weather-pouring': '☔',
-            'weather-snowy': '❄',
-            'weather-fog': '☁',
-            'weather-windy': '▒',
-            'weather-windy-variant': '▒',
-            'water-percent': '°',      // °
-            'gauge': '⚑',
-            'thermometer-water': '⨎',
-            'white-balance-sunny': '☀',
-            'weather-sunset-up': '↑',
-            'weather-sunset-down': '↓',
-            'arrow-down': '↓',
-            'arrow-up': '↑',
-            'arrow-left': '←',
-            'arrow-right': '→',
-            'arrow-bottom-left': '↙',
-            'arrow-top-left': '↖',
-            'arrow-top-right': '↗',
-            'arrow-bottom-right': '↘',
-            'chevron-left': '‹',
-            'chevron-right': '›',
-            'crosshairs-gps': '⌖',
-            'alert-circle-outline': '⚠',
-          };
-          const glyph = map[name] || '●';  // ● fallback
           this.shadowRoot.innerHTML = `
+            <link rel="stylesheet"
+                  href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
             <style>
-              :host { display: inline-flex; width: 24px; height: 24px;
+              :host { display: inline-flex; width: var(--mdc-icon-size, 24px);
+                      height: var(--mdc-icon-size, 24px);
                       align-items: center; justify-content: center;
-                      vertical-align: middle; color: #44739e; }
-              span { font-size: 14px; line-height: 1; }
+                      vertical-align: middle;
+                      color: var(--paper-item-icon-color, #44739e); }
+              i { font-size: var(--mdc-icon-size, 24px); line-height: 1;
+                  display: inline-flex; align-items: center; }
             </style>
-            <span>${glyph}</span>`;
+            <i class="mdi mdi-${name}" aria-hidden="true"></i>`;
         }
       });
     }
