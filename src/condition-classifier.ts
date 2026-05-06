@@ -12,6 +12,52 @@
 // reliable detection requires dedicated hardware (AS3935 lightning detector,
 // hail-pad / impact sensor) which a typical weather station does not provide.
 
+import type { ConditionId } from './const.js';
+
+/** Threshold-set that the classifier consults — both the built-in
+ *  `DEFAULTS` (calibrated for daily totals) and any user-supplied
+ *  `condition_mapping` overrides have this shape. Callers can supply
+ *  a partial subset; missing keys fall back to the defaults. */
+export interface ConditionThresholds {
+  exceptional_gust_ms: number;
+  exceptional_precip_mm: number;
+  rainy_threshold_mm: number;
+  pouring_threshold_mm: number;
+  snow_max_c: number;
+  snow_rain_max_c: number;
+  fog_humidity_pct: number;
+  fog_dewpoint_spread_c: number;
+  fog_wind_max_ms: number;
+  windy_threshold_ms: number;
+  windy_mean_threshold_ms: number;
+  sunny_cloud_ratio: number;
+  partly_cloud_ratio: number;
+}
+
+export type ConditionThresholdOverrides = Partial<ConditionThresholds>;
+
+/** Classifier inputs for one period (a day or an hour). Numeric fields
+ *  are nullable when the corresponding sensor was offline or absent —
+ *  the decision tree skips rules whose inputs aren't present. */
+export interface ClassifyInputs {
+  temp_max?: number | null;
+  temp_min?: number | null;
+  humidity?: number | null;
+  lux_max?: number | null;
+  precip_total?: number | null;
+  wind_mean?: number | null;
+  gust_max?: number | null;
+  dew_point_mean?: number | null;
+  /** Theoretical clear-sky illuminance for the moment / day. Combined
+   *  with `lux_max` to derive the cloud-cover ratio. */
+  clearsky_lux?: number | null;
+}
+
+/** Period dispatch — selects which precipitation threshold table to
+ *  use. 'hour' rescales `rainy_threshold_mm`, `pouring_threshold_mm`,
+ *  and `exceptional_precip_mm` to per-hour values. */
+export type Period = 'day' | 'hour';
+
 // Default thresholds. Every value is grounded in an official scale or
 // glossary entry; users can override individual keys via the card's
 // `condition_mapping` config.
@@ -24,7 +70,7 @@
 // rescaled per HOURLY_PRECIP_OVERRIDES below before user overrides
 // apply. Wind, gust, fog, and cloud thresholds use the same value at
 // either period (they're instantaneous / mean values, not totals).
-const DEFAULTS = Object.freeze({
+const DEFAULTS: ConditionThresholds = Object.freeze({
   // Beaufort 10 ("storm") begins at 24.5 m/s. WMO No. 306 Vol. I.1.
   exceptional_gust_ms: 24.5,
   // NWS "Excessive Rainfall Outlook" daily heavy-rain threshold.
@@ -59,7 +105,7 @@ const DEFAULTS = Object.freeze({
   // < 0.30 ≈ 7–8/8 (overcast).
   sunny_cloud_ratio: 0.70,
   partly_cloud_ratio: 0.30,
-});
+}) as ConditionThresholds;
 
 // Per-hour replacements for the precipitation thresholds. Active when
 // `classifyDay(..., 'hour')`. Reference: WMO/AMS rain-rate scales —
@@ -68,39 +114,41 @@ const DEFAULTS = Object.freeze({
 //   - rainy: 0.1 mm/h is the lower bound of measurable drizzle
 //   - pouring: 4 mm/h is moderate-to-heavy sustained rain
 //   - exceptional: 30 mm/h is a cloudburst (violent end of the scale)
-const HOURLY_PRECIP_OVERRIDES = Object.freeze({
+const HOURLY_PRECIP_OVERRIDES: Partial<ConditionThresholds> = Object.freeze({
   rainy_threshold_mm: 0.1,
   pouring_threshold_mm: 4,
   exceptional_precip_mm: 30,
 });
 
-// Solar declination in degrees (Cooper 1969 — accurate to ~0.5°, plenty for
-// a ratio-based cloud check).
-function declinationDeg(dayOfYear) {
+/** Solar declination in degrees (Cooper 1969 — accurate to ~0.5°,
+ *  plenty for a ratio-based cloud check). */
+function declinationDeg(dayOfYear: number): number {
   return 23.45 * Math.sin(((360 * (284 + dayOfYear)) / 365) * Math.PI / 180);
 }
 
-// Theoretical clear-sky illuminance at solar noon in lux. Based on
-// cos(zenith) × 110 000 lx, with zenith = |lat − declination| at solar noon.
-// Reference: AMS Glossary "Solar elevation"; IES Lighting Handbook §3 for
-// the 110 000 lx clear-sky maximum at perpendicular incidence.
-export function clearSkyNoonLux(latDeg, dayOfYear) {
+/** Theoretical clear-sky illuminance at solar noon in lux. Based on
+ *  cos(zenith) × 110 000 lx, with zenith = |lat − declination| at solar
+ *  noon. Reference: AMS Glossary "Solar elevation"; IES Lighting
+ *  Handbook §3 for the 110 000 lx clear-sky maximum at perpendicular
+ *  incidence. */
+export function clearSkyNoonLux(latDeg: number, dayOfYear: number): number {
   if (!Number.isFinite(latDeg) || !Number.isFinite(dayOfYear)) return 110000;
   const zenith = Math.abs(latDeg - declinationDeg(dayOfYear));
   if (zenith >= 90) return 0;
   return 110000 * Math.cos(zenith * Math.PI / 180);
 }
 
-// Theoretical clear-sky illuminance at an arbitrary moment. Used for live
-// "current condition" classification where solar noon is the wrong reference.
-// Hour angle from local solar time (UTC + longitude/15); equation-of-time
-// correction omitted (max ~16 min, negligible at the cloud-ratio resolution
-// we need). cos(zenith) = sinφ·sinδ + cosφ·cosδ·cos(H).
-export function clearSkyLuxAt(latDeg, lonDeg, date) {
+/** Theoretical clear-sky illuminance at an arbitrary moment. Used for
+ *  live "current condition" classification where solar noon is the
+ *  wrong reference. Hour angle from local solar time
+ *  (UTC + longitude/15); equation-of-time correction omitted (max
+ *  ~16 min, negligible at the cloud-ratio resolution we need).
+ *  cos(zenith) = sinφ·sinδ + cosφ·cosδ·cos(H). */
+export function clearSkyLuxAt(latDeg: number, lonDeg: number, date?: Date): number {
   const d = date instanceof Date ? date : new Date();
   if (!Number.isFinite(latDeg) || !Number.isFinite(lonDeg)) return 110000;
   const start = new Date(d.getFullYear(), 0, 0);
-  const dayOfYear = Math.floor((d - start) / (24 * 60 * 60 * 1000));
+  const dayOfYear = Math.floor((d.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
   const decl = declinationDeg(dayOfYear) * Math.PI / 180;
   const lat = latDeg * Math.PI / 180;
   const utcHours = d.getUTCHours() + d.getUTCMinutes() / 60 + d.getUTCSeconds() / 3600;
@@ -111,26 +159,30 @@ export function clearSkyLuxAt(latDeg, lonDeg, date) {
   return 110000 * cosZ;
 }
 
-// Same math as clearSkyLuxAt, but returns a closure that caches lat-trig
-// (sinφ, cosφ) and the per-day declination (sinδ, cosδ) so repeated calls
-// for many timestamps in the same lat/lon don't redo trig that doesn't
-// change. Used by MeasuredDataSource._buildHourlyForecast to compute
-// clearsky lux for ~168 hourly rows in one fetch — the cache reduces
-// trig per row from ~5 calls to ~1 (just cos(hourAngle)).
-export function clearSkyLuxFactory(latDeg, lonDeg) {
-  if (!Number.isFinite(latDeg) || !Number.isFinite(lonDeg)) {
+/** Same math as clearSkyLuxAt, but returns a closure that caches
+ *  lat-trig (sinφ, cosφ) and the per-day declination (sinδ, cosδ) so
+ *  repeated calls for many timestamps in the same lat/lon don't redo
+ *  trig that doesn't change. Used by
+ *  `MeasuredDataSource._buildHourlyForecast` to compute clearsky lux
+ *  for ~168 hourly rows in one fetch — the cache reduces trig per row
+ *  from ~5 calls to ~1 (just `cos(hourAngle)`). */
+export function clearSkyLuxFactory(
+  latDeg: number | null | undefined,
+  lonDeg: number | null | undefined,
+): (date?: Date) => number {
+  if (!Number.isFinite(latDeg as number) || !Number.isFinite(lonDeg as number)) {
     return () => 110000;
   }
-  const lat = latDeg * Math.PI / 180;
+  const lat = (latDeg as number) * Math.PI / 180;
   const sinLat = Math.sin(lat);
   const cosLat = Math.cos(lat);
   let cachedDayOfYear = -1;
   let sinDecl = 0;
   let cosDecl = 0;
-  return (date) => {
+  return (date?: Date): number => {
     const d = date instanceof Date ? date : new Date();
     const yearStart = new Date(d.getFullYear(), 0, 0);
-    const dayOfYear = Math.floor((d - yearStart) / (24 * 60 * 60 * 1000));
+    const dayOfYear = Math.floor((d.getTime() - yearStart.getTime()) / (24 * 60 * 60 * 1000));
     if (dayOfYear !== cachedDayOfYear) {
       cachedDayOfYear = dayOfYear;
       const decl = declinationDeg(dayOfYear) * Math.PI / 180;
@@ -138,25 +190,29 @@ export function clearSkyLuxFactory(latDeg, lonDeg) {
       cosDecl = Math.cos(decl);
     }
     const utcHours = d.getUTCHours() + d.getUTCMinutes() / 60 + d.getUTCSeconds() / 3600;
-    const hourAngle = (utcHours + lonDeg / 15 - 12) * 15 * Math.PI / 180;
+    const hourAngle = (utcHours + (lonDeg as number) / 15 - 12) * 15 * Math.PI / 180;
     const cosZ = sinLat * sinDecl + cosLat * cosDecl * Math.cos(hourAngle);
     return cosZ <= 0 ? 0 : 110000 * cosZ;
   };
 }
 
-// Map a per-period record to an HA condition ID. Worst-of-period priority:
-// extreme weather > precipitation > fog > wind > cloud cover.
-//
-// `period` selects the threshold table for precipitation rules:
-//   - 'day' (default): `precip_total` interpreted as mm in the past 24 h
-//   - 'hour': `precip_total` interpreted as mm in the past 1 h, with
-//     thresholds rescaled accordingly so the same data doesn't bias
-//     toward 'pouring' / 'exceptional' just because the bucket shrank.
-export function classifyDay(day, overrides = {}, period = 'day') {
-  const periodDefaults = period === 'hour'
+/** Map a per-period record to an HA condition ID. Worst-of-period
+ *  priority: extreme weather > precipitation > fog > wind > cloud cover.
+ *
+ *  `period` selects the threshold table for precipitation rules:
+ *    - 'day' (default): `precip_total` interpreted as mm in the past 24 h
+ *    - 'hour': `precip_total` interpreted as mm in the past 1 h, with
+ *      thresholds rescaled accordingly so the same data doesn't bias
+ *      toward 'pouring' / 'exceptional' just because the bucket shrank. */
+export function classifyDay(
+  day: ClassifyInputs,
+  overrides: ConditionThresholdOverrides = {},
+  period: Period = 'day',
+): ConditionId {
+  const periodDefaults: ConditionThresholds = period === 'hour'
     ? { ...DEFAULTS, ...HOURLY_PRECIP_OVERRIDES }
     : DEFAULTS;
-  const t = { ...periodDefaults, ...overrides };
+  const t: ConditionThresholds = { ...periodDefaults, ...overrides };
 
   const {
     temp_max,
@@ -193,7 +249,7 @@ export function classifyDay(day, overrides = {}, period = 'day') {
   }
 
   // 5. CLOUD COVER — ratio used for both cloud condition and windy variant.
-  let cloudRatio = null;
+  let cloudRatio: number | null = null;
   if (lux_max != null && clearsky_lux != null && clearsky_lux > 0) {
     cloudRatio = lux_max / clearsky_lux;
   }
