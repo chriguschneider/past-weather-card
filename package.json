@@ -1,6 +1,6 @@
 {
   "name": "weather-station-card",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Lovelace card showing past weather-station measurements with the weather-chart-card layout, plus live current-condition rendering driven by sensor history.",
   "keywords": [
     "home-assistant",
@@ -39,6 +39,7 @@
     "@rollup/plugin-terser": "^1.0.0",
     "@vitest/coverage-v8": "^4.1.5",
     "eslint": "^8.56.0",
+    "jsdom": "^29.1.1",
     "rollup": "^4.9.6",
     "rollup-plugin-copy": "^3.5.0",
     "rollup-plugin-node-resolve": "^5.2.0",

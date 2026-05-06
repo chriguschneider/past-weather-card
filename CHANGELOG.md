@@ -4,6 +4,63 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] — 2026-05-06
+
+Architecture refactor — `main.js` 2,178 → 1,471 LOC (−32 %), editor
+914 → 313 LOC (−66 %). No public-API changes; YAML / locale keys /
+card tag identical. Closes
+[#12](https://github.com/chriguschneider/weather-station-card/issues/12).
+
+### Changed
+
+- **`main.js` split into focused modules** under the same source
+  tree:
+  - `src/scroll-ux.js` — drag-to-scroll, indicator chevrons,
+    jump-to-now, scroll-date overlays. `setupScrollUx(card)` returns
+    a teardown.
+  - `src/action-handler.js` — pointer-based tap / hold / double-tap
+    detection on ha-card + the `runAction(card, actionConfig)`
+    dispatcher (more-info, navigate, url, toggle, perform-action,
+    assist, fire-dom-event).
+  - `src/chart/orchestrator.js` — `drawChartUnsafe(card, args)`,
+    the dataset + plugin assembly that used to live in main.js's
+    largest method (~290 LOC).
+  - `src/teardown-registry.js` — primitive used by extracted modules
+    so disconnectedCallback drains them in lockstep.
+  - `src/utils/safe-query.js`, `src/utils/numeric.js` — small
+    helpers (`safeQuery`, `parseNumericSafe`) replacing 6+ inline
+    null-checks each across main.js.
+- **Editor `weather-station-card-editor.js` split** into 5 render
+  partials under `src/editor/`: `render-setup.js`, `render-sensors.js`,
+  `render-layout.js`, `render-style.js`, `render-units.js`,
+  `render-advanced.js`. The editor stays as the orchestrator (mutator
+  methods + thin render that calls each partial).
+- `vitest.config.js`: coverage scope expanded to include every
+  extracted module. Editor file deliberately not in scope (render
+  paths covered by Playwright E2E in v1.3 — issue #14).
+
+### Internal
+
+- 361 vitest tests pass (+33 since v1.0.2 — see T1 below). Coverage
+  ≥ 80 % on statements / branches / functions / lines.
+- T1: 33 unit tests for editor mutator methods (`_valueChanged`
+  with dotted-key writes, `_sensorPickerChanged` add / replace /
+  delete, `_actionChanged`, `_conditionMappingChanged`, `_setMode`,
+  `_mode` getter). jsdom-environment per-file directive keeps the
+  rest of the suite on node for speed.
+- Plus per-module unit tests in v1.1: `tests/utils.test.js` (16),
+  `tests/teardown-registry.test.js` (9), `tests/scroll-ux.test.js`
+  (17), `tests/action-handler.test.js` (26).
+- `ARCHITECTURE.md` rewritten with the post-refactor module map,
+  Mermaid dependency graph, lifecycle diagram, and updated testing
+  scope.
+
+### Migration
+
+Public API is unchanged — existing YAML configs work unchanged. The
+refactor is purely internal: file paths inside `src/` differ, but
+the card behaves bit-identically to v1.0.2.
+
 ## [1.0.2] — 2026-05-06
 
 ### Fixed

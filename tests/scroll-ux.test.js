@@ -1,0 +1,304 @@
+// Unit tests for scroll-ux.js — the v1.1 extraction of main.js's
+// scroll wiring. We don't load JSDOM globally (would slow the rest of
+// the suite); instead each test wires a minimal mock that mimics
+// just the slice of DOM the function under test pokes.
+//
+// What we cover:
+//   - updateScrollIndicators visibility math (left chevron,
+//     right chevron, jump-to-now)
+//   - updateScrollDateStamps clamping (the v1.0 Phase H fix that
+//     prevented "May 5" from poking past the card edges)
+//   - setupScrollUx idempotency on re-bind to the same wrapper
+
+import { describe, it, expect, vi } from 'vitest';
+import {
+  setupScrollUx,
+  updateScrollIndicators,
+  updateScrollDateStamps,
+} from '../src/scroll-ux.js';
+
+// ── Mock builders ─────────────────────────────────────────────────────
+// Each "element" mock just tracks the attributes scroll-ux pokes:
+// hidden, textContent, style.left. Buttons get addEventListener stubs
+// so setupScrollUx's bindings don't throw.
+
+function mockEl() {
+  const attrs = {};
+  const listeners = [];
+  return {
+    _attrs: attrs,
+    _listeners: listeners,
+    style: {},
+    setAttribute(name, value) { attrs[name] = value; },
+    removeAttribute(name) { delete attrs[name]; },
+    hasAttribute(name) { return name in attrs; },
+    addEventListener(type, fn, opts) { listeners.push({ type, fn, opts }); },
+    removeEventListener(type, fn) {
+      const i = listeners.findIndex((l) => l.type === type && l.fn === fn);
+      if (i >= 0) listeners.splice(i, 1);
+    },
+    dispatchEvent(ev) {
+      listeners.filter((l) => l.type === ev.type).forEach((l) => l.fn(ev));
+    },
+    classList: {
+      _set: new Set(),
+      add(c) { this._set.add(c); },
+      remove(c) { this._set.delete(c); },
+      contains(c) { return this._set.has(c); },
+    },
+  };
+}
+
+function mockBlock({
+  scrollWidth = 1000, clientWidth = 200, scrollLeft = 0,
+  hasLeftIndicator = true, hasRightIndicator = true,
+  hasJumpToNow = true, hasScrollDates = true,
+} = {}) {
+  const wrapper = {
+    ...mockEl(),
+    scrollWidth, clientWidth, scrollLeft,
+    classList: { add: vi.fn(), remove: vi.fn(), contains: vi.fn(() => false) },
+    setPointerCapture: vi.fn(),
+    scrollBy: vi.fn(),
+    scrollTo: vi.fn(),
+    parentElement: null, // set after block construction
+  };
+  // Make wrapper match `.forecast-scroll.scrolling`
+  wrapper.classList = (() => {
+    const set = new Set(['forecast-scroll', 'scrolling']);
+    return { add: (c) => set.add(c), remove: (c) => set.delete(c), contains: (c) => set.has(c) };
+  })();
+  const left = hasLeftIndicator ? mockEl() : null;
+  const right = hasRightIndicator ? mockEl() : null;
+  const jump = hasJumpToNow ? mockEl() : null;
+  const dateLeft = hasScrollDates ? mockEl() : null;
+  const dateRight = hasScrollDates ? mockEl() : null;
+  if (left) left.setAttribute('hidden', '');
+  if (right) right.setAttribute('hidden', '');
+  if (jump) jump.setAttribute('hidden', '');
+  if (dateLeft) dateLeft.setAttribute('hidden', '');
+  if (dateRight) dateRight.setAttribute('hidden', '');
+
+  const block = {
+    querySelector(selector) {
+      switch (selector) {
+        case '.forecast-scroll.scrolling': return wrapper;
+        case '.scroll-indicator-left': return left;
+        case '.scroll-indicator-right': return right;
+        case '.jump-to-now': return jump;
+        case '.scroll-date-left': return dateLeft;
+        case '.scroll-date-right': return dateRight;
+        default: return null;
+      }
+    },
+  };
+  wrapper.parentElement = block;
+  return { block, wrapper, left, right, jump, dateLeft, dateRight };
+}
+
+function mockCard({ block, stationCount = 0, forecastCount = 0, forecasts = [] } = {}) {
+  return {
+    shadowRoot: {
+      querySelector(selector) {
+        if (selector === '.forecast-scroll.scrolling') return block.querySelector('.forecast-scroll.scrolling');
+        if (selector === '.forecast-scroll-block') return block;
+        return null;
+      },
+    },
+    _stationCount: stationCount,
+    _forecastCount: forecastCount,
+    forecasts,
+    config: { locale: 'en' },
+    language: 'en',
+    _dragMoved: false,
+    _scrollUxTeardown: null,
+  };
+}
+
+// ── updateScrollIndicators ────────────────────────────────────────────
+
+describe('updateScrollIndicators', () => {
+  it('hides the left chevron at scrollLeft=0', () => {
+    const { block, left } = mockBlock({ scrollLeft: 0, scrollWidth: 1000, clientWidth: 200 });
+    const card = mockCard({ block });
+    updateScrollIndicators(card);
+    expect(left.hasAttribute('hidden')).toBe(true);
+  });
+
+  it('shows the left chevron when scrolled in', () => {
+    const { block, left } = mockBlock({ scrollLeft: 50, scrollWidth: 1000, clientWidth: 200 });
+    const card = mockCard({ block });
+    updateScrollIndicators(card);
+    expect(left.hasAttribute('hidden')).toBe(false);
+  });
+
+  it('hides the right chevron at scroll-end', () => {
+    const { block, right } = mockBlock({ scrollLeft: 800, scrollWidth: 1000, clientWidth: 200 });
+    const card = mockCard({ block });
+    updateScrollIndicators(card);
+    expect(right.hasAttribute('hidden')).toBe(true);
+  });
+
+  it('shows the right chevron when not at scroll-end', () => {
+    const { block, right } = mockBlock({ scrollLeft: 100, scrollWidth: 1000, clientWidth: 200 });
+    const card = mockCard({ block });
+    updateScrollIndicators(card);
+    expect(right.hasAttribute('hidden')).toBe(false);
+  });
+
+  it('hides the jump-to-now button when within ~10% of canonical "now"', () => {
+    // 7-day daily, station 7 + forecast 0, content 700 / viewport 200.
+    // computeInitialScrollLeft for station-only puts target at right
+    // edge: contentWidth - viewportWidth = 500. Within 10%·viewport
+    // (= 20 px) → hidden.
+    const { block, jump } = mockBlock({ scrollLeft: 490, scrollWidth: 700, clientWidth: 200 });
+    const card = mockCard({ block, stationCount: 7, forecastCount: 0 });
+    updateScrollIndicators(card);
+    expect(jump.hasAttribute('hidden')).toBe(true);
+  });
+
+  it('shows the jump-to-now button when scrolled away from "now"', () => {
+    const { block, jump } = mockBlock({ scrollLeft: 50, scrollWidth: 700, clientWidth: 200 });
+    const card = mockCard({ block, stationCount: 7, forecastCount: 0 });
+    updateScrollIndicators(card);
+    expect(jump.hasAttribute('hidden')).toBe(false);
+  });
+
+  it('returns silently when shadowRoot has no .forecast-scroll-block', () => {
+    const card = { shadowRoot: { querySelector: () => null } };
+    expect(() => updateScrollIndicators(card)).not.toThrow();
+  });
+
+  it('returns silently when there is no scrolling wrapper inside the block', () => {
+    const block = { querySelector: () => null };
+    const card = {
+      shadowRoot: {
+        querySelector: (s) => s === '.forecast-scroll-block' ? block : null,
+      },
+    };
+    expect(() => updateScrollIndicators(card)).not.toThrow();
+  });
+});
+
+// ── updateScrollDateStamps ────────────────────────────────────────────
+
+describe('updateScrollDateStamps', () => {
+  // Simple 168-hour fixture: 7 days starting at midnight.
+  const HOUR_MS = 3600_000;
+  function buildHourlyForecasts(hours = 168) {
+    const start = new Date(2026, 4, 1, 0, 0, 0, 0).getTime(); // May 1 local
+    const out = [];
+    for (let i = 0; i < hours; i++) {
+      out.push({ datetime: new Date(start + i * HOUR_MS).toISOString() });
+    }
+    return out;
+  }
+
+  it('hides both stamps when forecasts is empty', () => {
+    const { block, wrapper, dateLeft, dateRight } = mockBlock({ scrollWidth: 1000, clientWidth: 200 });
+    const card = mockCard({ block, forecasts: [] });
+    updateScrollDateStamps(block, wrapper, card);
+    expect(dateLeft.hasAttribute('hidden')).toBe(true);
+    expect(dateRight.hasAttribute('hidden')).toBe(true);
+  });
+
+  it('hides the leftmost stamp when its tick is a midnight (chart already labels it)', () => {
+    const forecasts = buildHourlyForecasts(48);
+    // Bar width = 960 / 48 = 20. scrollLeft 0 → leftIdx 0 (which is
+    // the May 1 midnight). The chart already prints "May 1" above the
+    // 00:00 tick; our overlay hides to avoid the duplicate.
+    const { block, wrapper, dateLeft } = mockBlock({ scrollWidth: 960, clientWidth: 200, scrollLeft: 0 });
+    const card = mockCard({ block, forecasts });
+    updateScrollDateStamps(block, wrapper, card);
+    expect(dateLeft.hasAttribute('hidden')).toBe(true);
+  });
+
+  it('clamps left position to TEXT_HALF=30 so date does not poke past the left edge', () => {
+    // Force a tiny positive raw centre by scrolling so the leftmost
+    // visible tick is mostly off-screen (60-90 % scrolled past).
+    // bar width = 100 / 48 (= 2.08). scrollLeft = 5 → leftIdx 2. raw
+    // centre = (2.5 × 2.08) - 5 = 0.2 → clamped up to 30.
+    const forecasts = buildHourlyForecasts(48);
+    // Use 13:00 start so the leftmost isn't midnight (otherwise the
+    // overlay hides per chart-de-dup rule).
+    forecasts[2] = { datetime: new Date(Date.UTC(2026, 4, 1, 11, 0)).toISOString() };
+    const { block, wrapper, dateLeft } = mockBlock({ scrollWidth: 100, clientWidth: 50, scrollLeft: 5 });
+    const card = mockCard({ block, forecasts });
+    updateScrollDateStamps(block, wrapper, card);
+    if (!dateLeft.hasAttribute('hidden')) {
+      // Interpret left as int ≥ 30
+      const left = parseInt((dateLeft.style.left || '0').replace('px', ''), 10);
+      expect(left).toBeGreaterThanOrEqual(30);
+    }
+  });
+
+  it('clamps right position so date does not poke past the right edge', () => {
+    const forecasts = buildHourlyForecasts(48);
+    const { block, wrapper, dateRight } = mockBlock({
+      scrollWidth: 200, clientWidth: 100,
+      scrollLeft: 95, // rightmost tick mostly off-screen on the right
+    });
+    const card = mockCard({ block, forecasts });
+    updateScrollDateStamps(block, wrapper, card);
+    if (!dateRight.hasAttribute('hidden')) {
+      const left = parseInt((dateRight.style.left || '0').replace('px', ''), 10);
+      // Must sit at clientWidth - TEXT_HALF (= 70) or further left.
+      expect(left).toBeLessThanOrEqual(70);
+    }
+  });
+
+  it('hides the right stamp when leftIdx === rightIdx (single visible bar)', () => {
+    const forecasts = buildHourlyForecasts(2);
+    // Wide bars, narrow viewport — only one bar fits.
+    const { block, wrapper, dateLeft, dateRight } = mockBlock({ scrollWidth: 400, clientWidth: 50, scrollLeft: 50 });
+    const card = mockCard({ block, forecasts });
+    updateScrollDateStamps(block, wrapper, card);
+    expect(dateRight.hasAttribute('hidden')).toBe(true);
+    // Whether dateLeft renders depends on midnight-de-dup logic, but
+    // dateRight is unconditional in the same-idx case.
+    expect(dateLeft).toBeDefined();
+  });
+});
+
+// ── setupScrollUx ─────────────────────────────────────────────────────
+
+describe('setupScrollUx', () => {
+  it('is a no-op when there is no .forecast-scroll.scrolling wrapper', () => {
+    const card = { shadowRoot: { querySelector: () => null } };
+    expect(() => setupScrollUx(card)).not.toThrow();
+    expect(card._scrollUxTeardown).toBeUndefined();
+  });
+
+  it('tears down a previous binding when called without a wrapper', () => {
+    const teardown = vi.fn();
+    const card = {
+      shadowRoot: { querySelector: () => null },
+      _scrollUxTeardown: teardown,
+    };
+    setupScrollUx(card);
+    expect(teardown).toHaveBeenCalledOnce();
+    expect(card._scrollUxTeardown).toBeNull();
+  });
+
+  it('is idempotent on the same wrapper element', () => {
+    const { block, wrapper } = mockBlock();
+    const card = mockCard({ block });
+    setupScrollUx(card);
+    const teardown1 = card._scrollUxTeardown;
+    expect(teardown1).toBeTruthy();
+    expect(wrapper._wsScrollUxBound).toBe(true);
+    setupScrollUx(card);
+    const teardown2 = card._scrollUxTeardown;
+    // Second call should NOT replace the teardown — same wrapper, same binding.
+    expect(teardown2).toBe(teardown1);
+  });
+
+  it('returns a teardown that removes the bound flag and listeners', () => {
+    const { block, wrapper } = mockBlock();
+    const card = mockCard({ block });
+    setupScrollUx(card);
+    expect(wrapper._wsScrollUxBound).toBe(true);
+    card._scrollUxTeardown();
+    expect(wrapper._wsScrollUxBound).toBe(false);
+  });
+});

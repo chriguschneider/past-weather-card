@@ -19,6 +19,11 @@ import {
 } from './forecast-utils.js';
 import { overlayFromOpenMeteo, sunshineFractions } from './sunshine-source.js';
 import { OpenMeteoSunshineSource } from './openmeteo-source.js';
+import { safeQuery } from './utils/safe-query.js';
+import { parseNumericSafe } from './utils/numeric.js';
+import { setupScrollUx } from './scroll-ux.js';
+import { setupActionHandler } from './action-handler.js';
+import { drawChartUnsafe } from './chart/orchestrator.js';
 import { cardStyles } from './chart/styles.js';
 import {
   createSeparatorPlugin,
@@ -251,15 +256,11 @@ set hass(hass) {
   // (unit ends in /h) — cumulative counters can't be turned into a
   // current rate without extra history and would otherwise spuriously
   // trigger 'rainy' on a dry day.
-  const numOrNull = (v) => {
-    const n = parseFloat(v);
-    return Number.isFinite(n) ? n : null;
-  };
-  const nowTemp = numOrNull(this.temperature);
-  const luxNow = numOrNull(valueOf(sensors.illuminance));
+  const nowTemp = parseNumericSafe(this.temperature);
+  const luxNow = parseNumericSafe(valueOf(sensors.illuminance));
   const precipUnit = attrOf(sensors.precipitation, 'unit_of_measurement') || '';
   const precipIsRate = /\/(h|hr|hour)$/i.test(precipUnit);
-  const precipRateNow = precipIsRate ? numOrNull(valueOf(sensors.precipitation)) : null;
+  const precipRateNow = precipIsRate ? parseNumericSafe(valueOf(sensors.precipitation)) : null;
   const lat = hass.config && hass.config.latitude;
   const lon = hass.config && hass.config.longitude;
 
@@ -289,12 +290,12 @@ set hass(hass) {
     currentCondition = classifyDay({
       temp_max: nowTemp,
       temp_min: nowTemp,
-      humidity: numOrNull(this.humidity),
+      humidity: parseNumericSafe(this.humidity),
       lux_max: luxNow,
       precip_total: precipRateNow,
-      wind_mean: numOrNull(this.windSpeed),
-      gust_max: numOrNull(this.wind_gust_speed),
-      dew_point_mean: numOrNull(this.dew_point),
+      wind_mean: parseNumericSafe(this.windSpeed),
+      gust_max: parseNumericSafe(this.wind_gust_speed),
+      dew_point_mean: parseNumericSafe(this.dew_point),
       clearsky_lux: clearskyNow,
     }, this.config.condition_mapping || {}, 'hour');
     this._liveConditionKey = conditionKey;
@@ -564,7 +565,7 @@ measureCard() {
   // Callers (firstUpdated, ResizeObserver, _refreshForecasts) all gate on
   // shadowRoot existence — the only thing left to guard is the ha-card
   // element itself, which can briefly be missing during teardown.
-  const card = this.shadowRoot && this.shadowRoot.querySelector('ha-card');
+  const card = safeQuery(this.shadowRoot,'ha-card');
   if (!card) return;
 
   // forecastItems is the count of bars actually rendered. v0.8 treats
@@ -701,119 +702,6 @@ async firstUpdated(changedProperties) {
   this.drawChart();
 }
 
-// Pointer-based tap / hold / double-tap detection on the ha-card root.
-// Dispatches the configured action by calling _runAction directly (HA's
-// frontend doesn't have a global hass-action listener — cards are
-// expected to invoke handle-action themselves; firing the event was a
-// no-op, see commit history).
-//
-// Why pointer events vs. plain click: we need hold detection (fires
-// before pointerup) and a way to suppress the trailing tap. A 250 ms
-// tap delay is required to disambiguate single from double — that's
-// the same window HA's own action-handler uses.
-_setupActionHandler() {
-  const card = this.shadowRoot && this.shadowRoot.querySelector('ha-card');
-  if (!card) return;
-
-  // Cursor reflects "is anything wired" — refresh on every call so
-  // toggling tap_action in the editor flips the hand cursor on/off
-  // immediately, not only on first render.
-  const cfg0 = this.config || {};
-  const isLive = (a) => a && a.action && a.action !== 'none';
-  card.style.cursor = (isLive(cfg0.tap_action) || isLive(cfg0.hold_action) || isLive(cfg0.double_tap_action))
-    ? 'pointer' : '';
-
-  if (card._wsActionHandlerBound) return;
-  card._wsActionHandlerBound = true;
-
-  const HOLD_MS = 500;
-  const DBL_MS = 250;
-  let holdTimer = null;
-  let holdFired = false;
-  let lastTapAt = 0;
-  let pendingTap = null;
-
-  const fire = (kind) => {
-    const cfg = this.config || {};
-    const map = {
-      tap: cfg.tap_action,
-      hold: cfg.hold_action,
-      double_tap: cfg.double_tap_action,
-    };
-    this._runAction(map[kind]);
-  };
-
-  const clearHold = () => {
-    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
-  };
-
-  // Pointer events that originate on a card-internal control button
-  // (mode-toggle, jump-to-now, scroll indicators) are part of that
-  // control's own gesture — they must NOT trigger the card-level
-  // tap/hold/double-tap action.
-  const isCardControl = (target) =>
-    target && target.closest && target.closest('button, ha-icon-button, [role="button"]') !== null;
-
-  const onPointerDown = (ev) => {
-    if (isCardControl(ev.target)) return;
-    holdFired = false;
-    clearHold();
-    holdTimer = setTimeout(() => {
-      // If the user has been dragging the chart to scroll, the hold
-      // is part of that gesture — don't fire a hold_action for it.
-      if (this._dragMoved) return;
-      holdFired = true;
-      fire('hold');
-    }, HOLD_MS);
-  };
-
-  const onPointerUp = (ev) => {
-    if (isCardControl(ev.target)) return;
-    clearHold();
-    if (holdFired) return;
-    // Drag-to-scroll consumed this gesture; suppress the trailing tap.
-    // _dragMoved is reset on the next microtask by the drag handler,
-    // so a fresh gesture immediately afterwards still detects normally.
-    if (this._dragMoved) return;
-    const now = Date.now();
-    if (now - lastTapAt < DBL_MS) {
-      // Second tap inside the double-tap window — cancel the queued
-      // single tap and fire double_tap instead.
-      lastTapAt = 0;
-      if (pendingTap) { clearTimeout(pendingTap); pendingTap = null; }
-      fire('double_tap');
-      return;
-    }
-    lastTapAt = now;
-    pendingTap = setTimeout(() => {
-      pendingTap = null;
-      fire('tap');
-    }, DBL_MS);
-  };
-
-  const onPointerCancel = () => {
-    clearHold();
-    holdFired = false;
-  };
-
-  card.addEventListener('pointerdown', onPointerDown);
-  card.addEventListener('pointerup', onPointerUp);
-  card.addEventListener('pointercancel', onPointerCancel);
-  card.addEventListener('pointerleave', onPointerCancel);
-
-  // Saved so disconnectedCallback can detach. Re-using `card` rather than
-  // `this` because the ha-card element is what we bound to.
-  this._actionHandlerTeardown = () => {
-    card.removeEventListener('pointerdown', onPointerDown);
-    card.removeEventListener('pointerup', onPointerUp);
-    card.removeEventListener('pointercancel', onPointerCancel);
-    card.removeEventListener('pointerleave', onPointerCancel);
-    clearHold();
-    if (pendingTap) clearTimeout(pendingTap);
-    card._wsActionHandlerBound = false;
-  };
-}
-
 
 async updated(changedProperties) {
   await this.updateComplete;
@@ -823,9 +711,9 @@ async updated(changedProperties) {
   // weather-undefined fallback uses a different template than the
   // populated branch); the per-element _wsActionHandlerBound flag
   // makes this idempotent on stable elements.
-  this._setupActionHandler();
+  setupActionHandler(this);
   this._maybeApplyInitialScroll(changedProperties);
-  this._setupScrollUx();
+  setupScrollUx(this);
 
   if (changedProperties.has('config')) {
     const oldConfig = changedProperties.get('config');
@@ -879,14 +767,14 @@ _teardownForecast() {
 
 drawChart(args) {
   try {
-    const result = this._drawChartUnsafe(args);
+    const result = drawChartUnsafe(this, args);
     if (this._chartError) {
       this._chartError = null;
       this.requestUpdate();
     }
     return result;
   } catch (e) {
-    // The phase tag (set by _drawChartUnsafe before calling each sub-step)
+    // The phase tag (set by chart/orchestrator's drawChartUnsafe before each sub-step)
     // tells us where we crashed — without it, the banner just says "render
     // failed" and we have to repro to find the spot. Falls back to "draw"
     // for failures that happen outside any tagged step.
@@ -901,300 +789,6 @@ drawChart(args) {
     this._chartPhase = null;
     this.requestUpdate();
   }
-}
-
-_drawChartUnsafe({ config: rawConfig, language, weather, forecastItems } = this) {
-  if (!this.forecasts || !this.forecasts.length) {
-    return [];
-  }
-  // All downstream references read `config` — by binding it to the
-  // normalized result we get one consistent view of the mode (and
-  // forecast.type fallback to 'daily' for typo'd YAML) across the
-  // chart code path.
-  const { config } = normalizeForecastMode(rawConfig);
-
-  const chartCanvas = this.renderRoot && this.renderRoot.querySelector('#forecastChart');
-  if (!chartCanvas) {
-    console.error('Canvas element not found:', this.renderRoot);
-    return;
-  }
-
-  if (this.forecastChart) {
-    this.forecastChart.destroy();
-  }
-  this._chartPhase = 'compute';
-  const tempUnit = this._hass.config.unit_system.temperature;
-  const lengthUnit = this._hass.config.unit_system.length;
-  const precipUnit = lengthUnit === 'km' ? this.ll('units')['mm'] : this.ll('units')['in'];
-  const data = this.computeForecastData();
-
-  const style = getComputedStyle(document.body);
-  const backgroundColor = style.getPropertyValue('--card-background-color');
-  const textColor = style.getPropertyValue('--primary-text-color');
-  const dividerColor = style.getPropertyValue('--divider-color');
-  const canvas = this.renderRoot.querySelector('#forecastChart');
-  if (!canvas) {
-    requestAnimationFrame(() => this.drawChart());
-    return;
-  }
-
-  const ctx = canvas.getContext('2d');
-
-  let precipMax;
-  if (config.forecast.type === 'hourly') {
-    precipMax = lengthUnit === 'km' ? 4 : 1;
-  } else {
-    precipMax = lengthUnit === 'km' ? 20 : 1;
-  }
-
-  Chart.defaults.color = textColor;
-  Chart.defaults.scale.grid.color = dividerColor;
-  Chart.defaults.elements.line.fill = false;
-  Chart.defaults.elements.line.tension = 0.3;
-  Chart.defaults.elements.line.borderWidth = 1.5;
-  Chart.defaults.elements.point.radius = 2;
-  Chart.defaults.elements.point.hitRadius = 10;
-
-  // Boundary handling between station and forecast blocks differs by mode:
-  //
-  // - Daily combination: "today" appears as a doubled column (station-today
-  //   on the left, forecast-today on the right). The segment between those
-  //   two columns is suppressed (transparent) — measured vs. predicted of
-  //   the SAME day shouldn't visually flow into each other.
-  //
-  // - Hourly combination: there's no doubled hour. Station and forecast
-  //   meet at "now" with one bar each side. The boundary segment is
-  //   drawn DASHED — same visual cue we use for the rest of the forecast
-  //   block, but applied to the transition itself, so the user reads the
-  //   line as "measured up to now → predicted from now on" without a
-  //   confusing transparent gap.
-  const stationCountForGap = this._stationCount || 0;
-  const forecastCountForGap = this._forecastCount || 0;
-  const hasBothBlocks = stationCountForGap > 0 && forecastCountForGap > 0;
-  const gapStartIdx = stationCountForGap - 1;
-  const isHourlyCombo = hasBothBlocks && config.forecast.type === 'hourly';
-  const isBoundarySegment = (ctx) =>
-    ctx.p0DataIndex === gapStartIdx && ctx.p1DataIndex === gapStartIdx + 1;
-  const segmentSkip = (ctx) => {
-    if (!hasBothBlocks) return undefined;
-    // Hourly combo: boundary is drawn (dashed by segmentDash); only daily
-    // combo suppresses it.
-    if (!isHourlyCombo && isBoundarySegment(ctx)) return 'transparent';
-    return undefined;
-  };
-  // Dash forecast segments to mark "predicted, not measured". A segment is
-  // entirely in the forecast block when its left endpoint is at or past
-  // the first forecast index (stationCount). At hourly combo we also dash
-  // the boundary segment itself (the "is → soll" transition).
-  const segmentDash = (ctx) => {
-    if (ctx.p0DataIndex >= stationCountForGap && forecastCountForGap > 0) {
-      return [6, 4];
-    }
-    if (isHourlyCombo && isBoundarySegment(ctx)) return [6, 4];
-    return undefined;
-  };
-  const tempSegmentOpts = { borderColor: segmentSkip, borderDash: segmentDash };
-
-  const precipColor = config.forecast.precipitation_color;
-  const precipColorLight = lightenColor(precipColor);
-  const precipPerBarColor = (data.precip || []).map(
-    (_, i) => (hasBothBlocks && i >= stationCountForGap) ? precipColorLight
-            : (!hasBothBlocks && stationCountForGap === 0) ? precipColorLight
-            : precipColor,
-  );
-
-  // Sunshine row toggle. Works in both daily and hourly modes — the
-  // OpenMeteoSunshineSource fetches `daily=…` and (when in hourly mode)
-  // also `hourly=…` from Open-Meteo in a single call, and
-  // attachSunshine matches each entry's datetime against the right
-  // array. The chart adds a second bar dataset; Chart.js auto-groups
-  // precip + sunshine side-by-side per column (precip left half,
-  // sunshine right half).
-  const isHourlyChart = config.forecast.type === 'hourly';
-  const showSunshine = config.forecast.show_sunshine === true;
-  // Per-column "Xh" / "0.5h" labels only in daily mode — at hourly the
-  // 168 narrow columns over a 7-day window can't fit a label per bar,
-  // and the bar height itself encodes the value.
-  const showSunshineLabels = showSunshine && !isHourlyChart;
-  const sunshineColor = config.forecast.sunshine_color || 'rgba(255, 193, 7, 1.0)';
-  const sunshineColorLight = lightenColor(sunshineColor);
-  const sunshinePerBarColor = (data.sunshine || []).map(
-    (_, i) => (hasBothBlocks && i >= stationCountForGap) ? sunshineColorLight
-            : (!hasBothBlocks && stationCountForGap === 0) ? sunshineColorLight
-            : sunshineColor,
-  );
-  // Convert raw hours into 0..1 fractions of day length. Null values
-  // pass through so the bar slot stays empty for missing data.
-  const sunshineFractionData = sunshineFractions(data.sunshine, data.dayLength);
-
-  const datasets = [
-    {
-      label: this.ll('tempHi'),
-      type: 'line',
-      data: data.tempHigh,
-      yAxisID: 'TempAxis',
-      borderColor: config.forecast.temperature1_color,
-      backgroundColor: config.forecast.temperature1_color,
-      segment: tempSegmentOpts,
-    },
-    {
-      label: this.ll('tempLo'),
-      type: 'line',
-      data: data.tempLow,
-      yAxisID: 'TempAxis',
-      borderColor: config.forecast.temperature2_color,
-      backgroundColor: config.forecast.temperature2_color,
-      segment: tempSegmentOpts,
-      // Hourly forecasts carry only `temperature` per entry, no separate
-      // low — hide the second line dataset entirely (vs. drawing a flat
-      // empty line). precipPlugin still indexes dataset[2] so we must not
-      // remove this slot.
-      hidden: !data.tempLowAvailable,
-    },
-    {
-      label: this.ll('precip'),
-      type: 'bar',
-      data: data.precip,
-      yAxisID: 'PrecipAxis',
-      borderColor: precipPerBarColor,
-      backgroundColor: precipPerBarColor,
-      barPercentage: config.forecast.precip_bar_size / 100,
-      categoryPercentage: 1.0,
-      // datalabels handled by precipLabelPlugin so the unit can render
-      // at a smaller font next to the number. The default chartjs-
-      // datalabels render is suppressed via display:false here; the
-      // plugin reads dataset.data[i] directly to draw number + unit.
-      datalabels: {
-        display: function () { return false; },
-        textAlign: 'center',
-        textBaseline: 'middle',
-        align: 'top',
-        anchor: 'start',
-        offset: -10,
-      },
-    },
-  ];
-
-  if (showSunshine) {
-    datasets.push({
-      label: this.ll('sunshine'),
-      type: 'bar',
-      data: sunshineFractionData,
-      yAxisID: 'SunshineAxis',
-      borderColor: sunshinePerBarColor,
-      backgroundColor: sunshinePerBarColor,
-      barPercentage: 1.0,
-      categoryPercentage: 1.0,
-      // Hours label is drawn by createSunshineLabelPlugin at the top of
-      // the column — suppress chartjs-datalabels for this dataset so the
-      // bar itself stays clean.
-      datalabels: { display: function () { return false; } },
-    });
-  }
-
-  const chart_text_color = (config.forecast.chart_text_color === 'auto') ? textColor : config.forecast.chart_text_color;
-
-  if (config.forecast.style === 'style2') {
-    const todayBoldFont = (context) => {
-      const dt = data.dateTime[context.dataIndex];
-      const k = dt ? new Date(dt) : null;
-      if (k) k.setHours(0, 0, 0, 0);
-      const t = new Date(); t.setHours(0, 0, 0, 0);
-      const isToday = k && k.getTime() === t.getTime();
-      return {
-        size: parseInt(config.forecast.labels_font_size) + 1,
-        lineHeight: 0.7,
-        weight: isToday ? 'bold' : 'normal',
-      };
-    };
-
-    datasets[0].datalabels = {
-      display: function (context) {
-        return 'true';
-      },
-      formatter: function (value, context) {
-        return context.dataset.data[context.dataIndex] + '°';
-      },
-      align: 'top',
-      anchor: 'center',
-      backgroundColor: 'transparent',
-      borderColor: 'transparent',
-      color: chart_text_color || config.forecast.temperature1_color,
-      font: todayBoldFont,
-    };
-
-    datasets[1].datalabels = {
-      display: function (context) {
-        return 'true';
-      },
-      formatter: function (value, context) {
-        return context.dataset.data[context.dataIndex] + '°';
-      },
-      align: 'bottom',
-      anchor: 'center',
-      backgroundColor: 'transparent',
-      borderColor: 'transparent',
-      color: chart_text_color || config.forecast.temperature2_color,
-      font: todayBoldFont,
-    };
-  }
-
-  const stationCount = this._stationCount || 0;
-  const forecastCount = this._forecastCount || 0;
-  const isHourly = config.forecast.type === 'hourly';
-  // doubled-today only makes sense at daily — at hourly station and
-  // forecast meet at "now" with a single separator line.
-  const doubledToday = !isHourly && stationCount > 0 && forecastCount > 0;
-  // When sunshine is on, draw.js grows the x-axis box by sunshineLabelBand
-  // pixels via afterFit. dailyTickLabelsPlugin then shifts weekday + date
-  // up by that amount so the new bottom strip is free for the sunshine
-  // box. When sunshine is off, sunshineLabelBand stays 0 and chart
-  // layout is byte-identical to v0.8.
-  const labelsBaseSize = parseInt(config.forecast.labels_font_size) || 11;
-  const sunshineLabelBand = showSunshineLabels ? Math.max(16, labelsBaseSize + 6) : 0;
-  const separatorPlugin = createSeparatorPlugin({
-    stationCount, forecastCount, style, dividerColor,
-    mode: isHourly ? 'hourly' : 'daily',
-  });
-  const dailyTickLabelsPlugin = createDailyTickLabelsPlugin({
-    config, language, data, textColor, backgroundColor, style, stationCount, doubledToday,
-    sunshineLabelBand,
-  });
-  const precipLabelPlugin = createPrecipLabelPlugin({
-    config, data, precipUnit, precipPerBarColor, precipColor, textColor, backgroundColor,
-    chartTextColor: chart_text_color,
-  });
-
-  const plugins = [separatorPlugin, dailyTickLabelsPlugin, precipLabelPlugin];
-  if (showSunshineLabels) {
-    plugins.push(createSunshineLabelPlugin({
-      config, data, textColor, backgroundColor,
-      chartTextColor: chart_text_color,
-      sunshineColor, sunshinePerBarColor,
-      bandHeight: sunshineLabelBand,
-    }));
-  }
-
-  this._chartPhase = 'init';
-  this.forecastChart = buildChart(ctx, {
-    datasets,
-    plugins,
-    data,
-    config,
-    language,
-    textColor,
-    backgroundColor,
-    dividerColor,
-    chartTextColor: chart_text_color,
-    precipMax,
-    precipUnit,
-    tempUnit,
-    doubledToday,
-    stationCount,
-    style,
-    sunshineLabelBand,
-  });
-  this._chartPhase = null;
 }
 
 computeForecastData({ config, forecastItems } = this) {
@@ -1216,7 +810,7 @@ computeForecastData({ config, forecastItems } = this) {
     // tempLow is null when no entry has `templow` (hourly forecast). Coerce
     // to [] so the dataset builder downstream — which indexes by position —
     // doesn't choke. The single-line decision (hide dataset[1]) lives in
-    // _drawChartUnsafe, gated on `tempLow === null` from hourlyTempSeries.
+    // chart/orchestrator, gated on `tempLow === null` from hourlyTempSeries.
     tempLow: tempLow || [],
     // Track the high/low intent separately so the chart layer can decide
     // whether to render a second temperature line; null means hourly /
@@ -1248,6 +842,43 @@ updateChart({ forecasts, forecastChart } = this) {
     }
     forecastChart.update();
   }
+}
+
+// Renders the daily ↔ hourly mode toggle as a small circular button
+// overlaid on the chart at the precipitation-baseline level. Only
+// visible when there's a station OR forecast block to switch
+// (`forecast.type` drives both MeasuredDataSource period:hour|day
+// and ForecastDataSource forecast_type — toggling is meaningful
+// whenever any block renders, including station-only).
+renderModeToggle() {
+  const cfg = this.config || {};
+  const showsStation = cfg.show_station !== false;
+  const showsForecast = cfg.show_forecast === true && !!cfg.weather_entity;
+  if (!showsStation && !showsForecast) return '';
+  const isHourly = (cfg.forecast || {}).type === 'hourly';
+  const icon = isHourly ? 'mdi:calendar-month-outline' : 'mdi:clock-time-eight-outline';
+  const label = isHourly ? 'Switch to daily forecast' : 'Switch to hourly forecast';
+  return html`
+    <button type="button" class="mode-toggle" aria-label="${label}"
+            aria-pressed="${isHourly ? 'true' : 'false'}" title="${label}"
+            @click=${this._onModeToggleClick}>
+      <ha-icon icon=${icon} aria-hidden="true"></ha-icon>
+    </button>
+  `;
+}
+
+// Toggle between daily and hourly via the same setConfig path the
+// editor uses. _invalidateStaleSources picks up the forecast.type
+// change and rebuilds both station and forecast data sources, so
+// hourly station aggregates load on demand. The mutation does NOT
+// persist to the user's saved YAML — refresh resets to whatever
+// they configured. For permanent changes, the editor's radio.
+_onModeToggleClick(ev) {
+  if (ev) ev.stopPropagation();
+  const cfg = this.config || {};
+  const fcfg = cfg.forecast || {};
+  const next = fcfg.type === 'hourly' ? 'daily' : 'hourly';
+  this.setConfig({ ...cfg, forecast: { ...fcfg, type: next } });
 }
 
   render({config, _hass, weather} = this) {
@@ -1322,8 +953,7 @@ updateChart({ forecasts, forecastChart } = this) {
               <button type="button" class="scroll-indicator scroll-indicator-right" aria-label="Scroll right" hidden>
                 <ha-icon icon="mdi:chevron-right" aria-hidden="true"></ha-icon>
               </button>
-              <button type="button" class="jump-to-now" aria-label="Jump to now" title="Jump to now" hidden
-                @click=${this._onJumpToNowClick}>
+              <button type="button" class="jump-to-now" aria-label="Jump to now" title="Jump to now" hidden>
                 <ha-icon icon="mdi:crosshairs-gps" aria-hidden="true"></ha-icon>
               </button>
             ` : ''}
@@ -1720,347 +1350,13 @@ _convertWindSpeed(raw) {
     return event;
   }
 
-  // Mirror of HA's frontend handle-action helper, scoped to the actions
-  // the editor exposes via ha-selector ui_action: more-info, navigate,
-  // url, toggle, perform-action (a.k.a. call-service) and assist.
-  // 'none' / unconfigured actions are no-ops. We don't import HA's
-  // handle-action to avoid a runtime dependency on an internal module
-  // path that has changed names across HA versions.
-  // Wire up scroll-related UX on the .forecast-scroll wrapper:
-  //   - mouse drag-to-scroll on desktop (touch keeps native scrolling)
-  //   - left/right indicator buttons that scroll one viewport at a time
-  //   - indicator visibility tracking via the wrapper's scroll event
-  //
-  // Idempotent on stable elements via a per-element flag — Lit reuses
-  // the wrapper across data refreshes, so we don't want to re-bind on
-  // every render. Cleanup teardown is stored on `this` so disconnect
-  // can detach.
-  _setupScrollUx() {
-    const wrapper = this.shadowRoot && this.shadowRoot.querySelector('.forecast-scroll.scrolling');
-    if (!wrapper) {
-      // Non-scrolling render (daily default fits all). Detach any
-      // previously bound handlers so a daily↔hourly toggle doesn't leak.
-      if (this._scrollUxTeardown) {
-        this._scrollUxTeardown();
-        this._scrollUxTeardown = null;
-      }
-      return;
-    }
-    if (wrapper._wsScrollUxBound) {
-      // Same element, already bound — only refresh indicator visibility
-      // (which depends on current scrollLeft / scrollWidth).
-      this._updateScrollIndicators();
-      return;
-    }
-    wrapper._wsScrollUxBound = true;
-
-    const block = wrapper.parentElement; // .forecast-scroll-block
-    const leftBtn = block && block.querySelector('.scroll-indicator-left');
-    const rightBtn = block && block.querySelector('.scroll-indicator-right');
-
-    // ── Drag-to-scroll + tap suppression ──────────────────────────────
-    // We listen to ALL pointer types so a swipe / drag — whether mouse
-    // or touch — sets `this._dragMoved`, which the action handler on
-    // ha-card checks before firing tap_action / hold_action. Without
-    // that gate, a horizontal touch-swipe to scroll the chart on mobile
-    // would also fire the configured tap action on pointerup.
-    //
-    // The actual scrollLeft manipulation (and pointer capture) is still
-    // mouse-only — touch falls through to the native `overflow-x: auto`
-    // scroll, and calling preventDefault or capturing the pointer
-    // would interfere with that native gesture.
-    const DRAG_THRESHOLD = 5;
-    let isDown = false;
-    let dragMoved = false;
-    let startX = 0;
-    let startScrollLeft = 0;
-    let activePointerId = null;
-
-    const onPointerDown = (ev) => {
-      isDown = true;
-      dragMoved = false;
-      activePointerId = ev.pointerId;
-      startX = ev.clientX;
-      startScrollLeft = wrapper.scrollLeft;
-      if (ev.pointerType === 'mouse') {
-        try { wrapper.setPointerCapture(ev.pointerId); } catch (_) { /* not always supported */ }
-      }
-    };
-
-    const onPointerMove = (ev) => {
-      if (!isDown || ev.pointerId !== activePointerId) return;
-      const dx = ev.clientX - startX;
-      if (!dragMoved && Math.abs(dx) > DRAG_THRESHOLD) {
-        dragMoved = true;
-        // Shared with the action handler so that a drag/swipe gesture
-        // doesn't also fire a tap_action on pointerup.
-        this._dragMoved = true;
-        wrapper.classList.add('dragging');
-      }
-      if (dragMoved && ev.pointerType === 'mouse') {
-        wrapper.scrollLeft = startScrollLeft - dx;
-        ev.preventDefault();
-      }
-    };
-
-    const onPointerEnd = (ev) => {
-      if (!isDown || (ev && ev.pointerId !== activePointerId)) return;
-      isDown = false;
-      activePointerId = null;
-      wrapper.classList.remove('dragging');
-      // pointercancel from the browser claiming the gesture for native
-      // scroll counts as a drag, even if our pointermove threshold
-      // wasn't crossed yet — any pointerup that may bubble up to the
-      // ha-card afterwards must skip its tap-detection branch.
-      if (ev && ev.type === 'pointercancel') {
-        dragMoved = true;
-        this._dragMoved = true;
-      }
-      if (dragMoved) {
-        // Reset via setTimeout(0) — a macrotask, not a microtask. The
-        // ha-card's pointerup listener bubbles up AFTER this one in the
-        // same event dispatch, and microtasks flush between listener
-        // invocations in V8/Blink, so a Promise.resolve().then(reset)
-        // would fire before the action handler reads the flag and the
-        // tap would still trigger. setTimeout(0) defers the reset to
-        // the next macrotask, after the entire event dispatch is done.
-        setTimeout(() => { this._dragMoved = false; }, 0);
-      }
-    };
-
-    wrapper.addEventListener('pointerdown', onPointerDown);
-    wrapper.addEventListener('pointermove', onPointerMove);
-    wrapper.addEventListener('pointerup', onPointerEnd);
-    wrapper.addEventListener('pointercancel', onPointerEnd);
-
-    // ── Indicator click ───────────────────────────────────────────────
-    // stopPropagation prevents the action handler (bound on ha-card)
-    // from interpreting the indicator click as a card-level tap.
-    const stepBy = 0.85; // scroll about one viewport, leave a hint of overlap
-    const onLeftClick = (ev) => {
-      ev.stopPropagation();
-      wrapper.scrollBy({ left: -wrapper.clientWidth * stepBy, behavior: 'smooth' });
-    };
-    const onRightClick = (ev) => {
-      ev.stopPropagation();
-      wrapper.scrollBy({ left: wrapper.clientWidth * stepBy, behavior: 'smooth' });
-    };
-    const stopDown = (ev) => ev.stopPropagation();
-    if (leftBtn) {
-      leftBtn.addEventListener('click', onLeftClick);
-      leftBtn.addEventListener('pointerdown', stopDown);
-    }
-    if (rightBtn) {
-      rightBtn.addEventListener('click', onRightClick);
-      rightBtn.addEventListener('pointerdown', stopDown);
-    }
-
-    // ── Indicator visibility on scroll ───────────────────────────────
-    const onScroll = () => this._updateScrollIndicators();
-    wrapper.addEventListener('scroll', onScroll, { passive: true });
-    this._updateScrollIndicators();
-
-    this._scrollUxTeardown = () => {
-      wrapper.removeEventListener('pointerdown', onPointerDown);
-      wrapper.removeEventListener('pointermove', onPointerMove);
-      wrapper.removeEventListener('pointerup', onPointerEnd);
-      wrapper.removeEventListener('pointercancel', onPointerEnd);
-      wrapper.removeEventListener('scroll', onScroll);
-      if (leftBtn) {
-        leftBtn.removeEventListener('click', onLeftClick);
-        leftBtn.removeEventListener('pointerdown', stopDown);
-      }
-      if (rightBtn) {
-        rightBtn.removeEventListener('click', onRightClick);
-        rightBtn.removeEventListener('pointerdown', stopDown);
-      }
-      wrapper.classList.remove('dragging');
-      wrapper._wsScrollUxBound = false;
-    };
-  }
-
-  _updateScrollIndicators() {
-    const block = this.shadowRoot && this.shadowRoot.querySelector('.forecast-scroll-block');
-    if (!block) return;
-    const wrapper = block.querySelector('.forecast-scroll.scrolling');
-    if (!wrapper) return;
-    const left = block.querySelector('.scroll-indicator-left');
-    const right = block.querySelector('.scroll-indicator-right');
-    if (left && right) {
-      const slop = 1; // sub-pixel rounding tolerance
-      const max = wrapper.scrollWidth - wrapper.clientWidth;
-      if (wrapper.scrollLeft > slop) left.removeAttribute('hidden');
-      else left.setAttribute('hidden', '');
-      if (wrapper.scrollLeft < max - slop) right.removeAttribute('hidden');
-      else right.setAttribute('hidden', '');
-    }
-    // Jump-to-now visibility — hidden when current scrollLeft is within
-    // ~10% of one viewport width of the canonical "now" position. The
-    // threshold is relative so it scales with display size; phones get a
-    // tighter band than desktops in absolute pixels.
-    const jump = block.querySelector('.jump-to-now');
-    if (jump) {
-      const target = computeInitialScrollLeft({
-        stationCount: this._stationCount || 0,
-        forecastCount: this._forecastCount || 0,
-        contentWidth: wrapper.scrollWidth,
-        viewportWidth: wrapper.clientWidth,
-      });
-      const offset = Math.abs(wrapper.scrollLeft - target);
-      const threshold = Math.max(20, wrapper.clientWidth * 0.1);
-      if (offset > threshold) jump.removeAttribute('hidden');
-      else jump.setAttribute('hidden', '');
-    }
-    this._updateScrollDateStamps(block, wrapper);
-  }
-
-  // Renders the daily ↔ hourly mode toggle as a small circular button
-  // overlaid at the top-left of the forecast-scroll-block. Only visible
-  // when there's a forecast block to switch (otherwise the toggle has
-  // no effect — the station block alone runs at the configured forecast
-  // type but the user can't see the difference without forecast data
-  // to compare against).
-  renderModeToggle() {
-    const cfg = this.config || {};
-    // forecast.type drives both MeasuredDataSource (period: hour|day)
-    // and ForecastDataSource (forecast_type) — toggling is meaningful
-    // whenever ANY block renders, including station-only.
-    const showsStation = cfg.show_station !== false;
-    const showsForecast = cfg.show_forecast === true && !!cfg.weather_entity;
-    if (!showsStation && !showsForecast) return '';
-    const isHourly = (cfg.forecast || {}).type === 'hourly';
-    const icon = isHourly ? 'mdi:calendar-month-outline' : 'mdi:clock-time-eight-outline';
-    const label = isHourly ? 'Switch to daily forecast' : 'Switch to hourly forecast';
-    return html`
-      <button type="button" class="mode-toggle" aria-label="${label}"
-              aria-pressed="${isHourly ? 'true' : 'false'}" title="${label}"
-              @click=${this._onModeToggleClick}>
-        <ha-icon icon=${icon} aria-hidden="true"></ha-icon>
-      </button>
-    `;
-  }
-
-  // Toggle between daily and hourly via the same setConfig path the
-  // editor uses. _invalidateStaleSources picks up the forecast.type
-  // change and rebuilds both station and forecast data sources, so
-  // hourly station aggregates load on demand. The mutation does NOT
-  // persist to the user's saved YAML — refresh resets to whatever
-  // they configured. For permanent changes, the editor's radio.
-  _onModeToggleClick(ev) {
-    if (ev) ev.stopPropagation();
-    const cfg = this.config || {};
-    const fcfg = cfg.forecast || {};
-    const next = fcfg.type === 'hourly' ? 'daily' : 'hourly';
-    this.setConfig({ ...cfg, forecast: { ...fcfg, type: next } });
-  }
-
-  _onJumpToNowClick(ev) {
-    if (ev) ev.stopPropagation();
-    const wrapper = this.shadowRoot && this.shadowRoot.querySelector('.forecast-scroll.scrolling');
-    if (!wrapper) return;
-    const target = computeInitialScrollLeft({
-      stationCount: this._stationCount || 0,
-      forecastCount: this._forecastCount || 0,
-      contentWidth: wrapper.scrollWidth,
-      viewportWidth: wrapper.clientWidth,
-    });
-    wrapper.scrollTo({ left: target, behavior: 'smooth' });
-  }
-
-  // At hourly: surface the date of the leftmost and rightmost visible
-  // bar by overlaying it directly above the corresponding tick — same
-  // visual style as the chart's own midnight marker (e.g. "May 6"
-  // above "00:00"). The chart only prints a date at midnight ticks,
-  // so a viewport that doesn't span 00:00 would otherwise leave the
-  // user without context which day they're looking at.
-  //
-  // When the leftmost / rightmost visible IS a midnight, the chart
-  // already shows the date there — we hide our overlay to avoid
-  // a duplicate.
-  _updateScrollDateStamps(block, wrapper) {
-    const leftEl = block.querySelector('.scroll-date-left');
-    const rightEl = block.querySelector('.scroll-date-right');
-    if (!leftEl || !rightEl) return;
-
-    const total = (this.forecasts || []).length;
-    if (!total || wrapper.scrollWidth <= 0) {
-      leftEl.setAttribute('hidden', '');
-      rightEl.setAttribute('hidden', '');
-      return;
-    }
-
-    const barWidth = wrapper.scrollWidth / total;
-    if (barWidth <= 0) return;
-
-    // floor(scrollLeft / barWidth) is the leftmost partially-visible
-    // bar; floor((scrollLeft + clientWidth - 1) / barWidth) is the
-    // rightmost. Each bar's tick label sits centred at (idx + 0.5) ×
-    // barWidth in canvas-pixel coordinates; subtract scrollLeft to
-    // map to viewport-pixel coordinates.
-    const leftIdx = Math.max(0, Math.min(total - 1, Math.floor(wrapper.scrollLeft / barWidth)));
-    const rightIdx = Math.max(0, Math.min(total - 1, Math.floor((wrapper.scrollLeft + wrapper.clientWidth - 1) / barWidth)));
-    const rawLeftCenterX = (leftIdx + 0.5) * barWidth - wrapper.scrollLeft;
-    const rawRightCenterX = (rightIdx + 0.5) * barWidth - wrapper.scrollLeft;
-    // Clamp the centre so translateX(-50%) doesn't push half the text
-    // outside the card. Reserved half-text-width is conservative (handles
-    // "Sep 12" at ~30 px half-width across the locales we ship). Without
-    // clamping, a leftmost bar that's 60-90 % scrolled past the viewport
-    // gives a small positive centre (e.g. 15 px) and the label still
-    // pokes off the left card edge.
-    const TEXT_HALF = 30;
-    const leftCenterX = Math.max(TEXT_HALF, rawLeftCenterX);
-    const rightCenterX = Math.min(wrapper.clientWidth - TEXT_HALF, rawRightCenterX);
-
-    const lang = this.config.locale || this.language || 'en';
-    const fmt = (idx) => {
-      const item = this.forecasts[idx];
-      if (!item || !item.datetime) return { date: '', isMidnight: false };
-      try {
-        const d = new Date(item.datetime);
-        const isMidnight = d.getHours() === 0 && d.getMinutes() === 0;
-        return {
-          date: d.toLocaleDateString(lang, { day: 'numeric', month: 'short' }),
-          isMidnight,
-        };
-      } catch (_) {
-        return { date: '', isMidnight: false };
-      }
-    };
-
-    // Collect the dates of every midnight tick that's currently inside
-    // the viewport — those dates are already drawn by the chart's own
-    // tick callback as a "May 6" stamp above the 00:00 tick. If our
-    // edge overlay would show the same date, it's redundant.
-    const visibleMidnightDates = new Set();
-    for (let i = leftIdx; i <= rightIdx; i++) {
-      const info = fmt(i);
-      if (info.isMidnight) visibleMidnightDates.add(info.date);
-    }
-
-    const leftInfo = fmt(leftIdx);
-    const rightInfo = fmt(rightIdx);
-
-    const apply = (el, info, centerX) => {
-      if (!info.date || info.isMidnight || visibleMidnightDates.has(info.date)) {
-        el.setAttribute('hidden', '');
-        return;
-      }
-      el.textContent = info.date;
-      el.style.left = `${Math.round(centerX)}px`;
-      el.removeAttribute('hidden');
-    };
-    apply(leftEl, leftInfo, leftCenterX);
-    if (rightIdx === leftIdx) rightEl.setAttribute('hidden', '');
-    else apply(rightEl, rightInfo, rightCenterX);
-  }
-
   // Apply the "scroll to now" position once per render generation.
   // A generation changes when forecast.type or number_of_forecasts
   // change — outside those, we leave scrollLeft alone so the user's
   // manual scroll position survives data refreshes (which fire every
   // hour from MeasuredDataSource).
   _maybeApplyInitialScroll(changedProperties) {
-    const wrapper = this.shadowRoot && this.shadowRoot.querySelector('.forecast-scroll.scrolling');
+    const wrapper = safeQuery(this.shadowRoot,'.forecast-scroll.scrolling');
     if (!wrapper) {
       // Non-scrolling render (or before first paint). Mark unapplied so
       // the next scrolling render re-positions.
@@ -2158,62 +1454,6 @@ _convertWindSpeed(raw) {
     }
   }
 
-  _runAction(actionConfig) {
-    if (!actionConfig || !actionConfig.action || actionConfig.action === 'none') return;
-    const hass = this._hass;
-    const fallbackEntity = (this.config && this.config.sensors && this.config.sensors.temperature) || '';
-    const action = actionConfig.action;
-
-    if (action === 'more-info') {
-      const entityId = actionConfig.entity || fallbackEntity;
-      if (entityId) this._fire('hass-more-info', { entityId });
-      return;
-    }
-    if (action === 'navigate') {
-      if (!actionConfig.navigation_path) return;
-      window.history.pushState(null, '', actionConfig.navigation_path);
-      // HA listens for `location-changed` on window to drive the router;
-      // bubbles:true so it reaches the panel regardless of who fired it.
-      const ev = new Event('location-changed', { bubbles: true, composed: true, cancelable: false });
-      ev.detail = { replace: actionConfig.navigation_replace === true };
-      window.dispatchEvent(ev);
-      return;
-    }
-    if (action === 'url') {
-      if (!actionConfig.url_path) return;
-      window.open(actionConfig.url_path);
-      return;
-    }
-    if (action === 'toggle') {
-      const entityId = actionConfig.entity || fallbackEntity;
-      if (!entityId || !hass) return;
-      const domain = entityId.split('.')[0];
-      hass.callService(domain, 'toggle', { entity_id: entityId });
-      return;
-    }
-    if (action === 'perform-action' || action === 'call-service') {
-      // HA renamed `service` → `perform_action` in 2024.8; keep both for
-      // backwards compatibility with older YAML.
-      const svc = actionConfig.perform_action || actionConfig.service;
-      if (!svc || !hass) return;
-      const dot = svc.indexOf('.');
-      if (dot < 0) return;
-      const domain = svc.slice(0, dot);
-      const service = svc.slice(dot + 1);
-      const data = actionConfig.data || actionConfig.service_data || {};
-      const target = actionConfig.target;
-      hass.callService(domain, service, data, target);
-      return;
-    }
-    if (action === 'assist') {
-      this._fire('hass-action-assist', actionConfig);
-      return;
-    }
-    if (action === 'fire-dom-event') {
-      this._fire('ll-custom', actionConfig);
-      return;
-    }
-  }
 }
 
 customElements.define('weather-station-card', WeatherStationCard);
