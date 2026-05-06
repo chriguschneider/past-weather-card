@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Weather Station Card — E2E Harness</title>
+  <style>
+    /* Minimal HA-like theming. The live HA frontend exposes far more
+       CSS variables — we only set the ones the card reads, and let
+       the browser's user-agent default cover the rest. */
+    :root, body {
+      --primary-text-color: #212121;
+      --secondary-text-color: #757575;
+      --card-background-color: #ffffff;
+      --paper-item-icon-color: #44739e;
+      --divider-color: #e0e0e0;
+      --warning-color: #ff9800;
+      background: #fafafa;
+      color: var(--primary-text-color);
+      font-family: 'Roboto', 'Helvetica', sans-serif;
+      margin: 0;
+      padding: 16px;
+    }
+    /* Stand-ins for ha-card / ha-form / ha-* primitives the card
+       uses. The E2E suite isn't testing the HA frontend's own
+       styling — it's testing our card's behaviour against a typed
+       contract. Render-as-block is enough; the card's own <style>
+       block handles the layout. (ha-icon is special — see the
+       polyfill below the CSS.) */
+    /* IMPORTANT: ha-card needs both `width` and `box-sizing: border-box`.
+       Chart.js attaches a ResizeObserver to its canvas's parent. With
+       `max-width` only, the parent's flex behaviour can let the canvas
+       drift beyond ~33 000 px on each resize tick — chart.js then sees
+       its own redraw and grows the canvas again, an infinite loop the
+       browser kills with a screenshot timeout. Fixed-width here pins
+       the chart geometry deterministically. */
+    [data-slot] {
+      width: 600px;
+      margin: 0 auto;
+    }
+    ha-card {
+      display: block;
+      background: var(--card-background-color);
+      border-radius: 12px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      padding: 0;
+      width: 600px;
+      box-sizing: border-box;
+    }
+    ha-icon, ha-icon-button, ha-svg-icon, ha-textfield, ha-form,
+    ha-select, ha-list-item, ha-radio, ha-switch, ha-entity-picker,
+    ha-selector { display: inline-block; }
+    ha-textfield, ha-form, ha-select, ha-entity-picker, ha-selector {
+      display: block;
+    }
+    /* The ha-icon polyfill is registered as a custom element below
+       the harness script (it needs its own shadow DOM to render
+       inside the CARD's shadow DOM, where light-DOM CSS rules don't
+       reach). The harness CSS just guarantees the unknown-element
+       fallback layout. */
+    /* The harness loads two test cards side-by-side when invoked with
+       ?dual=1 (used by the mode-toggle / cross-card behaviour spec).
+       Default layout is single. */
+    .harness-grid {
+      display: grid;
+      gap: 24px;
+      grid-template-columns: 1fr;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .harness-grid.dual {
+      grid-template-columns: 1fr 1fr;
+    }
+  </style>
+</head>
+<body>
+  <div id="harness" class="harness-grid"></div>
+
+  <!--
+    ha-icon polyfill registered BEFORE the bundle loads, so any
+    `<ha-icon>` the card creates inherits the polyfill behaviour.
+    Each instance attaches its own shadow root to render a small
+    coloured square — that way screenshots show icon POSITIONS
+    consistently even though we don't ship the real Material Design
+    Icons font.
+  -->
+  <script>
+    // Open-Meteo fetch stub — returns canned deterministic sunshine
+    // data so the show_sunshine baselines stay stable. The live
+    // OpenMeteoSunshineSource issues a real network request to
+    // api.open-meteo.com; in CI / locally we want neither network
+    // dependency nor day-of-year variation in baselines.
+    (() => {
+      const orig = window.fetch;
+      window.fetch = async function (url, init) {
+        const u = String(url);
+        if (u.startsWith('https://api.open-meteo.com/')) {
+          const body = makeOpenMeteoResponse(u);
+          return new Response(JSON.stringify(body), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        return orig.call(this, url, init);
+      };
+      function makeOpenMeteoResponse(url) {
+        const params = new URL(url).searchParams;
+        const pastDays = parseInt(params.get('past_days') || '0', 10);
+        const forecastDays = parseInt(params.get('forecast_days') || '7', 10);
+        const includeHourly = (params.get('hourly') || '').includes('sunshine_duration');
+        // Anchor at the same FIXTURE_TODAY the spec layer uses so the
+        // sunshine values align column-for-column with the rest of
+        // the chart. Open-Meteo emits dates in YYYY-MM-DD (`timezone=auto`).
+        const anchor = new Date('2026-05-06T00:00:00');
+        const dailyTime = [];
+        const dailySunshine = [];
+        // Past days are pastDays entries before anchor; forecast
+        // days include anchor and the next forecastDays-1 days.
+        const totalDays = pastDays + forecastDays;
+        const start = new Date(anchor);
+        start.setDate(anchor.getDate() - pastDays);
+        for (let i = 0; i < totalDays; i++) {
+          const d = new Date(start);
+          d.setDate(start.getDate() + i);
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          dailyTime.push(`${y}-${m}-${day}`);
+          // Sinusoidal day-length × cloud-cover proxy. Range
+          // 0..50000 s ≈ 0..14 h. Round to the nearest minute so the
+          // "Xh" labels render as clean 6h / 9h / 13h tokens.
+          const hours = Math.max(0, Math.round((6 + 4 * Math.sin(i * 0.7)) * 10) / 10);
+          dailySunshine.push(Math.round(hours * 3600));
+        }
+        const out = {
+          daily: { time: dailyTime, sunshine_duration: dailySunshine },
+        };
+        if (includeHourly) {
+          const hourlyTime = [];
+          const hourlySunshine = [];
+          // 24 × totalDays hours, midnight-anchored.
+          for (let i = 0; i < 24 * totalDays; i++) {
+            const d = new Date(start);
+            d.setHours(start.getHours() + i, 0, 0, 0);
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const h = String(d.getHours()).padStart(2, '0');
+            hourlyTime.push(`${y}-${m}-${day}T${h}:00`);
+            // Sun is up 7-19; per-hour 0..3600 s.
+            const hr = d.getHours();
+            const seconds = (hr >= 7 && hr <= 19)
+              ? Math.round(3600 * Math.sin((hr - 7) / 12 * Math.PI))
+              : 0;
+            hourlySunshine.push(seconds);
+          }
+          out.hourly = { time: hourlyTime, sunshine_duration: hourlySunshine };
+        }
+        return out;
+      }
+    })();
+
+    if (!customElements.get('ha-icon')) {
+      customElements.define('ha-icon', class HaIconPolyfill extends HTMLElement {
+        static get observedAttributes() { return ['icon']; }
+        connectedCallback() { this._render(); }
+        attributeChangedCallback() { this._render(); }
+        _render() {
+          if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
+          // Map the icon-name suffix to a single Unicode glyph that
+          // rasterises consistently across systems. A small set is
+          // enough — most icons fall back to the generic dot.
+          const name = (this.getAttribute('icon') || '').replace(/^.*:/, '');
+          const map = {
+            'weather-cloudy': '☁',     // ☁
+            'weather-partly-cloudy': '⛅',
+            'weather-sunny': '☀',      // ☀
+            'weather-night': '☽',
+            'weather-rainy': '☔',      // ☔
+            'weather-pouring': '☔',
+            'weather-snowy': '❄',
+            'weather-fog': '☁',
+            'weather-windy': '▒',
+            'weather-windy-variant': '▒',
+            'water-percent': '°',      // °
+            'gauge': '⚑',
+            'thermometer-water': '⨎',
+            'white-balance-sunny': '☀',
+            'weather-sunset-up': '↑',
+            'weather-sunset-down': '↓',
+            'arrow-down': '↓',
+            'arrow-up': '↑',
+            'arrow-left': '←',
+            'arrow-right': '→',
+            'arrow-bottom-left': '↙',
+            'arrow-top-left': '↖',
+            'arrow-top-right': '↗',
+            'arrow-bottom-right': '↘',
+            'chevron-left': '‹',
+            'chevron-right': '›',
+            'crosshairs-gps': '⌖',
+            'alert-circle-outline': '⚠',
+          };
+          const glyph = map[name] || '●';  // ● fallback
+          this.shadowRoot.innerHTML = `
+            <style>
+              :host { display: inline-flex; width: 24px; height: 24px;
+                      align-items: center; justify-content: center;
+                      vertical-align: middle; color: #44739e; }
+              span { font-size: 14px; line-height: 1; }
+            </style>
+            <span>${glyph}</span>`;
+        }
+      });
+    }
+  </script>
+
+  <!--
+    The harness loads the production bundle from /dist. Tests can
+    override the bundle path with ?bundle=… when iterating against a
+    local rollup build under a different name.
+  -->
+  <script type="module">
+    // Resolve the bundle URL from the query string — defaults to the
+    // committed dist artifact.
+    const params = new URLSearchParams(location.search);
+    const bundleUrl = params.get('bundle') || '/dist/weather-station-card.js';
+    const dual = params.get('dual') === '1';
+
+    if (dual) document.getElementById('harness').classList.add('dual');
+
+    // Load the card bundle. Done via dynamic import so any throw
+    // surfaces in console; spec then fails the test fast rather than
+    // timing out waiting for the custom element.
+    await import(bundleUrl);
+
+    // Side-load the fake-hass implementation so specs can build a
+    // mock inside the browser context from a serialised FixtureBag
+    // they pass via page.evaluate.
+    const { createHassMock } = await import('./hass-mock.js');
+
+    // Expose a small bootstrap surface to the spec layer. The spec
+    // calls window.__wsc.mount(config, hassMock) to insert a card
+    // into the harness. Returning a promise that resolves on
+    // firstUpdated lets specs await render readiness explicitly
+    // instead of guessing with timeouts.
+    window.__wsc = {
+      createMock: createHassMock,
+      async mount(config, hass, { slot = 'a' } = {}) {
+        const host = document.getElementById('harness');
+        let slotEl = host.querySelector(`[data-slot="${slot}"]`);
+        if (slotEl) {
+          slotEl.replaceChildren();
+        } else {
+          slotEl = document.createElement('div');
+          slotEl.setAttribute('data-slot', slot);
+          host.appendChild(slotEl);
+        }
+        const card = document.createElement('weather-station-card');
+        card.setConfig(config);
+        card.hass = hass;
+        slotEl.appendChild(card);
+        // Wait for Lit's first render to commit so the spec can
+        // querySelector into the shadow DOM immediately afterwards.
+        await card.updateComplete;
+        return card;
+      },
+      async setHass(slot, hass) {
+        const card = document.querySelector(`[data-slot="${slot}"] > weather-station-card`);
+        if (!card) throw new Error(`No card mounted at slot "${slot}"`);
+        card.hass = hass;
+        await card.updateComplete;
+        return card;
+      },
+      async unmountAll() {
+        const host = document.getElementById('harness');
+        host.replaceChildren();
+      },
+    };
+
+    // Signal "harness ready" via a window event the spec can `await`.
+    window.dispatchEvent(new CustomEvent('wsc-harness-ready'));
+  </script>
+</body>
+</html>

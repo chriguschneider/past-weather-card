@@ -12,3 +12,9 @@ dist/*.gz
 # data dumps, calibration scripts. Each release iteration leaves a few
 # files here that aren't part of the shipped card.
 scratch/
+# Playwright run artifacts. Visual-regression baselines under
+# tests-e2e/snapshots/ ARE committed (they're the contract the
+# suite checks against); per-run output below is not.
+test-results/
+playwright-report/
+.playwright/

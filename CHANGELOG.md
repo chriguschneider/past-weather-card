@@ -4,6 +4,63 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] — 2026-05-06
+
+E2E + visual-regression test suite. Playwright drives the bundled
+card against a fake-hass mock and compares 7 baseline screenshots
+covering every render mode. Closes
+[#14](https://github.com/chriguschneider/weather-station-card/issues/14).
+
+### Added
+
+- **Playwright E2E suite** under `tests-e2e/`. 18 specs across four
+  files:
+  - `render-modes.spec.ts` — 13 visual baselines: 3 modes
+    (combination, station-only, forecast-only) × 2 forecast types
+    (daily, hourly) × 2 sunshine variants (off, on) plus a 24-hour
+    hourly-zoom baseline that exercises the "fits all bars, no
+    scroll" code path.
+  - `scroll-and-actions.spec.ts` — drag-to-scroll, indicator
+    chevrons, tap-suppression-on-drag.
+  - `mode-toggle-jump-to-now.spec.ts` — daily↔hourly toggle config
+    round-trip, jump-to-now show/hide on scroll.
+  - `editor.spec.ts` — `_setMode`, `_sensorPickerChanged`,
+    `_actionChanged`, `_valueChanged` (nested keys),
+    `_conditionMappingChanged` mutator contracts.
+- **Fake-hass mock** (`tests-e2e/pages/hass-mock.js` + types in
+  `hass-mock.types.ts`). Routes `recorder/statistics_during_period`,
+  `weather/subscribe_forecast`, and logs `callService` events for
+  spec-side assertion. Unhandled WS types throw so typos surface
+  loudly.
+- **`window.fetch` stub for Open-Meteo** in the harness page —
+  returns canned, anchor-aligned sunshine data so the show_sunshine
+  baselines stay deterministic. The live OpenMeteoSunshineSource
+  hits api.open-meteo.com; we don't want network dependency or
+  day-of-year drift in the visual contract.
+- **`<ha-icon>` polyfill** in the harness — registers a custom
+  element that renders icon-name-suffix as a Unicode glyph (☁ for
+  weather-cloudy, ↑ for arrow-up, etc.). Without it, every condition
+  icon in the chart row and every attribute glyph (humidity %, wind
+  direction arrow, sunrise/sunset, …) would render as an empty
+  unknown element, leaving baselines silent on regressions in those
+  rows.
+- **Deterministic fixture generators** (`tests-e2e/fixtures/generate.ts`).
+  Sinusoidal sensor signals rounded to 1 decimal, anchored to a
+  fixed `2026-05-06` "today" so visual baselines stay stable run to
+  run regardless of when CI fires.
+- `npm run test:e2e` and `npm run test:e2e:update` scripts.
+- CI job: Playwright browsers installed alongside npm deps;
+  `playwright-report` + `test-results` uploaded as artifacts on
+  failure with 14-day retention.
+- `TESTING.md` rewritten to cover both unit and E2E layers, fake-hass
+  contract, baseline-update procedure, and debugging tips.
+
+### Changed
+
+- `package.json` adds `@playwright/test` and `http-server` as dev
+  dependencies. The harness page is served by `http-server` from the
+  repo root via `playwright.config.ts#webServer`.
+
 ## [1.2.0] — 2026-05-06
 
 TypeScript migration. Every `src/*.js` file (except `main.ts`,
