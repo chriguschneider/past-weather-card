@@ -81,4 +81,9 @@ jobs:
             exit 0
           fi
           git commit -m "chore: update e2e baselines from CI ($REF_NAME run $RUN_ID)"
+          # Race-resistant push: master may have advanced while the
+          # workflow was running (it ran for ~2 min, plenty of room).
+          # Rebase onto remote first; the only changes we have are the
+          # baseline PNGs which never conflict with code changes.
+          git pull --rebase origin "$REF_NAME"
           git push
