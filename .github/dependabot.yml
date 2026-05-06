@@ -1,0 +1,30 @@
+# Dependabot — added v1.4.2 (issue #19) for the security-baseline
+# phase. Weekly cadence keeps PR noise low for a hobby-scale repo;
+# bump to daily if the dependency surface grows.
+#
+# No auto-merge: every PR gets manually reviewed (small repo, Lit/HA
+# ecosystem moves fast and breaking changes do happen).
+
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      # Group dev-only patch + minor updates so the PR queue stays
+      # manageable. Major bumps still come as individual PRs.
+      dev-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "patch"
+          - "minor"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3

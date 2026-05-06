@@ -1,0 +1,56 @@
+# SonarCloud — added v1.4.2 (issue #19) but DISABLED until the
+# repo owner activates the SonarCloud project + secret.
+#
+# Activation steps: see sonar-project.properties.
+#
+# Why a separate workflow (not a step in build.yml): SonarCloud
+# needs the FULL git history (fetch-depth: 0) for blame-based
+# new-code detection, which makes the build slower. Keeping it
+# separate lets the main build stay fast.
+
+name: SonarCloud
+
+# Disabled at workflow level until SONAR_TOKEN is configured. To
+# activate: remove the `if: false` guard on the job below and add
+# SONAR_TOKEN to repo secrets.
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    if: false  # ← flip to `true` (or delete) once SONAR_TOKEN is set
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          # SonarCloud needs the full history for new-code detection.
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Generate coverage (LCOV)
+        # Reuses the same vitest config as the main build; output
+        # lands at coverage/lcov.info which sonar-project.properties
+        # points at.
+        run: npm run coverage
+
+      - name: SonarCloud scan
+        uses: sonarsource/sonarcloud-github-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

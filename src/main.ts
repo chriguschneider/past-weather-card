@@ -32,7 +32,7 @@ import {LitElement, html} from 'lit';
 import './weather-station-card-editor.js';
 import { MeasuredDataSource, ForecastDataSource } from './data-source.js';
 import { classifyDay, clearSkyLuxAt } from './condition-classifier.js';
-import { lightenColor, computeInitialScrollLeft } from './format-utils.js';
+import { computeInitialScrollLeft } from './format-utils.js';
 import {
   hourlyTempSeries,
   normalizeForecastMode,
@@ -50,14 +50,6 @@ import { setupScrollUx } from './scroll-ux.js';
 import { setupActionHandler } from './action-handler.js';
 import { drawChartUnsafe } from './chart/orchestrator.js';
 import { cardStyles } from './chart/styles.js';
-import {
-  createSeparatorPlugin,
-  createDailyTickLabelsPlugin,
-  createPrecipLabelPlugin,
-  createSunshineLabelPlugin,
-} from './chart/plugins.js';
-import { buildChart } from './chart/draw.js';
-import { property } from 'lit/decorators.js';
 import {Chart, registerables} from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 Chart.register(...registerables, ChartDataLabels);

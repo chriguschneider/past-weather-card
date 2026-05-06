@@ -11,7 +11,7 @@ type ChangeEvt = Event & { target: HTMLInputElement };
 export function renderLayoutSection(editor: EditorLike, ctx: EditorContext): TemplateResult {
   const { t, cfg, fcfg, hasSensor } = ctx;
   const valueChanged = (e: ChangeEvt, key: string): void =>
-    editor._valueChanged(e as unknown as { target: { value: string; checked: boolean } }, key);
+    editor._valueChanged(e, key);
 
   return html`
     <!-- ─── C. Layout ───────────────────────────────────────────── -->

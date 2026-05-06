@@ -12,7 +12,7 @@ type ChangeEvt = Event & { target: HTMLInputElement };
 export function renderStyleSection(editor: EditorLike, ctx: EditorContext): TemplateResult {
   const { t, cfg, fcfg } = ctx;
   const valueChanged = (e: ChangeEvt | { target: { value: string } }, key: string): void =>
-    editor._valueChanged(e as { target: { value: string } }, key);
+    editor._valueChanged(e, key);
 
   return html`
     <!-- ─── D. Style & Colours ──────────────────────────────────── -->
