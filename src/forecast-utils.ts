@@ -197,6 +197,18 @@ export function normalizeForecastMode<T = unknown>(rawConfig: T): NormalizeResul
   return { config: config as unknown as T, warnings };
 }
 
+/** Three-way cycle for the in-card mode-toggle button: daily → today
+ *  → hourly → daily. Unknown / unset input cycles to 'today' so a
+ *  freshly-configured card with no forecast.type behaves predictably.
+ *  Pure function — no side effects on the config. The caller (main.ts
+ *  `_onModeToggleClick`) merges the result back into `forecast.type`. */
+export function nextForecastType(current: string | undefined | null): 'daily' | 'today' | 'hourly' {
+  if (current === 'daily') return 'today';
+  if (current === 'today') return 'hourly';
+  if (current === 'hourly') return 'daily';
+  return 'today';
+}
+
 /** Returns the local-midnight start-of-today as ms-since-epoch. Pure
  *  helper used by the midnight-transition guards below — kept as a
  *  function (rather than `Date.now() - Date.now() % DAY_MS`) so each
@@ -268,4 +280,83 @@ export function dropEmptyStationToday<T extends Partial<ForecastEntry>>(
     && last.templow == null
     && last.precipitation == null;
   return noRecordedData ? station.slice(0, -1) : station;
+}
+
+/** 3-hour aggregator for the 'today' mode. Collapses each consecutive
+ *  run of 3 hourly entries into one 3 h block. Numeric fields take the
+ *  mean (precipitation + sunshine: sum), the condition becomes the
+ *  most-frequent value across the block, and the datetime anchors at
+ *  the block's first hour. Trailing entries that don't fill a full
+ *  block (e.g. station = 11 hours = 3+3+3+2) emit a partial block from
+ *  whatever's left rather than dropping data.
+ *
+ *  Mean values are rounded to one decimal so chart-datalabels render
+ *  as "11.1°" rather than "11.0666666666668°" — the raw mean of three
+ *  numeric values often has long-tail floating-point residue. The
+ *  card's `round_temp` setting still applies on top via
+ *  `hourlyTempSeries`. */
+export function aggregateThreeHour<T extends Partial<ForecastEntry>>(
+  entries: ReadonlyArray<T>,
+): ForecastEntry[] {
+  if (!Array.isArray(entries) || entries.length === 0) return [];
+  const blocks: ForecastEntry[] = [];
+  for (let i = 0; i < entries.length; i += 3) {
+    const slice = entries.slice(i, i + 3);
+    if (!slice.length) continue;
+    const meanField = (key: keyof ForecastEntry): number | null => {
+      const values: number[] = [];
+      for (const e of slice) {
+        const v = (e as Record<string, unknown>)[key as string];
+        if (v != null && typeof v === 'number' && Number.isFinite(v)) values.push(v);
+      }
+      if (!values.length) return null;
+      const mean = values.reduce((a, b) => a + b, 0) / values.length;
+      return Math.round(mean * 10) / 10;
+    };
+    const sumField = (key: keyof ForecastEntry): number | null => {
+      const values: number[] = [];
+      for (const e of slice) {
+        const v = (e as Record<string, unknown>)[key as string];
+        if (v != null && typeof v === 'number' && Number.isFinite(v)) values.push(v);
+      }
+      if (!values.length) return null;
+      const sum = values.reduce((a, b) => a + b, 0);
+      return Math.round(sum * 10) / 10;
+    };
+    const modeField = (key: keyof ForecastEntry): string => {
+      const counts = new Map<string, number>();
+      for (const e of slice) {
+        const v = (e as Record<string, unknown>)[key as string];
+        if (v == null) continue;
+        const s = String(v);
+        counts.set(s, (counts.get(s) || 0) + 1);
+      }
+      let best = '';
+      let bestCount = 0;
+      for (const [v, c] of counts) {
+        if (c > bestCount) { best = v; bestCount = c; }
+      }
+      return best;
+    };
+    blocks.push({
+      datetime: (slice[0] as ForecastEntry).datetime,
+      temperature: meanField('temperature'),
+      templow: meanField('templow'),
+      precipitation: sumField('precipitation'),
+      // Sum hourly sunshine duration over the 3-hour block. Each
+      // hourly entry carries 0..1 hours of sun (cap=day_length=1 in
+      // attachSunshine's hourly path); summed across 3 hours, the
+      // block has 0..3 hours of sun. Capped against day_length=3
+      // (set by the caller) when the chart computes the bar fraction.
+      sunshine: sumField('sunshine'),
+      wind_speed: meanField('wind_speed'),
+      wind_gust_speed: meanField('wind_gust_speed'),
+      wind_bearing: meanField('wind_bearing'),
+      pressure: meanField('pressure'),
+      humidity: meanField('humidity'),
+      uv_index: meanField('uv_index'),
+      condition: modeField('condition'),
+    });
+  }
+  return blocks;
 }

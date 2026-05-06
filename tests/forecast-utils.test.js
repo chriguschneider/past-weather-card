@@ -6,6 +6,8 @@ import {
   startOfTodayMs,
   filterMidnightStaleForecast,
   dropEmptyStationToday,
+  aggregateThreeHour,
+  nextForecastType,
 } from '../src/forecast-utils.js';
 
 // Build N consecutive hourly ISO timestamps starting at the given base.
@@ -429,5 +431,145 @@ describe('dropEmptyStationToday', () => {
     const noDatetime = { temperature: null, templow: null, precipitation: null };
     const out = dropEmptyStationToday([yesterdayWithData, noDatetime], today);
     expect(out).toHaveLength(2);
+  });
+});
+
+describe('aggregateThreeHour', () => {
+  // Helper: build N consecutive hourly entries with predictable values.
+  function hourly(n, baseHour = 0) {
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const h = baseHour + i;
+      out.push({
+        datetime: `2026-05-06T${String(h).padStart(2, '0')}:00:00`,
+        temperature: 10 + i,
+        templow: 5 + i,
+        precipitation: 0.5,
+        sunshine: 0.6,
+        wind_speed: 4 + i,
+        wind_gust_speed: 8 + i,
+        wind_bearing: 90 + i,
+        pressure: 1010 + i,
+        humidity: 60 + i,
+        uv_index: 1 + i,
+        condition: 'sunny',
+      });
+    }
+    return out;
+  }
+
+  it('returns [] for empty / non-array input', () => {
+    expect(aggregateThreeHour([])).toEqual([]);
+    expect(aggregateThreeHour(null)).toEqual([]);
+    expect(aggregateThreeHour(undefined)).toEqual([]);
+  });
+
+  it('collapses 3 hourly entries into a single block', () => {
+    const blocks = aggregateThreeHour(hourly(3));
+    expect(blocks).toHaveLength(1);
+    // datetime anchored at first entry
+    expect(blocks[0].datetime).toBe('2026-05-06T00:00:00');
+  });
+
+  it('takes the mean for temperature/templow/wind/pressure/humidity/uv', () => {
+    const blocks = aggregateThreeHour(hourly(3));
+    // hourly(3) has temperature 10, 11, 12 → mean 11
+    expect(blocks[0].temperature).toBe(11);
+    expect(blocks[0].templow).toBe(6);   // 5 + 6 + 7 = 18 / 3
+    expect(blocks[0].wind_speed).toBe(5);  // 4 + 5 + 6 = 15 / 3
+    expect(blocks[0].wind_gust_speed).toBe(9);  // 8 + 9 + 10
+    expect(blocks[0].wind_bearing).toBe(91); // 90 + 91 + 92
+    expect(blocks[0].pressure).toBe(1011);
+    expect(blocks[0].humidity).toBe(61);
+    expect(blocks[0].uv_index).toBe(2);
+  });
+
+  it('sums precipitation and sunshine across the block', () => {
+    const blocks = aggregateThreeHour(hourly(3));
+    // 3 × 0.5 = 1.5
+    expect(blocks[0].precipitation).toBe(1.5);
+    // 3 × 0.6 = 1.8
+    expect(blocks[0].sunshine).toBe(1.8);
+  });
+
+  it('rounds means to one decimal so chart-datalabels stay readable', () => {
+    // mean of 11.0, 11.1, 11.1 = 11.0666… should round to 11.1
+    const entries = [
+      { datetime: '2026-05-06T00:00:00', temperature: 11.0, condition: 'sunny' },
+      { datetime: '2026-05-06T01:00:00', temperature: 11.1, condition: 'sunny' },
+      { datetime: '2026-05-06T02:00:00', temperature: 11.1, condition: 'sunny' },
+    ];
+    const blocks = aggregateThreeHour(entries);
+    expect(blocks[0].temperature).toBe(11.1);
+  });
+
+  it('takes the most-frequent condition across the block', () => {
+    const entries = [
+      { datetime: '2026-05-06T00:00:00', temperature: 10, condition: 'sunny' },
+      { datetime: '2026-05-06T01:00:00', temperature: 10, condition: 'cloudy' },
+      { datetime: '2026-05-06T02:00:00', temperature: 10, condition: 'cloudy' },
+    ];
+    const blocks = aggregateThreeHour(entries);
+    expect(blocks[0].condition).toBe('cloudy');
+  });
+
+  it('emits a partial trailing block rather than dropping data', () => {
+    // 11 hours = 3+3+3+2 → 4 blocks, last one has only 2 entries
+    const blocks = aggregateThreeHour(hourly(11));
+    expect(blocks).toHaveLength(4);
+    expect(blocks[3].datetime).toBe('2026-05-06T09:00:00');
+    // mean of last two: (19 + 20) / 2 = 19.5
+    expect(blocks[3].temperature).toBe(19.5);
+  });
+
+  it('returns null for fields where every value in the slice is null/non-finite', () => {
+    const entries = [
+      { datetime: '2026-05-06T00:00:00', temperature: null, condition: 'sunny' },
+      { datetime: '2026-05-06T01:00:00', temperature: undefined, condition: 'sunny' },
+      { datetime: '2026-05-06T02:00:00', temperature: NaN, condition: 'sunny' },
+    ];
+    const blocks = aggregateThreeHour(entries);
+    expect(blocks[0].temperature).toBeNull();
+  });
+
+  it('mean ignores null/non-finite entries (uses only valid values)', () => {
+    const entries = [
+      { datetime: '2026-05-06T00:00:00', temperature: 10, condition: 'sunny' },
+      { datetime: '2026-05-06T01:00:00', temperature: null, condition: 'sunny' },
+      { datetime: '2026-05-06T02:00:00', temperature: 14, condition: 'sunny' },
+    ];
+    const blocks = aggregateThreeHour(entries);
+    // mean of 10, 14 = 12 (null skipped)
+    expect(blocks[0].temperature).toBe(12);
+  });
+
+  it('handles 24 hourly entries → 8 blocks (typical today-mode case)', () => {
+    const blocks = aggregateThreeHour(hourly(24));
+    expect(blocks).toHaveLength(8);
+    expect(blocks[0].datetime).toBe('2026-05-06T00:00:00');
+    expect(blocks[7].datetime).toBe('2026-05-06T21:00:00');
+  });
+});
+
+describe('nextForecastType', () => {
+  it('cycles daily → today → hourly → daily', () => {
+    expect(nextForecastType('daily')).toBe('today');
+    expect(nextForecastType('today')).toBe('hourly');
+    expect(nextForecastType('hourly')).toBe('daily');
+  });
+
+  it('falls back to today when current is undefined / unknown', () => {
+    expect(nextForecastType(undefined)).toBe('today');
+    expect(nextForecastType(null)).toBe('today');
+    expect(nextForecastType('')).toBe('today');
+    expect(nextForecastType('garbage')).toBe('today');
+  });
+
+  it('a full cycle returns to the starting value', () => {
+    let t = 'daily';
+    t = nextForecastType(t);
+    t = nextForecastType(t);
+    t = nextForecastType(t);
+    expect(t).toBe('daily');
   });
 });

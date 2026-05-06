@@ -365,7 +365,7 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
     mode: isHourly ? 'hourly' : 'daily',
   });
   const dailyTickLabelsPlugin = createDailyTickLabelsPlugin({
-    config, language, data, textColor, backgroundColor, style, stationCount, doubledToday,
+    config, language, data, textColor, style, stationCount, doubledToday,
     sunshineLabelBand,
   });
   const precipLabelPlugin = createPrecipLabelPlugin({
@@ -397,7 +397,6 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
     plugins,
     data,
     config,
-    language,
     textColor,
     backgroundColor,
     dividerColor,

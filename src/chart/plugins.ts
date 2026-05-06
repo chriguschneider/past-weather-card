@@ -149,39 +149,98 @@ export interface DailyTickLabelsPluginOpts {
   language: string;
   data: PluginRenderData;
   textColor: string;
-  backgroundColor: string;
   style: CssStyleLike;
   stationCount: number;
   doubledToday: boolean;
   sunshineLabelBand?: number;
 }
 
-/** Replaces Chart.js's daily tick labels with our own so we can colour
- *  weekday and date differently. Chart.js still draws the labels first
- *  (we need it to, otherwise it doesn't reserve axis height); the
- *  plugin then masks the whole label area for each tick and repaints
- *  weekday on top in the primary text colour, date below in
- *  --secondary-text-color.
+/** Replaces Chart.js's tick labels for all three forecast modes. Chart.js
+ *  still reserves the axis height (the tick callback returns empty
+ *  strings — see chart/draw.ts), and this plugin paints the actual labels
+ *  on top:
  *
- *  `doubledToday` tells us whether station-today and forecast-today
- *  both exist — in that case we centre a single label between the two
- *  columns instead of drawing the same weekday twice side by side. */
+ *    - daily:  weekday + 2-digit date, centred per column. Doubled-today
+ *              framing collapses station-today + forecast-today into a
+ *              single boundary label.
+ *    - today / hourly: 24-hour time per column (left-aligned). Date label
+ *              only on the leftmost-visible column and on midnight
+ *              columns; midnight columns also draw a bold day-boundary
+ *              line from the chart bottom up to the date row. */
 export function createDailyTickLabelsPlugin({
   config,
   language,
   data,
   textColor,
-  // backgroundColor was used by the legacy mask-and-redraw approach
-  // for the daily/today axis labels; now obsolete, kept in the opts
-  // signature for compatibility.
-  backgroundColor: _backgroundColor,
   style,
   stationCount,
   doubledToday,
   sunshineLabelBand = 0,
 }: DailyTickLabelsPluginOpts): ChartPlugin {
-  void _backgroundColor;
   const showDateRow = config.forecast.show_date !== false;
+
+  // Per-tick value cache. The plugin redraws on every scroll event in
+  // 'hourly' mode (so the leftmost-visible date label tracks the
+  // viewport). Without this cache we'd construct 168 Date objects and
+  // make 168+ Intl calls each frame — Intl is 10–50× slower than
+  // primitive ops, so that's the dominant cost in the redraw. The
+  // cache key is the dataIdx (a number into data.dateTime); since the
+  // plugin is rebuilt whenever data.dateTime changes (orchestrator
+  // recreates plugins on every dataset refresh), the closure-level
+  // cache is automatically invalidated by re-instantiation. Fields
+  // computed once and reused on every redraw:
+  //   - hour, minutes (for isMidnight check)
+  //   - 24-hour time string
+  //   - short date string ("May 6")  — for hourly/today branch
+  //   - 2-digit date string ("06.05.") — for daily branch
+  //   - dKey (midnight ms) — for isToday comparison in daily branch
+  interface TickInfo {
+    hour: number;
+    minutes: number;
+    isMidnight: boolean;
+    time24: string;
+    dateShort: string;
+    date2Digit: string;
+    weekday: string;
+    dKey: number;
+  }
+  const tickCache = new Map<number, TickInfo>();
+  // Pre-instantiate Intl.DateTimeFormat — caching the formatter is
+  // ~3× faster than calling toLocaleTimeString/toLocaleDateString
+  // each time (those instantiate a fresh formatter under the hood).
+  const timeFmt = new Intl.DateTimeFormat(language, {
+    hour12: false, hour: '2-digit', minute: '2-digit',
+  });
+  const dateShortFmt = new Intl.DateTimeFormat(language, {
+    day: 'numeric', month: 'short',
+  });
+  const date2DigitFmt = new Intl.DateTimeFormat(language, {
+    day: '2-digit', month: '2-digit',
+  });
+  const weekdayFmt = new Intl.DateTimeFormat(language, { weekday: 'short' });
+  function getTickInfo(dataIdx: number): TickInfo | null {
+    const cached = tickCache.get(dataIdx);
+    if (cached) return cached;
+    const datetime = data.dateTime ? data.dateTime[dataIdx] : undefined;
+    if (!datetime) return null;
+    const d = new Date(datetime);
+    const hour = d.getHours();
+    const minutes = d.getMinutes();
+    const dKeyDate = new Date(d); dKeyDate.setHours(0, 0, 0, 0);
+    const info: TickInfo = {
+      hour,
+      minutes,
+      isMidnight: hour === 0 && minutes === 0,
+      time24: timeFmt.format(d),
+      dateShort: dateShortFmt.format(d),
+      date2Digit: date2DigitFmt.format(d),
+      weekday: weekdayFmt.format(d).toUpperCase(),
+      dKey: dKeyDate.getTime(),
+    };
+    tickCache.set(dataIdx, info);
+    return info;
+  }
+
   return {
     id: 'dailyTickLabels',
     afterDraw(chart: ChartLike): void {
@@ -253,22 +312,17 @@ export function createDailyTickLabelsPlugin({
           // subset. Use tick.value to look up the per-bar datetime.
           const tick = xScale.ticks[i];
           const dataIdx = (tick && typeof tick.value === 'number') ? tick.value : i;
-          const datetime = data.dateTime ? data.dateTime[dataIdx] : undefined;
-          if (!datetime) continue;
+          const info = getTickInfo(dataIdx);
+          if (!info) continue;
           // No mask needed — chart.js's tick callback returns '' for
           // 'today' / 'hourly' (see chart/draw.ts), leaving the
           // reserved axis box empty for our overlay to draw into.
-          const d = new Date(datetime);
-          const time = d.toLocaleTimeString(language, {
-            hour12: false, hour: '2-digit', minute: '2-digit',
-          });
-          const isMidnight = d.getHours() === 0 && d.getMinutes() === 0;
           // Date appears ONLY on the leftmost visible column and on
           // any midnight column (first column of a new calendar
           // day). Other columns show the time alone — the date
           // carries over from the most recent labelled column.
-          const showDate = i === leftmostVisibleIdx || isMidnight;
-          if (isMidnight) {
+          const showDate = i === leftmostVisibleIdx || info.isMidnight;
+          if (info.isMidnight) {
             // Bold day-boundary marker at midnight columns: thick
             // vertical line from chart bottom up to the TOP of the
             // date text, anchored at the column's LEFT edge. Same
@@ -284,16 +338,13 @@ export function createDailyTickLabelsPlugin({
             c.restore();
           }
           if (showDate) {
-            const dateLabel = d.toLocaleDateString(language, {
-              day: 'numeric', month: 'short',
-            });
             c.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`;
             c.fillStyle = weekdayColor;
-            c.fillText(dateLabel, labelX, dateBaseY - lineH);
+            c.fillText(info.dateShort, labelX, dateBaseY - lineH);
           }
           c.font = `${fontSize}px Helvetica, Arial, sans-serif`;
           c.fillStyle = weekdayColor;
-          c.fillText(time, labelX, dateBaseY);
+          c.fillText(info.time24, labelX, dateBaseY);
         }
         c.restore();
         return;
@@ -303,14 +354,16 @@ export function createDailyTickLabelsPlugin({
       c.save();
       c.textAlign = 'center';
       c.textBaseline = 'bottom';
+      // sunshineLabelBand reserves a strip at the bottom of the axis
+      // area for the sunshine "Xh" box. Date and weekday move UP by
+      // the band height so the order from top to bottom stays:
+      // weekday → date → sunshine box → chart data. Hoisted out of
+      // the loop — same value for every tick.
+      const dateBaseY = xScale.bottom - 2 - sunshineLabelBand;
+      const weekdayY = showDateRow ? dateBaseY - lineH : dateBaseY;
       for (let i = 0; i < xScale.ticks.length; i++) {
-        const x = xScale.getPixelForTick(i);
-        const datetime = data.dateTime ? data.dateTime[i] : undefined;
-        if (!datetime) continue;
-        const d = new Date(datetime);
-        const dKey = (() => { const k = new Date(d); k.setHours(0, 0, 0, 0); return k.getTime(); })();
-        const isToday = dKey === todayMs;
-        const weekday = d.toLocaleString(language, { weekday: 'short' }).toUpperCase();
+        const info = getTickInfo(i);
+        if (!info) continue;
         // No mask needed — chart.js's tick callback returns ['', '']
         // for daily mode (see chart/draw.ts), so the reserved axis
         // box stays empty for our weekday + date overlay below.
@@ -319,28 +372,20 @@ export function createDailyTickLabelsPlugin({
         // station-today label (i = stationCount - 1) and draw a single
         // centered label at the boundary in the forecast-today pass.
         if (doubledToday && i === stationCount - 1) continue;
+        const x = xScale.getPixelForTick(i);
         const labelX = (doubledToday && i === stationCount)
           ? (xScale.getPixelForTick(i - 1) + x) / 2
           : x;
+        const isToday = info.dKey === todayMs;
 
         c.font = `${fontSize}px Helvetica, Arial, sans-serif`;
-        // sunshineLabelBand reserves a strip at the bottom of the
-        // axis area for the sunshine "Xh" box to draw into. Date and
-        // weekday move UP by the band height so the order from top to
-        // bottom stays: weekday → date → sunshine box → chart data.
-        const dateBaseY = xScale.bottom - 2 - sunshineLabelBand;
         if (showDateRow) {
-          const dateLabel = d.toLocaleDateString(language, {
-            day: '2-digit',
-            month: '2-digit',
-          });
           c.fillStyle = dateColor;
-          c.fillText(dateLabel, labelX, dateBaseY);
+          c.fillText(info.date2Digit, labelX, dateBaseY);
         }
         c.font = `${isToday ? 'bold ' : ''}${fontSize}px Helvetica, Arial, sans-serif`;
         c.fillStyle = weekdayColor;
-        const weekdayY = showDateRow ? dateBaseY - lineH : dateBaseY;
-        c.fillText(weekday, labelX, weekdayY);
+        c.fillText(info.weekday, labelX, weekdayY);
       }
       c.restore();
     },

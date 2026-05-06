@@ -175,6 +175,98 @@ describe('createDailyTickLabelsPlugin', () => {
     expect(chart.ctx.fillRect).not.toHaveBeenCalled();
   });
 
+  it('today mode: renders left-aligned time per column + sparse date', () => {
+    // Today mode shares the time-based rendering with hourly: 24h time
+    // per column, date label on leftmost (i=0) and on midnight
+    // columns. Mid-block (non-midnight) columns show only the time —
+    // the date carries over from the most recent labelled column.
+    const p = createDailyTickLabelsPlugin({
+      config: { forecast: { ...baseConfig.forecast, type: 'today' } },
+      language: 'en',
+      data: {
+        // 3 hourly-ish entries, none of them midnight except via
+        // happenstance — pick distinct hours within one day.
+        dateTime: [
+          '2026-05-06T09:00:00',
+          '2026-05-06T12:00:00',
+          '2026-05-06T15:00:00',
+        ],
+      },
+      textColor: '#000', backgroundColor: '#fff', style: mockStyle,
+      stationCount: 0, doubledToday: false,
+    });
+    const chart = mockChart({ tickCount: 3 });
+    chart.scales.x.bottom = 50;
+    chart.scales.x.width = 150;
+    p.afterDraw(chart);
+    // 3 time labels + 1 date label on i=0 = 4 fillText calls.
+    // No midnight columns in this fixture, so no extra date labels.
+    expect(chart.ctx.fillText).toHaveBeenCalledTimes(4);
+    // No bold midnight stroke on this fixture.
+    expect(chart.ctx.stroke).not.toHaveBeenCalled();
+  });
+
+  it('today mode: draws bold midnight day-boundary stroke', () => {
+    // 12-hour fixture spanning today 18:00 → tomorrow 05:00. The
+    // midnight column (i=6, 2026-05-07T00:00) is the only one that
+    // should trigger the bold vertical stroke from chart.bottom up
+    // to the date row.
+    const dateTime = [];
+    for (let h = 18; h <= 23; h++) dateTime.push(`2026-05-06T${String(h).padStart(2, '0')}:00:00`);
+    for (let h = 0; h <= 5; h++) dateTime.push(`2026-05-07T${String(h).padStart(2, '0')}:00:00`);
+    const p = createDailyTickLabelsPlugin({
+      config: { forecast: { ...baseConfig.forecast, type: 'today' } },
+      language: 'en',
+      data: { dateTime },
+      textColor: '#000', backgroundColor: '#fff', style: mockStyle,
+      stationCount: 0, doubledToday: false,
+    });
+    const chart = mockChart({ tickCount: 12 });
+    chart.scales.x.bottom = 50;
+    chart.scales.x.width = 600;
+    p.afterDraw(chart);
+    // Exactly one midnight in the 12-hour window → exactly one stroke.
+    expect(chart.ctx.stroke).toHaveBeenCalledTimes(1);
+    // 12 time labels + 2 date labels (i=0 leftmost + i=6 midnight) = 14.
+    expect(chart.ctx.fillText).toHaveBeenCalledTimes(14);
+  });
+
+  it('hourly mode: leftmostVisibleIdx tracks wrapper.scrollLeft', () => {
+    // Mock the canvas → closest() lookup so the plugin sees a
+    // .forecast-scroll.scrolling wrapper with a non-zero scrollLeft.
+    // The first tick whose pixel position >= scrollLeft becomes the
+    // leftmost visible — its date label should be rendered, earlier
+    // (off-screen) ticks should not get a date label.
+    const wrapper = { scrollLeft: 100 };
+    const fakeCanvas = { closest: () => wrapper };
+    const p = createDailyTickLabelsPlugin({
+      config: { forecast: { ...baseConfig.forecast, type: 'hourly' } },
+      language: 'en',
+      data: {
+        // Five non-midnight hourly entries within one day so only the
+        // leftmost-visible tick (not midnight columns) shows a date.
+        dateTime: [
+          '2026-05-06T09:00:00',
+          '2026-05-06T10:00:00',
+          '2026-05-06T11:00:00',
+          '2026-05-06T12:00:00',
+          '2026-05-06T13:00:00',
+        ],
+      },
+      textColor: '#000', backgroundColor: '#fff', style: mockStyle,
+      stationCount: 0, doubledToday: false,
+    });
+    // tickCount=5, getPixelForTick(i)=i*50 → ticks at 0, 50, 100, 150, 200
+    // scrollLeft=100 → first tick where pixel >= 100 is i=2 (pixel 100).
+    const chart = mockChart({ tickCount: 5 });
+    chart.canvas = fakeCanvas;
+    chart.scales.x.bottom = 50;
+    chart.scales.x.width = 250;
+    p.afterDraw(chart);
+    // 5 time labels + 1 date label on i=2 (leftmost visible) = 6.
+    expect(chart.ctx.fillText).toHaveBeenCalledTimes(6);
+  });
+
   it('bails out when xScale is missing', () => {
     const p = createDailyTickLabelsPlugin({
       config: baseConfig, language: 'en', data: baseData,

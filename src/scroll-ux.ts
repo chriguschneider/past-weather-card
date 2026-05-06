@@ -185,17 +185,32 @@ export function setupScrollUx(card: ScrollUxCard): void {
   // ── Indicator visibility on scroll ───────────────────────────────
   // Also nudge the chart to redraw so the dailyTickLabelsPlugin
   // recomputes its leftmost-visible date label against the new
-  // scrollLeft. chart.draw() reruns plugins without recomputing
-  // datasets — fast enough for scroll events.
+  // scrollLeft. chart.draw() reruns all plugins (~5 ms at hourly with
+  // 168 ticks); on a touch device scroll events fire at 60+ Hz, so
+  // bare-bones `chart.draw()` per event would overload the main thread
+  // and produce visible jank. Coalesce via requestAnimationFrame:
+  // multiple scroll events between two paint frames collapse into a
+  // single redraw. The latest scrollLeft is read from the wrapper
+  // inside the rAF callback, so the redraw always sees the freshest
+  // position even when several scroll events arrived in the same frame.
+  let scrollRafId: number | null = null;
   const onScroll = (): void => {
     updateScrollIndicators(card);
-    const chart = (card as { forecastChart?: { draw?: () => void } }).forecastChart;
-    if (chart && typeof chart.draw === 'function') chart.draw();
+    if (scrollRafId !== null) return;
+    scrollRafId = requestAnimationFrame(() => {
+      scrollRafId = null;
+      const chart = (card as { forecastChart?: { draw?: () => void } }).forecastChart;
+      if (chart && typeof chart.draw === 'function') chart.draw();
+    });
   };
   wrapper.addEventListener('scroll', onScroll, { passive: true });
   updateScrollIndicators(card);
 
   card._scrollUxTeardown = () => {
+    if (scrollRafId !== null) {
+      cancelAnimationFrame(scrollRafId);
+      scrollRafId = null;
+    }
     wrapper.removeEventListener('pointerdown', onPointerDown);
     wrapper.removeEventListener('pointermove', onPointerMove);
     wrapper.removeEventListener('pointerup', onPointerEnd);

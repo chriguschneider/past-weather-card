@@ -369,6 +369,74 @@ describe('MeasuredDataSource hourly mode', () => {
     const [msg] = hass.callWS.mock.calls[0];
     expect(msg.period).toBe('day');
   });
+
+  // 'today' mode introduced in v1.4 (#17). The 12 h station / 12 h
+  // forecast split applies when both blocks are visible — in
+  // station-only the station expands to fill the full 24 h so the
+  // user still sees a one-day view with no forecast block. Tests
+  // verify the recorder window is sized correctly per branch.
+  it("_fetchAggregates 'today' + combination → 13 h window (12+1 baseline)", async () => {
+    const hass = {
+      config: { latitude: 47.4, longitude: 8.5 },
+      callWS: vi.fn().mockResolvedValue({}),
+    };
+    const ds = new MeasuredDataSource(hass, {
+      sensors,
+      forecast: { type: 'today' },
+      show_forecast: true,
+      show_station: true,
+    });
+    await ds._fetchAggregates();
+    const [msg] = hass.callWS.mock.calls[0];
+    expect(msg.period).toBe('hour');
+    const startMs = new Date(msg.start_time).getTime();
+    const endMs = new Date(msg.end_time).getTime();
+    // 12 station hours + 1 baseline hour for cumulative-precipitation
+    // diff = 13 hours total.
+    expect(Math.round((endMs - startMs) / HOUR_MS)).toBe(13);
+  });
+
+  it("_fetchAggregates 'today' + station-only → 25 h window (24+1 baseline)", async () => {
+    const hass = {
+      config: { latitude: 47.4, longitude: 8.5 },
+      callWS: vi.fn().mockResolvedValue({}),
+    };
+    const ds = new MeasuredDataSource(hass, {
+      sensors,
+      forecast: { type: 'today' },
+      show_forecast: false,
+      show_station: true,
+    });
+    await ds._fetchAggregates();
+    const [msg] = hass.callWS.mock.calls[0];
+    expect(msg.period).toBe('hour');
+    const startMs = new Date(msg.start_time).getTime();
+    const endMs = new Date(msg.end_time).getTime();
+    // 24 hours back + 1 baseline = 25 hours.
+    expect(Math.round((endMs - startMs) / HOUR_MS)).toBe(25);
+  });
+
+  it("_fetchAggregates 'today' ignores cfg days (always single-day horizon)", async () => {
+    // User has days: 7 in their config but switches to 'today' — the
+    // recorder fetch should still use the 12 h / 24 h horizon, not
+    // 7 × 24 = 168.
+    const hass = {
+      config: { latitude: 47.4, longitude: 8.5 },
+      callWS: vi.fn().mockResolvedValue({}),
+    };
+    const ds = new MeasuredDataSource(hass, {
+      sensors,
+      days: 7,
+      forecast: { type: 'today' },
+      show_forecast: true,
+    });
+    await ds._fetchAggregates();
+    const [msg] = hass.callWS.mock.calls[0];
+    const startMs = new Date(msg.start_time).getTime();
+    const endMs = new Date(msg.end_time).getTime();
+    // Combination = 12 + 1 = 13 h regardless of cfg days: 7
+    expect(Math.round((endMs - startMs) / HOUR_MS)).toBe(13);
+  });
 });
 
 describe('ForecastDataSource', () => {

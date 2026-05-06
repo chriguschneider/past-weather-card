@@ -27,7 +27,6 @@ export interface BuildChartOpts {
     tempLow: ReadonlyArray<number | null | undefined>;
   };
   config: PluginCardConfig & { use_12hour_format?: boolean };
-  language: string;
   textColor: string;
   backgroundColor: string;
   dividerColor: string;
@@ -47,7 +46,6 @@ export function buildChart(ctx: CanvasRenderingContext2D | HTMLCanvasElement, op
     plugins,
     data,
     config,
-    language: _language,
     textColor,
     backgroundColor,
     dividerColor,
