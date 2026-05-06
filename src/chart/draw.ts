@@ -101,15 +101,21 @@ export function buildChart(ctx: CanvasRenderingContext2D | HTMLCanvasElement, op
             maxRotation: 0,
             color: config.forecast.chart_datetime_color || textColor,
             padding: 10,
-            callback: function (this: { getLabelForValue(v: number): string }, value: number | string, index: number) {
+            callback: function (this: { getLabelForValue(v: number): string }, value: number | string, _index: number) {
               const fcType = config.forecast.type;
               // 'today' is hourly granularity: route through the
               // hourly time-format branch, but show a label only on
-              // every 3rd column to keep the 24-bar view legible.
+              // every 3rd DATA-INDEX column to keep the 24-bar view
+              // legible. `value` is the data position (0..n-1) for a
+              // category scale — stable regardless of chart.js's
+              // auto-skip behaviour at narrow viewports. `index` is
+              // the position in the visible-ticks array, which can
+              // differ from the data index when chart.js skips ticks.
               const isHourlyish = fcType === 'hourly' || fcType === 'today';
-              if (fcType === 'today' && index % 3 !== 0) {
+              if (fcType === 'today' && (value as number) % 3 !== 0) {
                 return '';
               }
+              void _index;
               const datetime = this.getLabelForValue(value as number);
               const dateObj = new Date(datetime);
               const timeFormatOptions: Intl.DateTimeFormatOptions = {

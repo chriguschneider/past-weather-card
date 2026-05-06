@@ -474,14 +474,13 @@ set hass(hass) {
     if (effectiveCfg.show_forecast === true && effectiveCfg.weather_entity) {
       // `days` / `forecast_days` are the data-loading window in days for
       // both modes; at hourly each day expands to 24 buckets. 'today'
-      // is a rolling-24h-window: 12 hours of forecast forward (data
-      // source supplies 12 hours of station back) so combination
-      // mode totals 24 bars centred on "now".
+      // shares the hourly fetch + slice — the visual difference is the
+      // viewport (24 bars, no scroll) and the sparse-3h labelling.
       const isHourlyish = fcType === 'hourly' || isToday;
       const slotsPerUnit = isHourlyish ? 24 : 1;
       const cap = parseInt(effectiveCfg.forecast_days, 10);
       const dayLimit = cap > 0 ? cap : (parseInt(effectiveCfg.days, 10) || 7);
-      const limit = isToday ? 12 : dayLimit * slotsPerUnit;
+      const limit = dayLimit * slotsPerUnit;
       forecast = filterMidnightStaleForecast(this._forecastData || [], todayStartMs)
         .slice(0, limit);
     }
