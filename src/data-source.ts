@@ -65,7 +65,7 @@ export interface SensorMap {
  *  more fields (display, layout, …) but those don't reach this layer. */
 export interface DataSourceConfig {
   days?: number | string;
-  forecast?: { type?: 'daily' | 'hourly' } | null;
+  forecast?: { type?: 'daily' | 'hourly' | 'today' } | null;
   sensors?: SensorMap;
   condition_mapping?: ConditionThresholdOverrides;
   weather_entity?: string;
@@ -211,8 +211,14 @@ export class MeasuredDataSource {
 
   private async _fetchAggregates(): Promise<ForecastEntry[]> {
     if (!this.hass) return [];
-    const days = parseInt(String(this.config.days), 10) || 7;
-    const isHourly = (this.config.forecast && this.config.forecast.type) === 'hourly';
+    const cfgDays = parseInt(String(this.config.days), 10) || 7;
+    const type = this.config.forecast && this.config.forecast.type;
+    // 'today' is the 24-hour zoom mode (#17): hourly granularity but
+    // forced to a single-day horizon regardless of the user's `days:`
+    // setting. Reuses the entire hourly fetch / build path.
+    const isToday = type === 'today';
+    const isHourly = type === 'hourly' || isToday;
+    const days = isToday ? 1 : cfgDays;
     const sensors: SensorMap = this.config.sensors || {};
 
     const entityIds = Object.values(sensors).filter(Boolean) as string[];
@@ -287,12 +293,17 @@ export class MeasuredDataSource {
       return d.getTime();
     };
 
+    // Today's local-midnight, used to identify the "today" entry so we
+    // can skip its partial-running-total sunshine value (issue #16).
+    const todayMs = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })();
+
     const out: ForecastEntry[] = [];
     for (let i = 1; i <= days; i++) {
       const dayStart = new Date(start);
       dayStart.setDate(start.getDate() + i);
       const dayKey = dayMs(dayStart);
       const prevKey = dayKey - DAY_MS;
+      const isToday = dayKey === todayMs;
 
       const at = (eid: string | undefined, field: keyof StatBucket): number | null => {
         if (!eid) return null;
@@ -317,6 +328,18 @@ export class MeasuredDataSource {
         ? dailyPrecipitation(byDate[sensors.precipitation], dayKey, prevKey)
         : null;
 
+      // Sunshine duration from a HA recorder sensor (e.g. integration
+      // sensor on `sensor.open_meteo_sunshine_today`). Daily-max is the
+      // running total; for completed past days that's the full day's
+      // sunshine in seconds (or hours, normalised by attachSunshine).
+      // For TODAY's bucket the value is partial — at noon it's
+      // "sunshine-so-far", which is meteorologically misleading. We
+      // emit `null` for today's station entry so attachSunshine
+      // overlays the Open-Meteo daily forecast value instead (#16).
+      const sunshineRaw = sensors.sunshine_duration && !isToday
+        ? at(sensors.sunshine_duration, 'max')
+        : null;
+
       out.push({
         datetime: dayStart.toISOString(),
         temperature: tempMax,
@@ -328,6 +351,7 @@ export class MeasuredDataSource {
         pressure: pressureMean,
         humidity: humidityMean,
         uv_index: at(sensors.uv_index, 'max'),
+        sunshine: sunshineRaw,
         condition: this._mapCondition({
           temp_max: tempMax,
           temp_min: tempMin,
@@ -581,7 +605,8 @@ export class ForecastDataSource {
       return;
     }
     const type = (this.config.forecast && this.config.forecast.type) || 'daily';
-    const isHourly = type === 'hourly';
+    // 'today' is hourly with days=1 — same forecast subscription.
+    const isHourly = type === 'hourly' || type === 'today';
     const feature = isHourly ? WeatherEntityFeature.FORECAST_HOURLY : WeatherEntityFeature.FORECAST_DAILY;
     const supported = state.attributes && state.attributes.supported_features as number | undefined;
     if (!supported || (supported & feature) === 0) {

@@ -469,13 +469,17 @@ set hass(hass) {
     // boundary is used for both station + forecast filters within one
     // refresh tick.
     const todayStartMs = startOfTodayMs();
+    const fcType = effectiveCfg.forecast.type;
+    const isToday = fcType === 'today';
     if (effectiveCfg.show_forecast === true && effectiveCfg.weather_entity) {
       // `days` / `forecast_days` are the data-loading window in days for
-      // both modes; at hourly each day expands to 24 buckets.
-      const isHourly = effectiveCfg.forecast.type === 'hourly';
-      const slotsPerUnit = isHourly ? 24 : 1;
+      // both modes; at hourly each day expands to 24 buckets. 'today'
+      // forces a 1-day horizon regardless of `forecast_days`.
+      const isHourlyish = fcType === 'hourly' || isToday;
+      const slotsPerUnit = isHourlyish ? 24 : 1;
       const cap = parseInt(effectiveCfg.forecast_days, 10);
-      const limit = (cap > 0 ? cap : (parseInt(effectiveCfg.days, 10) || 7)) * slotsPerUnit;
+      const dayLimit = isToday ? 1 : (cap > 0 ? cap : (parseInt(effectiveCfg.days, 10) || 7));
+      const limit = dayLimit * slotsPerUnit;
       forecast = filterMidnightStaleForecast(this._forecastData || [], todayStartMs)
         .slice(0, limit);
     }
@@ -483,7 +487,7 @@ set hass(hass) {
     this._stationCount = station.length;
     this._forecastCount = forecast.length;
     this._ensureSunshineSource(effectiveCfg);
-    const granularity = effectiveCfg.forecast.type === 'hourly' ? 'hourly' : 'daily';
+    const granularity = (fcType === 'hourly' || isToday) ? 'hourly' : 'daily';
     this.forecasts = overlayFromOpenMeteo(
       [...station, ...forecast],
       this._hass,
@@ -522,7 +526,10 @@ set hass(hass) {
     const lon = cfg && Number.isFinite(cfg.longitude) ? cfg.longitude : null;
     if (lat == null || lon == null) return;
 
-    const includeHourly = effectiveCfg.forecast.type === 'hourly';
+    // 'today' uses hourly Open-Meteo data (per-hour bars), same as
+    // 'hourly' mode. Daily-only modes don't need the hourly fetch.
+    const includeHourly = effectiveCfg.forecast.type === 'hourly'
+      || effectiveCfg.forecast.type === 'today';
 
     // Re-create when location or hourly-mode flag changes — the
     // includeHourly flag determines whether the request URL carries
@@ -878,29 +885,44 @@ renderModeToggle() {
   const showsStation = cfg.show_station !== false;
   const showsForecast = cfg.show_forecast === true && !!cfg.weather_entity;
   if (!showsStation && !showsForecast) return '';
-  const isHourly = (cfg.forecast || {}).type === 'hourly';
-  const icon = isHourly ? 'mdi:calendar-month-outline' : 'mdi:clock-time-eight-outline';
-  const label = isHourly ? 'Switch to daily forecast' : 'Switch to hourly forecast';
+  const type = (cfg.forecast || {}).type;
+  // 3-way cycle: daily → today → hourly → daily.
+  // Icon shows the NEXT mode you'd land on, so users can predict the
+  // click. "today" is signified by mdi:clock-time-eight-outline (the
+  // hour-clock face); "hourly" by mdi:weather-sunset (the multi-hour
+  // strip); "daily" by mdi:calendar-month-outline (the multi-day grid).
+  let icon, label;
+  if (type === 'today') {
+    icon = 'mdi:weather-sunset';
+    label = 'Switch to hourly (7-day) forecast';
+  } else if (type === 'hourly') {
+    icon = 'mdi:calendar-month-outline';
+    label = 'Switch to daily forecast';
+  } else {
+    icon = 'mdi:clock-time-eight-outline';
+    label = 'Switch to today (24-hour) forecast';
+  }
   return html`
     <button type="button" class="mode-toggle" aria-label="${label}"
-            aria-pressed="${isHourly ? 'true' : 'false'}" title="${label}"
+            title="${label}"
             @click=${this._onModeToggleClick}>
       <ha-icon icon=${icon} aria-hidden="true"></ha-icon>
     </button>
   `;
 }
 
-// Toggle between daily and hourly via the same setConfig path the
-// editor uses. _invalidateStaleSources picks up the forecast.type
-// change and rebuilds both station and forecast data sources, so
-// hourly station aggregates load on demand. The mutation does NOT
-// persist to the user's saved YAML — refresh resets to whatever
+// Cycle through daily → today → hourly → daily via the same setConfig
+// path the editor radio uses. _invalidateStaleSources picks up the
+// forecast.type change and rebuilds both station and forecast data
+// sources, so the new mode's data loads on demand. The mutation does
+// NOT persist to the user's saved YAML — refresh resets to whatever
 // they configured. For permanent changes, the editor's radio.
 _onModeToggleClick(ev) {
   if (ev) ev.stopPropagation();
   const cfg = this.config || {};
   const fcfg = cfg.forecast || {};
-  const next = fcfg.type === 'hourly' ? 'daily' : 'hourly';
+  const cycle = { daily: 'today', today: 'hourly', hourly: 'daily' };
+  const next = cycle[fcfg.type] || 'today';
   this.setConfig({ ...cfg, forecast: { ...fcfg, type: next } });
 }
 
@@ -936,7 +958,12 @@ _onModeToggleClick(ev) {
     // and hourly (8 < totalBars=168 → scrollable, viewport caps at
     // ~8 hours). 0 disables the viewport entirely (legacy "fit-all"
     // for users who explicitly set it).
-    const visibleBars = parseInt(config.forecast.number_of_forecasts, 10) || 0;
+    //
+    // 'today' (24h zoom): always fits all 24 bars, no scroll. Override
+    // to 24 here so the user's `number_of_forecasts: 8` from a
+    // daily-mode config doesn't accidentally trigger scrolling.
+    const userVisibleBars = parseInt(config.forecast.number_of_forecasts, 10) || 0;
+    const visibleBars = config.forecast.type === 'today' ? 24 : userVisibleBars;
     const totalBars = (this.forecasts || []).length;
     const scrolling = visibleBars > 0 && totalBars > visibleBars;
     const contentWidthPct = scrolling ? (totalBars / visibleBars) * 100 : 100;
@@ -1244,9 +1271,17 @@ renderForecastConditionIcons({ config, forecastItems, sun } = this) {
     return html``;
   }
 
+  // 'today' mode: render an icon only every 3rd column (8 icons across
+  // 24 hours) so the dense view stays legible. Empty cells preserve
+  // column alignment.
+  const sparseEvery = config.forecast.type === 'today' ? 3 : 1;
+
   return html`
     <div class="conditions">
-      ${forecast.map((item) => {
+      ${forecast.map((item, idx) => {
+        if (idx % sparseEvery !== 0) {
+          return html`<div class="forecast-item"></div>`;
+        }
         const forecastTime = new Date(item.datetime);
         const sunriseTime = new Date(sun.attributes.next_rising);
         const sunsetTime = new Date(sun.attributes.next_setting);
@@ -1308,9 +1343,17 @@ renderWind({ config, weather, windSpeed, windDirection, forecastItems } = this) 
   const forecast = this.forecasts ? this.forecasts.slice(0, forecastItems) : [];
   const unit = this.ll('units')[this.unitSpeed];
 
+  // 'today' mode: render a wind value only every 3rd column (8 values
+  // across 24 hours) — matches the sparse icon row. Empty cells
+  // preserve column alignment with the chart bars.
+  const sparseEvery = config.forecast.type === 'today' ? 3 : 1;
+
   return html`
     <div class="wind-details">
-      ${forecast.map((item) => {
+      ${forecast.map((item, idx) => {
+        if (idx % sparseEvery !== 0) {
+          return html`<div class="wind-detail"></div>`;
+        }
         const raw = item.wind_gust_speed != null ? item.wind_gust_speed : item.wind_speed;
         const dWindSpeed = this._convertWindSpeed(raw);
         const hasSpeed = dWindSpeed !== null && dWindSpeed !== undefined;

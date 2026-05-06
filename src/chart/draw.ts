@@ -101,7 +101,15 @@ export function buildChart(ctx: CanvasRenderingContext2D | HTMLCanvasElement, op
             maxRotation: 0,
             color: config.forecast.chart_datetime_color || textColor,
             padding: 10,
-            callback: function (this: { getLabelForValue(v: number): string }, value: number | string) {
+            callback: function (this: { getLabelForValue(v: number): string }, value: number | string, index: number) {
+              const fcType = config.forecast.type;
+              // 'today' is hourly granularity: route through the
+              // hourly time-format branch, but show a label only on
+              // every 3rd column to keep the 24-bar view legible.
+              const isHourlyish = fcType === 'hourly' || fcType === 'today';
+              if (fcType === 'today' && index % 3 !== 0) {
+                return '';
+              }
               const datetime = this.getLabelForValue(value as number);
               const dateObj = new Date(datetime);
               const timeFormatOptions: Intl.DateTimeFormatOptions = {
@@ -111,8 +119,7 @@ export function buildChart(ctx: CanvasRenderingContext2D | HTMLCanvasElement, op
               };
               let time = dateObj.toLocaleTimeString(language, timeFormatOptions);
 
-              if (dateObj.getHours() === 0 && dateObj.getMinutes() === 0
-                  && config.forecast.type === 'hourly') {
+              if (dateObj.getHours() === 0 && dateObj.getMinutes() === 0 && isHourlyish) {
                 const date = dateObj.toLocaleDateString(language, {
                   day: 'numeric', month: 'short',
                 });
@@ -120,7 +127,7 @@ export function buildChart(ctx: CanvasRenderingContext2D | HTMLCanvasElement, op
                 return [date, time];
               }
 
-              if (config.forecast.type !== 'hourly') {
+              if (!isHourlyish) {
                 const weekday = dateObj.toLocaleString(language, { weekday: 'short' }).toUpperCase();
                 if (config.forecast.show_date === false) return weekday;
                 const dateLabel = dateObj.toLocaleDateString(language, {
@@ -172,6 +179,12 @@ export function buildChart(ctx: CanvasRenderingContext2D | HTMLCanvasElement, op
       plugins: {
         legend: { display: false },
         datalabels: {
+          // 'today' mode: show temp labels only every 3rd column to
+          // keep the dense 24-hour view legible. Other modes show all.
+          display: ((context: { dataIndex: number }) => {
+            if (config.forecast.type !== 'today') return true;
+            return context.dataIndex % 3 === 0;
+          }) as never,
           backgroundColor: backgroundColor,
           borderColor: ((context: { dataset: { backgroundColor: string } }) => context.dataset.backgroundColor) as never,
           borderRadius: 0,

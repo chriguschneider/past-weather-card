@@ -83,7 +83,7 @@ export interface PluginRenderData {
  *  shape) is out of scope at this layer. */
 export interface PluginCardConfig {
   forecast: {
-    type?: 'daily' | 'hourly';
+    type?: 'daily' | 'hourly' | 'today';
     show_date?: boolean;
     labels_font_size?: number | string;
     chart_datetime_color?: string;

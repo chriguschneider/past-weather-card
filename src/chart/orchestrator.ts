@@ -151,8 +151,11 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
 
   const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 
+  // 'today' is hourly granularity (per-hour bars), same precip scale
+  // as 'hourly'. 'daily' aggregates over the full day, scale is wider.
+  const isHourlyish = config.forecast.type === 'hourly' || config.forecast.type === 'today';
   let precipMax: number;
-  if (config.forecast.type === 'hourly') {
+  if (isHourlyish) {
     precipMax = lengthUnit === 'km' ? 4 : 1;
   } else {
     precipMax = lengthUnit === 'km' ? 20 : 1;
@@ -194,7 +197,7 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
   const forecastCountForGap = card._forecastCount || 0;
   const hasBothBlocks = stationCountForGap > 0 && forecastCountForGap > 0;
   const gapStartIdx = stationCountForGap - 1;
-  const isHourlyCombo = hasBothBlocks && config.forecast.type === 'hourly';
+  const isHourlyCombo = hasBothBlocks && isHourlyish;
   const isBoundarySegment = (segCtx: SegmentCtx): boolean =>
     segCtx.p0DataIndex === gapStartIdx && segCtx.p1DataIndex === gapStartIdx + 1;
   const segmentSkip = (segCtx: SegmentCtx): string | undefined => {
@@ -226,11 +229,12 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
   // array. The chart adds a second bar dataset; Chart.js auto-groups
   // precip + sunshine side-by-side per column (precip left half,
   // sunshine right half).
-  const isHourlyChart = config.forecast.type === 'hourly';
+  const isHourlyChart = isHourlyish;
   const showSunshine = config.forecast.show_sunshine === true;
   // Per-column "Xh" / "0.5h" labels only in daily mode — at hourly the
   // 168 narrow columns over a 7-day window can't fit a label per bar,
-  // and the bar height itself encodes the value.
+  // and the bar height itself encodes the value. 'today' has 24
+  // columns, also too narrow for a per-bar label.
   const showSunshineLabels = showSunshine && !isHourlyChart;
   const sunshineColor = config.forecast.sunshine_color || 'rgba(255, 193, 7, 1.0)';
   const sunshineColorLight = lightenColor(sunshineColor) as string;
@@ -321,8 +325,15 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
       };
     };
 
+    // 'today' mode: thin out temp labels to every 3rd column for
+    // legibility (matches the sparse condition / wind rows).
+    const styleDisplay = (context: DataLabelsCtx): boolean => {
+      if (config.forecast.type !== 'today') return true;
+      return context.dataIndex % 3 === 0;
+    };
+
     datasets[0].datalabels = {
-      display: () => true,
+      display: styleDisplay,
       formatter: (_v: unknown, context: DataLabelsCtx) => context.dataset.data[context.dataIndex] + '°',
       align: 'top',
       anchor: 'center',
@@ -333,7 +344,7 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
     };
 
     datasets[1].datalabels = {
-      display: () => true,
+      display: styleDisplay,
       formatter: (_v: unknown, context: DataLabelsCtx) => context.dataset.data[context.dataIndex] + '°',
       align: 'bottom',
       anchor: 'center',
@@ -346,9 +357,9 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
 
   const stationCount = card._stationCount || 0;
   const forecastCount = card._forecastCount || 0;
-  const isHourly = config.forecast.type === 'hourly';
-  // doubled-today only makes sense at daily — at hourly station and
-  // forecast meet at "now" with a single separator line.
+  const isHourly = isHourlyish;
+  // doubled-today only makes sense at daily — at hourly / today station
+  // and forecast meet at "now" with a single separator line.
   const doubledToday = !isHourly && stationCount > 0 && forecastCount > 0;
   // When sunshine is on, draw.ts grows the x-axis box by sunshineLabelBand
   // pixels via afterFit. dailyTickLabelsPlugin then shifts weekday + date

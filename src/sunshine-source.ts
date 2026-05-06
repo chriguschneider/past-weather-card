@@ -271,7 +271,20 @@ export function attachSunshine<T extends SunshineForecastEntry>(
       if (cap > 0 && value > cap) value = cap;
       if (value < 0) value = 0;
     }
-    out.sunshine = value;
+    // Preserve a pre-existing value from the upstream entry (e.g.
+    // recorder daily-max for past days set by `_buildForecast`):
+    // attachSunshine should only OVERLAY the Open-Meteo value where
+    // upstream had nothing. This is what makes the today-station-row
+    // substitution work — `_buildForecast` emits null for today, so
+    // the overlay fills it with the Open-Meteo daily forecast value
+    // (which doesn't carry the running-total partial-measured
+    // problem). Past days keep their recorder value.
+    const existing = (entry as { sunshine?: number | null }).sunshine;
+    if (existing != null && Number.isFinite(existing)) {
+      out.sunshine = existing;
+    } else {
+      out.sunshine = value;
+    }
     return out;
   });
 }

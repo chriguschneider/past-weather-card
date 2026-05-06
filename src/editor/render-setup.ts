@@ -73,6 +73,7 @@ export function renderSetupSection(editor: EditorLike, ctx: EditorContext): Temp
         <span style="margin-right:8px;font-weight:500;">${t('forecast_type_label')}:</span>
         ${[
           ['daily', 'forecast_type_daily'],
+          ['today', 'forecast_type_today'],
           ['hourly', 'forecast_type_hourly'],
         ].map(([value, key]) => html`
           <div class="radio-item">

@@ -151,6 +151,7 @@ const locale: Locale = {
       'mode_combination': 'Kombination',
       'forecast_type_label': 'Vorhersage-Typ',
       'forecast_type_daily': 'Täglich',
+      'forecast_type_today': 'Heute (24h)',
       'forecast_type_hourly': 'Stündlich',
       'main_panel_heading': 'Hauptpanel',
       'attributes_heading': 'Attributzeile',
@@ -325,6 +326,7 @@ const locale: Locale = {
       // Forecast type radio (v0.8 — re-introduced)
       'forecast_type_label': 'Forecast type',
       'forecast_type_daily': 'Daily',
+      'forecast_type_today': 'Today (24h)',
       'forecast_type_hourly': 'Hourly',
       // Layout sub-headings
       'main_panel_heading': 'Main panel',
