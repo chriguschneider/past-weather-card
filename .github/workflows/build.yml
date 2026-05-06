@@ -31,6 +31,13 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Typecheck
+        # `tsc --noEmit` against tsconfig.json. allowJs means .js files
+        # pass through unchecked during the v1.2 migration; checkJs
+        # stays off so untouched .js files don't error. As .ts files
+        # land, typecheck catches errors before the bundle runs.
+        run: npm run typecheck
+
       - name: Test
         run: npm test
 
