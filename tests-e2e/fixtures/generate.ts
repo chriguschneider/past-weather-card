@@ -309,10 +309,15 @@ export function buildLiveStates(): Record<string, HassState> {
       state: 'partlycloudy',
       attributes: {
         temperature: 15.2,
+        temperature_unit: '°C',
         humidity: 68,
         pressure: 1015,
+        pressure_unit: 'hPa',
         wind_speed: 4.5,
+        wind_speed_unit: 'km/h',
         wind_bearing: 180,
+        precipitation_unit: 'mm',
+        visibility_unit: 'km',
         // FORECAST_DAILY = 1, FORECAST_HOURLY = 2 — bitfield with both.
         supported_features: 1 | 2,
         friendly_name: 'Test Forecast',
@@ -380,6 +385,9 @@ export function buildBaseConfig(overrides: Record<string, unknown> = {}): Record
     show_pressure: true,
     show_wind_direction: true,
     show_wind_speed: true,
+    show_wind_gust_speed: true,
+    show_dew_point: true,
+    show_sun: true,
     forecast: {
       type: 'daily',
       disable_animation: true,

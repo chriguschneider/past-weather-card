@@ -20,11 +20,12 @@
       margin: 0;
       padding: 16px;
     }
-    /* Stand-ins for ha-card / ha-icon / ha-form / ha-* primitives the
-       card uses. The E2E suite isn't testing the HA frontend's own
+    /* Stand-ins for ha-card / ha-form / ha-* primitives the card
+       uses. The E2E suite isn't testing the HA frontend's own
        styling — it's testing our card's behaviour against a typed
        contract. Render-as-block is enough; the card's own <style>
-       block handles the layout. */
+       block handles the layout. (ha-icon is special — see the
+       polyfill below the CSS.) */
     /* IMPORTANT: ha-card needs both `width` and `box-sizing: border-box`.
        Chart.js attaches a ResizeObserver to its canvas's parent. With
        `max-width` only, the parent's flex behaviour can let the canvas
@@ -51,6 +52,11 @@
     ha-textfield, ha-form, ha-select, ha-entity-picker, ha-selector {
       display: block;
     }
+    /* The ha-icon polyfill is registered as a custom element below
+       the harness script (it needs its own shadow DOM to render
+       inside the CARD's shadow DOM, where light-DOM CSS rules don't
+       reach). The harness CSS just guarantees the unknown-element
+       fallback layout. */
     /* The harness loads two test cards side-by-side when invoked with
        ?dual=1 (used by the mode-toggle / cross-card behaviour spec).
        Default layout is single. */
@@ -68,6 +74,145 @@
 </head>
 <body>
   <div id="harness" class="harness-grid"></div>
+
+  <!--
+    ha-icon polyfill registered BEFORE the bundle loads, so any
+    `<ha-icon>` the card creates inherits the polyfill behaviour.
+    Each instance attaches its own shadow root to render a small
+    coloured square — that way screenshots show icon POSITIONS
+    consistently even though we don't ship the real Material Design
+    Icons font.
+  -->
+  <script>
+    // Open-Meteo fetch stub — returns canned deterministic sunshine
+    // data so the show_sunshine baselines stay stable. The live
+    // OpenMeteoSunshineSource issues a real network request to
+    // api.open-meteo.com; in CI / locally we want neither network
+    // dependency nor day-of-year variation in baselines.
+    (() => {
+      const orig = window.fetch;
+      window.fetch = async function (url, init) {
+        const u = String(url);
+        if (u.startsWith('https://api.open-meteo.com/')) {
+          const body = makeOpenMeteoResponse(u);
+          return new Response(JSON.stringify(body), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        return orig.call(this, url, init);
+      };
+      function makeOpenMeteoResponse(url) {
+        const params = new URL(url).searchParams;
+        const pastDays = parseInt(params.get('past_days') || '0', 10);
+        const forecastDays = parseInt(params.get('forecast_days') || '7', 10);
+        const includeHourly = (params.get('hourly') || '').includes('sunshine_duration');
+        // Anchor at the same FIXTURE_TODAY the spec layer uses so the
+        // sunshine values align column-for-column with the rest of
+        // the chart. Open-Meteo emits dates in YYYY-MM-DD (`timezone=auto`).
+        const anchor = new Date('2026-05-06T00:00:00');
+        const dailyTime = [];
+        const dailySunshine = [];
+        // Past days are pastDays entries before anchor; forecast
+        // days include anchor and the next forecastDays-1 days.
+        const totalDays = pastDays + forecastDays;
+        const start = new Date(anchor);
+        start.setDate(anchor.getDate() - pastDays);
+        for (let i = 0; i < totalDays; i++) {
+          const d = new Date(start);
+          d.setDate(start.getDate() + i);
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          dailyTime.push(`${y}-${m}-${day}`);
+          // Sinusoidal day-length × cloud-cover proxy. Range
+          // 0..50000 s ≈ 0..14 h. Round to the nearest minute so the
+          // "Xh" labels render as clean 6h / 9h / 13h tokens.
+          const hours = Math.max(0, Math.round((6 + 4 * Math.sin(i * 0.7)) * 10) / 10);
+          dailySunshine.push(Math.round(hours * 3600));
+        }
+        const out = {
+          daily: { time: dailyTime, sunshine_duration: dailySunshine },
+        };
+        if (includeHourly) {
+          const hourlyTime = [];
+          const hourlySunshine = [];
+          // 24 × totalDays hours, midnight-anchored.
+          for (let i = 0; i < 24 * totalDays; i++) {
+            const d = new Date(start);
+            d.setHours(start.getHours() + i, 0, 0, 0);
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const h = String(d.getHours()).padStart(2, '0');
+            hourlyTime.push(`${y}-${m}-${day}T${h}:00`);
+            // Sun is up 7-19; per-hour 0..3600 s.
+            const hr = d.getHours();
+            const seconds = (hr >= 7 && hr <= 19)
+              ? Math.round(3600 * Math.sin((hr - 7) / 12 * Math.PI))
+              : 0;
+            hourlySunshine.push(seconds);
+          }
+          out.hourly = { time: hourlyTime, sunshine_duration: hourlySunshine };
+        }
+        return out;
+      }
+    })();
+
+    if (!customElements.get('ha-icon')) {
+      customElements.define('ha-icon', class HaIconPolyfill extends HTMLElement {
+        static get observedAttributes() { return ['icon']; }
+        connectedCallback() { this._render(); }
+        attributeChangedCallback() { this._render(); }
+        _render() {
+          if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
+          // Map the icon-name suffix to a single Unicode glyph that
+          // rasterises consistently across systems. A small set is
+          // enough — most icons fall back to the generic dot.
+          const name = (this.getAttribute('icon') || '').replace(/^.*:/, '');
+          const map = {
+            'weather-cloudy': '☁',     // ☁
+            'weather-partly-cloudy': '⛅',
+            'weather-sunny': '☀',      // ☀
+            'weather-night': '☽',
+            'weather-rainy': '☔',      // ☔
+            'weather-pouring': '☔',
+            'weather-snowy': '❄',
+            'weather-fog': '☁',
+            'weather-windy': '▒',
+            'weather-windy-variant': '▒',
+            'water-percent': '°',      // °
+            'gauge': '⚑',
+            'thermometer-water': '⨎',
+            'white-balance-sunny': '☀',
+            'weather-sunset-up': '↑',
+            'weather-sunset-down': '↓',
+            'arrow-down': '↓',
+            'arrow-up': '↑',
+            'arrow-left': '←',
+            'arrow-right': '→',
+            'arrow-bottom-left': '↙',
+            'arrow-top-left': '↖',
+            'arrow-top-right': '↗',
+            'arrow-bottom-right': '↘',
+            'chevron-left': '‹',
+            'chevron-right': '›',
+            'crosshairs-gps': '⌖',
+            'alert-circle-outline': '⚠',
+          };
+          const glyph = map[name] || '●';  // ● fallback
+          this.shadowRoot.innerHTML = `
+            <style>
+              :host { display: inline-flex; width: 24px; height: 24px;
+                      align-items: center; justify-content: center;
+                      vertical-align: middle; color: #44739e; }
+              span { font-size: 14px; line-height: 1; }
+            </style>
+            <span>${glyph}</span>`;
+        }
+      });
+    }
+  </script>
 
   <!--
     The harness loads the production bundle from /dist. Tests can
