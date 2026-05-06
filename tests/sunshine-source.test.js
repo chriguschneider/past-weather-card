@@ -327,6 +327,57 @@ describe('attachSunshine', () => {
     expect(result[0].sunshine).toBe(8);
   });
 
+  describe('upstream-value preservation (issue #16)', () => {
+    // _buildForecast (data-source) now emits a `sunshine` value for
+    // station entries from a configured sensors.sunshine_duration
+    // recorder source — but emits null for today's entry because the
+    // recorder's daily-max-so-far is a partial running total. The
+    // overlay attaches Open-Meteo's daily forecast value where the
+    // upstream is null, and PRESERVES the recorder value where it's
+    // present.
+
+    it('preserves a numeric upstream sunshine value (e.g. recorder daily-max from yesterday)', () => {
+      const fc = [{ datetime: iso(dayMs(-1)), sunshine: 6.5 }];
+      // Open-Meteo would also have a value for that date; the
+      // overlay must NOT overwrite the recorder's measured number.
+      const dailyValues = [{ date: localDateString(dayMs(-1)), value: 28800 }]; // 8h forecast
+      const result = attachSunshine(fc, { dailyValues, latitude: 47 });
+      expect(result[0].sunshine).toBe(6.5);
+    });
+
+    it('overlays the Open-Meteo value when upstream is null (today substitution)', () => {
+      const fc = [{ datetime: iso(dayMs(0)), sunshine: null }];
+      // Open-Meteo's daily-forecast for today: 8h.
+      const dailyValues = [{ date: localDateString(dayMs(0)), value: 28800 }];
+      const result = attachSunshine(fc, { dailyValues, latitude: 47 });
+      expect(result[0].sunshine).toBe(8);
+    });
+
+    it('overlays when upstream is undefined (no sensors.sunshine_duration configured)', () => {
+      const fc = [{ datetime: iso(dayMs(0)) }];
+      const dailyValues = [{ date: localDateString(dayMs(0)), value: 28800 }];
+      const result = attachSunshine(fc, { dailyValues, latitude: 47 });
+      expect(result[0].sunshine).toBe(8);
+    });
+
+    it('mixed-source array: past days from recorder, today from overlay', () => {
+      const fc = [
+        { datetime: iso(dayMs(-2)), sunshine: 4.2 },
+        { datetime: iso(dayMs(-1)), sunshine: 6.5 },
+        { datetime: iso(dayMs(0)), sunshine: null }, // today — recorder skipped
+      ];
+      const dailyValues = [
+        { date: localDateString(dayMs(-2)), value: 18000 }, // would have been 5h
+        { date: localDateString(dayMs(-1)), value: 28800 }, // would have been 8h
+        { date: localDateString(dayMs(0)), value: 32400 },  // 9h forecast for today
+      ];
+      const result = attachSunshine(fc, { dailyValues, latitude: 47 });
+      expect(result[0].sunshine).toBe(4.2); // recorder preserved
+      expect(result[1].sunshine).toBe(6.5); // recorder preserved
+      expect(result[2].sunshine).toBe(9);   // today filled from overlay
+    });
+  });
+
   describe('hourly granularity', () => {
     // Build a Date at a specific hour today.
     const hourAt = (h) => {

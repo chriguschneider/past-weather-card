@@ -24,7 +24,7 @@ test.describe('mode-toggle + jump-to-now', () => {
     await unmountAll(page);
   });
 
-  test('mode-toggle switches forecast.type and round-trips', async ({ page }) => {
+  test('mode-toggle cycles daily → today → hourly → daily', async ({ page }) => {
     await mount(
       page,
       buildBaseConfig({
@@ -33,69 +33,43 @@ test.describe('mode-toggle + jump-to-now', () => {
       buildFullFixture(),
     );
 
-    const readState = async () =>
+    const readType = async (): Promise<string> =>
       page.evaluate((sel) => {
         const card = document.querySelector(sel) as HTMLElement & {
           config: { forecast: { type: string } };
         };
-        const sr = (card as HTMLElement & { shadowRoot?: ShadowRoot | null }).shadowRoot;
-        const canvas = sr?.querySelector('canvas') as HTMLCanvasElement | null;
-        const wrap = sr?.querySelector('.forecast-scroll.scrolling') as HTMLElement | null;
-        return {
-          type: card.config.forecast.type,
-          // canvas backing-buffer width reflects the actual chart
-          // content size — much more reliable across mode flips than
-          // reading scrollWidth on a wrapper that might be the
-          // non-scrolling variant in daily mode.
-          canvasW: canvas ? canvas.width : 0,
-          isScrollingMode: !!wrap,
-        };
+        return card.config.forecast.type;
       }, cardSelector());
 
-    const initial = await readState();
-    expect(initial.type).toBe('daily');
+    const clickToggle = async (): Promise<void> => {
+      // setConfig tears down the old data sources; new ones rebuild
+      // on the next `set hass` tick. Force the tick by pushing a NEW
+      // hass object — Lit's reactive setter only fires on identity
+      // change, so passing the same hass back is a no-op.
+      await page.evaluate(async (args) => {
+        const [sel, fixture] = args;
+        const card = document.querySelector(sel);
+        const sr = (card as HTMLElement & { shadowRoot?: ShadowRoot | null }).shadowRoot;
+        const btn = sr?.querySelector('.mode-toggle') as HTMLElement | null;
+        btn?.click();
+        const fresh = window.__wsc.createMock(fixture);
+        await window.__wsc.setHass('a', fresh);
+      }, [cardSelector(), buildFullFixture()] as [string, ReturnType<typeof buildFullFixture>]);
+      await settle(page);
+      await page.waitForTimeout(300);
+    };
 
-    // Click the mode toggle. setConfig tears down the old data
-    // sources; new ones are rebuilt on the next `set hass` tick. In
-    // live HA that's within a second of any state change. The test
-    // forces the tick by pushing a NEW hass object — Lit's reactive
-    // setter only fires on identity change, so passing the same hass
-    // back is a no-op.
-    await page.evaluate(async (args) => {
-      const [sel, fixture] = args;
-      const card = document.querySelector(sel);
-      const sr = (card as HTMLElement & { shadowRoot?: ShadowRoot | null }).shadowRoot;
-      const btn = sr?.querySelector('.mode-toggle') as HTMLElement | null;
-      btn?.click();
-      const fresh = window.__wsc.createMock(fixture);
-      await window.__wsc.setHass('a', fresh);
-    }, [cardSelector(), buildFullFixture()] as [string, ReturnType<typeof buildFullFixture>]);
-    await settle(page);
-    await page.waitForTimeout(500);
+    expect(await readType()).toBe('daily');
 
-    const afterFirstToggle = await readState();
-    expect(afterFirstToggle.type).toBe('hourly');
-    // Note: this spec verifies that the config round-trips. The
-    // observable side effect — chart rebuilds with the new bucket
-    // count — depends on the post-setConfig `set hass` tick that HA
-    // emits within a second. Issue #10 (v1.4) tracks the rendering
-    // performance of that re-fetch round-trip.
+    await clickToggle();
+    expect(await readType()).toBe('today');
 
-    // Round-trip: click once more, expect daily again.
-    await page.evaluate(async (args) => {
-      const [sel, fixture] = args;
-      const card = document.querySelector(sel);
-      const sr = (card as HTMLElement & { shadowRoot?: ShadowRoot | null }).shadowRoot;
-      const btn = sr?.querySelector('.mode-toggle') as HTMLElement | null;
-      btn?.click();
-      const fresh = window.__wsc.createMock(fixture);
-      await window.__wsc.setHass('a', fresh);
-    }, [cardSelector(), buildFullFixture()] as [string, ReturnType<typeof buildFullFixture>]);
-    await settle(page);
-    await page.waitForTimeout(500);
+    await clickToggle();
+    expect(await readType()).toBe('hourly');
 
-    const afterSecondToggle = await readState();
-    expect(afterSecondToggle.type).toBe('daily');
+    // Round-trip: third click returns to daily.
+    await clickToggle();
+    expect(await readType()).toBe('daily');
   });
 
   test('jump-to-now: hidden at canonical scroll, shown after scrolling, restores on click', async ({ page }) => {
