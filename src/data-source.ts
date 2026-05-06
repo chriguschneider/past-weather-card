@@ -218,7 +218,11 @@ export class MeasuredDataSource {
     // setting. Reuses the entire hourly fetch / build path.
     const isToday = type === 'today';
     const isHourly = type === 'hourly' || isToday;
+    // 'today' fetches a fixed 12-hour station window (past 12h up to
+    // now). Combined with the 12-hour forecast slice from
+    // _refreshForecasts, that's a rolling-24h window centred on "now".
     const days = isToday ? 1 : cfgDays;
+    const hourlyHoursOverride = isToday ? 12 : null;
     const sensors: SensorMap = this.config.sensors || {};
 
     const entityIds = Object.values(sensors).filter(Boolean) as string[];
@@ -228,7 +232,7 @@ export class MeasuredDataSource {
       // Window ends at the next full hour (exclusive). We fetch one extra
       // hour at the start (hours+1) so a cumulative precipitation sensor
       // has a baseline value to diff against on the oldest displayed hour.
-      const hours = days * 24;
+      const hours = hourlyHoursOverride ?? days * 24;
       const end = new Date();
       end.setMinutes(0, 0, 0);
       end.setHours(end.getHours() + 1);

@@ -181,7 +181,10 @@ export function createDailyTickLabelsPlugin({
   return {
     id: 'dailyTickLabels',
     afterDraw(chart: ChartLike): void {
-      if (config.forecast.type === 'hourly') return;
+      // Skip the daily-style tick-label overlay for any non-daily mode.
+      // 'hourly' and 'today' both use time-of-day labels rendered by the
+      // chart's own callback in chart/draw.ts, not weekday+date.
+      if (config.forecast.type === 'hourly' || config.forecast.type === 'today') return;
       const xScale = chart.scales.x;
       if (!xScale || !xScale.ticks) return;
       const c = chart.ctx;
