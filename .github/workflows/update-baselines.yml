@@ -57,7 +57,16 @@ jobs:
         run: npm run rollup
 
       - name: Regenerate baselines
-        run: npx playwright test --update-snapshots
+        # Delete the existing baselines first. Playwright's
+        # --update-snapshots only overwrites a PNG when the new
+        # render differs MORE than the configured tolerance — with
+        # the current loose 5 % threshold, WSL-generated baselines
+        # already pass against GHA renders so no fresh PNG would be
+        # written. Hard-deleting forces every test to write a new
+        # baseline regardless.
+        run: |
+          rm -rf tests-e2e/snapshots
+          npx playwright test --update-snapshots
 
       - name: Commit + push if changed
         env:
