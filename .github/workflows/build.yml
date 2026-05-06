@@ -104,8 +104,28 @@ jobs:
             exit 1
           fi
 
+      - name: Extract release notes from CHANGELOG.md
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v header="## [${GITHUB_REF_NAME#v}]" '
+            /^## \[/ {
+              if (found) exit
+              if (index($0, header) == 1) { found=1; next }
+              next
+            }
+            found { print }
+          ' CHANGELOG.md > .release-notes.md
+          if [ ! -s .release-notes.md ]; then
+            echo "::error::CHANGELOG.md has no '## [$version]' section. Add one before tagging."
+            exit 1
+          fi
+          echo "--- extracted release notes ---"
+          cat .release-notes.md
+
       - name: Upload bundle to release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
           files: dist/weather-station-card.js
+          body_path: .release-notes.md
