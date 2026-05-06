@@ -234,9 +234,9 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
   render(): TemplateResult {
     const t: TFn = (k) => tEditor(this.hass, k);
     const cfg = (this._config || {}) as EditorContext['cfg'];
-    const fcfg = (cfg.forecast || {}) as Record<string, unknown>;
-    const sensorsConfig = (cfg.sensors || {}) as Record<string, string>;
-    const unitsConfig = (cfg.units || {}) as Record<string, string>;
+    const fcfg = (cfg.forecast || {});
+    const sensorsConfig = (cfg.sensors || {});
+    const unitsConfig = (cfg.units || {});
     const mode = this._mode;
     const isStation = mode === 'station';
     const isForecast = mode === 'forecast';
@@ -244,7 +244,7 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
     const showsForecast = isForecast || isCombo;
     const showsStation = isStation || isCombo;
     const hasSensor = (key: string): boolean => !!sensorsConfig[key];
-    const cmap = (cfg.condition_mapping || {}) as Record<string, number>;
+    const cmap = (cfg.condition_mapping || {});
 
     const ctx: EditorContext = {
       t, cfg, fcfg, sensorsConfig, unitsConfig, cmap,

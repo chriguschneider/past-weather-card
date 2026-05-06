@@ -183,7 +183,7 @@ export function cardStyles({
       /* JS sets the inline left style per element to the pixel centre
        * of the leftmost (or rightmost) visible tick; translateX centres
        * the text on that point so the overlay reads as the same kind
-       * of label as the chart\'s "May 6" sitting above its 00:00 tick. */
+       * of label as the chart's "May 6" sitting above its 00:00 tick. */
       transform: translateX(-50%);
     }
     .scroll-date[hidden] { display: none; }

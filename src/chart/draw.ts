@@ -186,9 +186,9 @@ export function buildChart(ctx: CanvasRenderingContext2D | HTMLCanvasElement, op
           } as never,
         },
         tooltip: { enabled: false },
-      } as never,
+      },
     },
   };
 
-  return new Chart(ctx as HTMLCanvasElement, chartConfig);
+  return new Chart(ctx, chartConfig);
 }

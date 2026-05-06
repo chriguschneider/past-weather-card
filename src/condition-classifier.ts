@@ -105,7 +105,7 @@ const DEFAULTS: ConditionThresholds = Object.freeze({
   // < 0.30 ≈ 7–8/8 (overcast).
   sunny_cloud_ratio: 0.70,
   partly_cloud_ratio: 0.30,
-}) as ConditionThresholds;
+});
 
 // Per-hour replacements for the precipitation thresholds. Active when
 // `classifyDay(..., 'hour')`. Reference: WMO/AMS rain-rate scales —
@@ -170,7 +170,7 @@ export function clearSkyLuxFactory(
   latDeg: number | null | undefined,
   lonDeg: number | null | undefined,
 ): (date?: Date) => number {
-  if (!Number.isFinite(latDeg as number) || !Number.isFinite(lonDeg as number)) {
+  if (!Number.isFinite(latDeg) || !Number.isFinite(lonDeg)) {
     return () => 110000;
   }
   const lat = (latDeg as number) * Math.PI / 180;

@@ -252,10 +252,10 @@ export class OpenMeteoSunshineSource {
       || (typeof fetch === 'function' ? (fetch as FetchLike).bind(globalThis) : null);
     this._storage = storage !== undefined
       ? storage
-      : (typeof window !== 'undefined' && window.localStorage ? window.localStorage as StorageLike : null);
+      : (typeof window !== 'undefined' && window.localStorage ? window.localStorage : null);
     this._now = now || (() => Date.now());
 
-    if (Number.isFinite(this.latitude as number) && Number.isFinite(this.longitude as number)) {
+    if (Number.isFinite(this.latitude) && Number.isFinite(this.longitude)) {
       const cached = loadFromStorage(this._storage, this.latitude as number, this.longitude as number);
       if (cached) {
         if (Array.isArray(cached.daily)) this._daily = cached.daily;
@@ -305,7 +305,7 @@ export class OpenMeteoSunshineSource {
     if (this._inFlight) return this._inFlight;
     if (!this.isStale()) return Promise.resolve();
     if (!this._fetch) return Promise.resolve();
-    if (!Number.isFinite(this.latitude as number) || !Number.isFinite(this.longitude as number)) {
+    if (!Number.isFinite(this.latitude) || !Number.isFinite(this.longitude)) {
       return Promise.resolve();
     }
 
@@ -343,7 +343,7 @@ export class OpenMeteoSunshineSource {
         const e = err as { name?: string; code?: number } | null;
         const isAbort = e != null && (e.name === 'AbortError' || e.code === 20);
         if (!isAbort) {
-          // eslint-disable-next-line no-console
+           
           console.warn('[weather-station-card] Open-Meteo fetch failed:', err);
           if (this._listener) this._listener({ ok: false, error: String(err) });
         }

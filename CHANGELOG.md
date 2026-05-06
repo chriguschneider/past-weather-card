@@ -4,6 +4,57 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] — 2026-05-07
+
+Quality-tooling release. Closes the gaps in the build-time quality
+gates flagged in #19. Zero user-facing behaviour changes, zero runtime
+diff in the bundle.
+
+### Build & CI
+
+- **ESLint re-activated.** ESLint 10 with `typescript-eslint`,
+  `eslint-plugin-lit`, and `eslint-plugin-sonarjs` (flat-config in
+  `eslint.config.mjs`). The `npm run lint` step in `build.yml` runs
+  before typecheck/test/build and fails CI on any error. 7 unused
+  imports in `main.ts` removed as part of the first run; 1 useless
+  escape in `chart/styles.ts` fixed. 123 warnings remain as
+  refactoring backlog (Cognitive-Complexity / function-length in
+  `main.ts`, `scroll-ux.ts`, `sunshine-source.ts`) — explicitly
+  warn-only so legacy hot-spots don't block CI; promote to error
+  once addressed.
+- **Coverage gate restored.** `vitest.config.js` listed `.js` paths
+  after the v1.2 TypeScript migration; v8 matched zero files and the
+  80% threshold gated nothing (`Statements 0/0 (Unknown%)`). Paths
+  flipped to `.ts`. Real numbers now: 90.7 % statements, 80.9 %
+  branches, 84.2 % functions, 92.8 % lines — all above the 80 % gate.
+  `scroll-ux.ts` is the single under-threshold module (53 % branch);
+  the global thresholds still pass because they aggregate.
+- **Security baseline.** `npm audit --audit-level=high` step in
+  `build.yml`; `dependabot.yml` weekly for npm + github-actions;
+  CodeQL workflow with `security-extended` queries on PR/push +
+  weekly schedule.
+- **Architecture rules as code.** `dependency-cruiser` enforces
+  no-circular, no-orphans, and module-boundary rules:
+  `src/chart/`, `src/editor/`, `src/utils/` may not uplevel-import.
+  `npm run depcheck` in `build.yml`.
+- **SonarCloud configured but disabled.** `sonar-project.properties`
+  + `.github/workflows/sonarcloud.yml` (guarded with `if: false`).
+  Activate by signing into sonarcloud.io and adding `SONAR_TOKEN` —
+  see `sonar-project.properties` header for the steps.
+
+### Internal cleanup
+
+- 7 unused imports removed from `src/main.ts` (`lightenColor`,
+  4 chart-plugin factories, `buildChart`, `property` decorator).
+- `chart/styles.ts`: fixed an unnecessary `\'` escape inside a CSS
+  comment.
+- `vitest.config.js`: added `lcov` to the coverage reporter list so
+  SonarCloud (when activated) can read coverage data.
+
+### Issue closed
+
+- #19 — Software-Quality-Tooling
+
 ## [1.4.1] — 2026-05-07
 
 Quality release after the v1.4 feature push: performance polish,

@@ -1,6 +1,6 @@
 {
   "name": "weather-station-card",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Lovelace card showing past weather-station measurements with the weather-chart-card layout, plus live current-condition rendering driven by sensor history.",
   "keywords": [
     "home-assistant",
@@ -36,12 +36,17 @@
     "lit": "^2.8.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.59.1",
     "@rollup/plugin-terser": "^1.0.0",
     "@rollup/plugin-typescript": "^12.3.0",
     "@types/chart.js": "^2.9.41",
     "@vitest/coverage-v8": "^4.1.5",
-    "eslint": "^8.56.0",
+    "dependency-cruiser": "^17.4.0",
+    "eslint": "^10.3.0",
+    "eslint-plugin-lit": "^2.2.1",
+    "eslint-plugin-sonarjs": "^4.0.3",
+    "globals": "^17.6.0",
     "http-server": "^14.1.1",
     "jsdom": "^29.1.1",
     "rollup": "^4.9.6",
@@ -50,12 +55,14 @@
     "rollup-plugin-serve": "^2.0.3",
     "tslib": "^2.8.1",
     "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.2",
     "vitest": "^4.1.5"
   },
   "scripts": {
     "start": "rollup -c rollup.config.dev.js --watch",
-    "build": "npm run typecheck && npm run test && npm run rollup",
-    "lint": "echo \"ESLint disabled — all sources are TypeScript; tsc covers compile-time checks (v1.2)\"",
+    "build": "npm run lint && npm run typecheck && npm run test && npm run rollup",
+    "lint": "eslint src tests-e2e",
+    "depcheck": "depcruise src",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

@@ -90,7 +90,7 @@ export function setupActionHandler(card: ActionHandlerCard): void {
   // Cursor reflects "is anything wired" — refresh on every call so
   // toggling tap_action in the editor flips the hand cursor on/off
   // immediately, not only on first render.
-  const cfg0 = card.config || ({} as ActionHandlerCard['config'] & object);
+  const cfg0 = card.config || ({});
   const isLive = (a: ActionConfig | undefined): boolean => !!(a && a.action && a.action !== 'none');
   haCard.style.cursor = (isLive(cfg0.tap_action) || isLive(cfg0.hold_action) || isLive(cfg0.double_tap_action))
     ? 'pointer' : '';
@@ -104,7 +104,7 @@ export function setupActionHandler(card: ActionHandlerCard): void {
   let pendingTap: ReturnType<typeof setTimeout> | null = null;
 
   const fire = (kind: 'tap' | 'hold' | 'double_tap'): void => {
-    const cfg = card.config || ({} as ActionHandlerCard['config'] & object);
+    const cfg = card.config || ({});
     const map: Record<typeof kind, ActionConfig | undefined> = {
       tap: cfg.tap_action,
       hold: cfg.hold_action,

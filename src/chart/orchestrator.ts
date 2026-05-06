@@ -123,7 +123,7 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
   // chart code path.
   const { config } = normalizeForecastMode(rawConfig);
 
-  const chartCanvas = card.renderRoot && (card.renderRoot as ParentNode).querySelector('#forecastChart');
+  const chartCanvas = card.renderRoot && (card.renderRoot).querySelector('#forecastChart');
   if (!chartCanvas) {
     console.error('Canvas element not found:', card.renderRoot);
     return undefined;
@@ -143,7 +143,7 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
   const backgroundColor = style.getPropertyValue('--card-background-color');
   const textColor = style.getPropertyValue('--primary-text-color');
   const dividerColor = style.getPropertyValue('--divider-color');
-  const canvas = (card.renderRoot as ParentNode).querySelector('#forecastChart') as HTMLCanvasElement | null;
+  const canvas = (card.renderRoot).querySelector('#forecastChart') as HTMLCanvasElement | null;
   if (!canvas) {
     requestAnimationFrame(() => card.drawChart());
     return undefined;

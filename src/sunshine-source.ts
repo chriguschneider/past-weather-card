@@ -79,7 +79,7 @@ function dayOfYearOf(date: Date): number {
  *  Edge cases: polar night → 0, midnight sun → 24, non-finite latitude
  *  → 12 (equinox fallback). */
 export function dayLengthHours(latDeg: number | null | undefined, date: DateLike): number {
-  if (!Number.isFinite(latDeg as number)) return 12;
+  if (!Number.isFinite(latDeg)) return 12;
   const d = date instanceof Date ? date : new Date(date);
   if (Number.isNaN(d.getTime())) return 12;
   const decl = declinationDeg(dayOfYearOf(d)) * Math.PI / 180;

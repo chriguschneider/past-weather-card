@@ -1,0 +1,48 @@
+# CodeQL — added v1.4.2 (issue #19) for the security-baseline phase.
+# Free for public repos. Catches XSS, prototype-pollution, hardcoded
+# credentials, and other common JS/TS security smells that ESLint
+# does not cover.
+#
+# Runs on every PR + master push, plus a weekly scheduled scan to
+# pick up new advisories on unchanged code.
+
+name: CodeQL
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  schedule:
+    # Every Monday 06:00 UTC.
+    - cron: '0 6 * * 1'
+
+jobs:
+  analyze:
+    name: Analyze (javascript-typescript)
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          # security-extended adds rules with slightly more false
+          # positives but better coverage; appropriate for a small
+          # repo where each finding gets a real look.
+          queries: security-extended
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"

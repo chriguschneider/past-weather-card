@@ -89,7 +89,7 @@ export function renderSensorsSection(editor: EditorLike, ctx: EditorContext): Te
     <div class="textfield-container" style="margin-top:24px;">
       <ha-form
         .data=${sensorsConfig}
-        .schema=${buildSensorsSchema(editor.hass as HassWithStates | null)}
+        .schema=${buildSensorsSchema(editor.hass)}
         .hass=${editor.hass}
         .computeLabel=${(s: { name: string }) => t(s.name)}
         @value-changed=${editor._sensorsChanged}

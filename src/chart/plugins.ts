@@ -276,7 +276,7 @@ export function createDailyTickLabelsPlugin({
           // closest('.forecast-scroll.scrolling') is the safest pick.
           const canvas = (chart as { canvas?: HTMLElement | null }).canvas || null;
           const wrapper = canvas
-            ? (canvas.closest('.forecast-scroll.scrolling') as HTMLElement | null)
+            ? (canvas.closest('.forecast-scroll.scrolling'))
             : null;
           const scrollLeft = wrapper ? wrapper.scrollLeft : 0;
           // Pixel positions in the canvas/scale coordinates start at

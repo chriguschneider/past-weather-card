@@ -19,3 +19,6 @@ test-results/
 playwright-report/
 .playwright/
 .claude/
+# Coverage output — generated per-run by `vitest run --coverage`,
+# consumed by SonarCloud (when activated) via coverage/lcov.info.
+coverage/

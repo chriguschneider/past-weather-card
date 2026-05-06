@@ -28,6 +28,24 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Security audit
+        # Fails the build on high or critical advisories. Low/moderate
+        # are reported as Dependabot PRs (.github/dependabot.yml).
+        # Added v1.4.2 — see issue #19.
+        run: npm audit --audit-level=high
+
+      - name: Lint
+        # ESLint 10 with typescript-eslint, lit, sonarjs plugins.
+        # Re-activated v1.4.2 after the v1.2 stub. Errors fail CI;
+        # complexity warnings are tracked as backlog (eslint.config.mjs).
+        run: npm run lint
+
+      - name: Architecture rules
+        # dependency-cruiser enforces module-boundary rules:
+        # no-circular, chart/editor/utils may not uplevel-import.
+        # Added v1.4.2 — see .dependency-cruiser.cjs and issue #19.
+        run: npm run depcheck
+
       - name: Install Playwright browsers
         # Cached by GHA between runs as long as the version pinned in
         # package-lock.json is unchanged. ~150 MB Chromium download
@@ -36,8 +54,6 @@ jobs:
 
       - name: Typecheck
         # `tsc --noEmit` against tsconfig.json with strict + noImplicitAny.
-        # All sources are TypeScript as of v1.2; this replaced the prior
-        # ESLint step (which had nothing to lint once .js was retired).
         # `main.ts` carries `@ts-nocheck` (integration boundary —
         # see header) but its imports are still resolved and contracts
         # checked.
@@ -51,6 +67,9 @@ jobs:
         # lines drops below the threshold configured in vitest.config.js.
         # Scope is the modules listed there — main.ts / editor / chart
         # orchestration are deferred to v1.3 (Playwright E2E).
+        # Note: pre-v1.4.2 the include array listed .js paths after the
+        # v1.2 .ts migration, so the gate matched zero files and was
+        # silently inert. Fixed in #19.
         run: npm run coverage
 
       - name: Build
