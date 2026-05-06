@@ -4,9 +4,10 @@
 // Both source-of-truth lists (LOCALE_OPTIONS, CONDITION_MAPPING_FIELDS)
 // live here since this is the only file that references them.
 
-import { html } from 'lit';
+import { html, type TemplateResult } from 'lit';
+import type { EditorLike, EditorContext } from './types.js';
 
-const LOCALE_OPTIONS = [
+const LOCALE_OPTIONS: ReadonlyArray<[string, string]> = [
   ['',   'HA Default'],
   ['bg', 'Bulgarian'], ['ca', 'Catalan'], ['cs', 'Czech'], ['da', 'Danish'],
   ['nl', 'Dutch'],     ['en', 'English'], ['fi', 'Finnish'], ['fr', 'French'],
@@ -19,7 +20,13 @@ const LOCALE_OPTIONS = [
 // condition_mapping override schema. Each row knows its unit (rendered as
 // a suffix in the input label) so users don't need to consult the README
 // to remember whether `windy_threshold` is m/s or km/h.
-const CONDITION_MAPPING_FIELDS = [
+interface ConditionMappingField {
+  key: string;
+  unit: string;
+  defaultValue: number;
+}
+
+const CONDITION_MAPPING_FIELDS: ReadonlyArray<ConditionMappingField> = [
   { key: 'rainy_threshold_mm',      unit: 'mm',  defaultValue: 0.5 },
   { key: 'pouring_threshold_mm',    unit: 'mm',  defaultValue: 10 },
   { key: 'exceptional_gust_ms',     unit: 'm/s', defaultValue: 24.5 },
@@ -35,7 +42,7 @@ const CONDITION_MAPPING_FIELDS = [
   { key: 'partly_cloud_ratio',      unit: 'ratio', defaultValue: 0.30 },
 ];
 
-export function renderAdvancedSection(editor, ctx) {
+export function renderAdvancedSection(editor: EditorLike, ctx: EditorContext): TemplateResult {
   const { t, cfg, cmap } = ctx;
   return html`
     <!-- ─── F. Advanced ─────────────────────────────────────────── -->
@@ -49,8 +56,8 @@ export function renderAdvancedSection(editor, ctx) {
         naturalMenuWidth fixedMenuPosition
         label="${t('locale')}"
         .value=${cfg.locale || ''}
-        @change=${(e) => editor._valueChanged(e, 'locale')}
-        @closed=${(ev) => ev.stopPropagation()}
+        @change=${(e: Event) => editor._valueChanged(e as unknown as { target: { value: string } }, 'locale')}
+        @closed=${(ev: Event) => ev.stopPropagation()}
       >
         ${LOCALE_OPTIONS.map(([value, label]) => html`
           <ha-list-item .value=${value}>${label}</ha-list-item>
@@ -68,7 +75,7 @@ export function renderAdvancedSection(editor, ctx) {
             type="number" step="any"
             .value="${cmap[field.key] != null ? String(cmap[field.key]) : ''}"
             placeholder="${field.defaultValue}"
-            @change="${(e) => editor._conditionMappingChanged(e, field.key)}"
+            @change="${(e: Event) => editor._conditionMappingChanged(e as unknown as { target: { value: string } }, field.key)}"
           ></ha-textfield>
           <span class="cmap-unit">${field.unit}</span>
         </div>

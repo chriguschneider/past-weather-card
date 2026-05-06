@@ -1,0 +1,74 @@
+// Shared types for the editor render partials.
+//
+// Each `editor/render-<section>.ts` exports a `renderSection(editor, ctx)`
+// function. They all share the same shape — `editor` is the
+// LitElement host with the per-input event handlers, `ctx` is a per-render
+// bag of computed view-state assembled in the host's `render()` method.
+//
+// The editor is loose-typed by design: contributors who add a new
+// section don't need to touch this file unless their handler isn't
+// covered by the union of `EditorLike`'s existing fields.
+
+/** Subset of Home Assistant's frontend `hass` object the editor
+ *  reads. The full type lives in custom-card-helpers — keeping a
+ *  loose subset here avoids an extra dev-dep purely for typing. */
+export interface HomeAssistant {
+  language?: string;
+  config?: { latitude?: number | null; longitude?: number | null };
+  states?: Record<string, { state: string } | undefined>;
+}
+
+/** Translation lookup. Returns the English fallback (and ultimately
+ *  the key itself) when no localization is configured. */
+export type TFn = (key: string) => string;
+
+/** Anything `_valueChanged` accepts on `event.target` — covers both
+ *  `<ha-textfield>` (value) and `<ha-switch>` / `<ha-checkbox>`
+ *  (checked). */
+interface ValueChangedTarget {
+  value?: string | number;
+  checked?: boolean;
+}
+
+/** Editor host surface. Each render partial receives the LitElement
+ *  instance so it can bind handler closures (`@change="${(e) =>
+ *  editor._valueChanged(e, 'days')}"`). Method signatures are kept
+ *  loose because the host is JS-style with `static get properties`
+ *  rather than decorator-typed. */
+export interface EditorLike {
+  hass: HomeAssistant | null;
+  _config: Record<string, unknown> | null;
+  _mode: 'station' | 'forecast' | 'combination';
+  _setMode(value: 'station' | 'forecast' | 'combination'): void;
+  _valueChanged(event: { target: ValueChangedTarget }, key: string): void;
+  _sensorsChanged(event: Event): void;
+  _sensorPickerChanged(key: string, value: unknown): void;
+  _unitsChanged(event: Event): void;
+  _actionChanged(key: string, value: unknown): void;
+  _conditionMappingChanged(event: { target: { value?: string } }, key: string): void;
+  _renderSunshineAvailabilityHint(cfg: Record<string, unknown>, t: TFn): unknown;
+  configChanged(newConfig: Record<string, unknown>): void;
+  requestUpdate(): void;
+}
+
+/** Per-render context bag. Computed once at the top of the host's
+ *  `render()` and passed to each partial — saves every partial from
+ *  recomputing the same `mode`, `cfg.forecast`, etc. */
+export interface EditorContext {
+  t: TFn;
+  cfg: Record<string, unknown> & {
+    forecast?: Record<string, unknown>;
+    sensors?: Record<string, string>;
+    units?: Record<string, string>;
+    condition_mapping?: Record<string, number>;
+    [k: string]: unknown;
+  };
+  fcfg: Record<string, unknown>;
+  sensorsConfig: Record<string, string>;
+  unitsConfig: Record<string, string>;
+  cmap: Record<string, number>;
+  mode: 'station' | 'forecast' | 'combination';
+  showsStation: boolean;
+  showsForecast: boolean;
+  hasSensor: (key: string) => boolean;
+}

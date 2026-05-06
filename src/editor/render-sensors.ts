@@ -12,19 +12,35 @@
 // is registered through the selector pipeline (direct use renders
 // blank in some HA builds).
 
-import { html } from 'lit';
+import { html, type TemplateResult } from 'lit';
+import type { EditorLike, EditorContext, HomeAssistant } from './types.js';
 
-function buildSensorFields(hass) {
-  const all = hass ? Object.entries(hass.states) : [];
-  const byDeviceClass = (classes) => all
+interface SensorState {
+  state: string;
+  attributes?: {
+    device_class?: string;
+    unit_of_measurement?: string;
+    friendly_name?: string;
+  };
+}
+
+interface HassWithStates extends HomeAssistant {
+  states?: Record<string, SensorState | undefined>;
+}
+
+function buildSensorFields(hass: HassWithStates | null): Array<{ key: string; candidates: string[] }> {
+  const all: Array<[string, SensorState]> = hass && hass.states
+    ? (Object.entries(hass.states).filter(([, s]) => !!s) as Array<[string, SensorState]>)
+    : [];
+  const byDeviceClass = (classes: string[]): string[] => all
     .filter(([id, s]) => id.startsWith('sensor.') &&
-      classes.includes(s.attributes && s.attributes.device_class))
+      classes.includes((s.attributes && s.attributes.device_class) || ''))
     .map(([id]) => id);
 
   const directionEntities = all
     .filter(([id, s]) => id.startsWith('sensor.') &&
-      (s.attributes.unit_of_measurement === '°' ||
-       s.attributes.unit_of_measurement === 'deg'))
+      ((s.attributes && s.attributes.unit_of_measurement) === '°' ||
+       (s.attributes && s.attributes.unit_of_measurement) === 'deg'))
     .map(([id]) => id);
 
   const uvRegex = /(?:^|[._-])uv(?:[._-]|index|$)/i;
@@ -52,7 +68,7 @@ function buildSensorFields(hass) {
   ];
 }
 
-export function buildSensorsSchema(hass) {
+export function buildSensorsSchema(hass: HassWithStates | null): Array<{ name: string; selector: object }> {
   return buildSensorFields(hass).map((f) => ({
     name: f.key,
     selector: {
@@ -63,7 +79,7 @@ export function buildSensorsSchema(hass) {
   }));
 }
 
-export function renderSensorsSection(editor, ctx) {
+export function renderSensorsSection(editor: EditorLike, ctx: EditorContext): TemplateResult {
   const { t, sensorsConfig } = ctx;
   return html`
     <!-- ─── B. Sensors ──────────────────────────────────────────── -->
@@ -73,9 +89,9 @@ export function renderSensorsSection(editor, ctx) {
     <div class="textfield-container" style="margin-top:24px;">
       <ha-form
         .data=${sensorsConfig}
-        .schema=${buildSensorsSchema(editor.hass)}
+        .schema=${buildSensorsSchema(editor.hass as HassWithStates | null)}
         .hass=${editor.hass}
-        .computeLabel=${(s) => t(s.name)}
+        .computeLabel=${(s: { name: string }) => t(s.name)}
         @value-changed=${editor._sensorsChanged}
       ></ha-form>
     </div>
