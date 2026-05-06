@@ -18,3 +18,4 @@ scratch/
 test-results/
 playwright-report/
 .playwright/
+.claude/

@@ -4,6 +4,42 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] — 2026-05-06
+
+Tighten the visual-regression toolchain: baselines now live in the
+same environment as CI, threshold drops from 5 % to 0.2 %. Closes
+[#18](https://github.com/chriguschneider/weather-station-card/issues/18).
+
+### Added
+
+- `.github/workflows/update-baselines.yml` — manually-dispatched
+  GitHub Action that regenerates the Playwright snapshots on the
+  actual GHA ubuntu-latest runner (the same image regular CI uses)
+  and commits the result back. Trigger via Actions → Update E2E
+  Baselines → Run workflow, or
+  `gh workflow run update-baselines.yml --ref <branch>`.
+
+### Changed
+
+- `playwright.config.ts#maxDiffPixelRatio`: 0.05 → 0.002 (5 % → 0.2 %).
+  With baselines and assertion in the same exact environment, the
+  remaining drift is sub-pixel anti-aliasing on chart strokes, well
+  under the new threshold.
+- `tests-e2e/snapshots/render-modes.spec.ts/*.png`: 13 baselines
+  replaced with GHA-native renders (committed by the bot via the
+  new workflow).
+
+### Notes
+
+WSL-local iteration still works for fast-feedback cycles (no
+need to dispatch a workflow for every chart tweak), but
+WSL-generated baselines diff ~1–4 % against GHA baselines and must
+not be committed. Workflow for deliberate UI changes:
+`gh workflow run update-baselines.yml --ref <branch>` →
+review the bot's commit → merge.
+
+Bundle byte-identical to v1.3.0.
+
 ## [1.3.0] — 2026-05-06
 
 E2E + visual-regression test suite. Playwright drives the bundled
