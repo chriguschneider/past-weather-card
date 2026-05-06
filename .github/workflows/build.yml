@@ -28,6 +28,12 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Install Playwright browsers
+        # Cached by GHA between runs as long as the version pinned in
+        # package-lock.json is unchanged. ~150 MB Chromium download
+        # the first time, ~1 s on cache hit.
+        run: npx playwright install chromium --with-deps
+
       - name: Typecheck
         # `tsc --noEmit` against tsconfig.json with strict + noImplicitAny.
         # All sources are TypeScript as of v1.2; this replaced the prior
@@ -62,6 +68,23 @@ jobs:
             echo "::error::Bundle exceeds 800 KB budget."
             exit 1
           fi
+
+      - name: E2E + visual regression
+        # Playwright spec suite under tests-e2e/. Boots the bundle
+        # into a static-served harness, drives the card through a
+        # fake-hass mock, and compares 7 baseline screenshots. The
+        # webServer is configured in playwright.config.ts.
+        run: npm run test:e2e
+
+      - name: Upload Playwright report on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
 
       - name: Verify committed bundle matches source
         run: |
