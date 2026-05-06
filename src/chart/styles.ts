@@ -6,6 +6,17 @@
 // Adding a new style rule that *only* references CSS variables (no
 // JS-side values) is fine to add inline here. Adding one that needs a new
 // runtime value means adding it to the parameter list.
+export interface CardStylesOpts {
+  iconsSize: number;
+  currentTempSize: number;
+  timeSize: number;
+  dayDateSize: number;
+  chartHeight: number;
+  titlePresent: boolean;
+  labelsSmallSize: number;
+  labelsBaseSize: number;
+}
+
 export function cardStyles({
   iconsSize,
   currentTempSize,
@@ -15,7 +26,7 @@ export function cardStyles({
   titlePresent,
   labelsSmallSize,
   labelsBaseSize,
-}) {
+}: CardStylesOpts): string {
   return `
     ha-icon {
       color: var(--paper-item-icon-color);
