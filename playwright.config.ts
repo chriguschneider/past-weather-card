@@ -38,29 +38,25 @@ export default defineConfig({
   },
 
   // Visual regression tolerance:
-  //   - Baselines are generated in WSL (Ubuntu-24.04) — same major
-  //     version as the GHA ubuntu-latest runner — to keep the font /
-  //     graphics stack as close as possible. Even so, observed diff
-  //     ranges from ~1 % up to ~4 % across the 13 baselines: WSL2's
-  //     GPU virtualization renders subpixel font hinting differently
-  //     from the GHA container, and that drift shows up concentrated
-  //     in the chart's tick + temperature labels (where the line +
-  //     label edges interact most with subpixel positioning).
-  //   - 5 % accommodates that drift. Catches major regressions:
-  //     a missing dataset (~10–20 %), a wrong major colour (~5–8 %),
-  //     a layout shift (~5–10 %). Misses subtle 1-px text shifts
-  //     and minor colour drifts — acceptable for v1.3 given the
-  //     alternative (no visual regression at all).
+  //   - Baselines are generated on the actual GHA ubuntu-latest
+  //     runner (via .github/workflows/update-baselines.yml,
+  //     dispatched manually) so the comparison environment matches
+  //     the assertion environment exactly. With both renders coming
+  //     from the same image, observed diff is well under 0.2 %
+  //     (sub-pixel anti-aliasing on chart line strokes only).
+  //   - 0.2 % catches a missing dataset, wrong colour, layout shift,
+  //     or any deliberate UI change that needs a fresh baseline.
   //   - threshold 0.2 is the per-pixel colour-distance default.
   //
-  // Tighter via CI-generated baselines: tracked as issue #18 — a
-  // workflow_dispatch GitHub Action that runs --update-snapshots on
-  // the actual GHA runner and commits the baselines back. Then
-  // baseline-generation and assertion run on the same environment
-  // and the threshold can drop to 0.2 %.
+  // Local iteration in WSL: the same threshold may report ~1–4 %
+  // diff against the committed (GHA-generated) baselines because
+  // WSL2's GPU virtualization renders subpixel hinting differently.
+  // For UI changes, dispatch the update-baselines workflow on a
+  // branch and review the bot's commit — never commit
+  // WSL-generated baselines to master.
   expect: {
     toHaveScreenshot: {
-      maxDiffPixelRatio: 0.05,
+      maxDiffPixelRatio: 0.002,
       threshold: 0.2,
       // Animations (the 500 ms easeOutQuart on temperature lines) are
       // disabled per-test by toggling forecast.disable_animation in
