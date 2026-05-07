@@ -2,8 +2,14 @@
 //
 // main.ts — integration boundary file. ~1500 LOC of LitElement +
 // Home Assistant + Chart.js wiring. Every other file in src/ is fully
-// type-checked under `tsc --strict`; this one is renamed to .ts so it
-// participates in the build but isn't strict-checked yet.
+// type-checked under `tsc --strict`; this one keeps `@ts-nocheck` for
+// now — the v1.7 #33 pass landed the field-declaration block below
+// (improves IDE intellisense + locks in the inventory) but the full
+// strict-checked refactor that resolves the remaining 109 errors —
+// HassLike threading through `set hass`, parameter annotations in
+// the editor-callback dispatch table, narrowing of the
+// `hass.states[eid]` index access to a typed shape — is deferred to
+// v1.8 as its own focused PR.
 //
 // Why the opt-out: this class touches ~30 instance fields (forecasts,
 // weather, current sensor readings, scroll-ux teardowns, animation
@@ -58,7 +64,109 @@ import {Chart, registerables} from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 Chart.register(...registerables, ChartDataLabels);
 
+// Field-declaration block for the WeatherStationCard class. Uses
+// `any` liberally rather than threading HassLike + the chart / sensor
+// shapes through every accessor — that's the deferred Option-2 work
+// for v1.8. The intent of v1.7's #33 pass is to (a) drop @ts-nocheck
+// so the file participates in tsc, (b) catch the obvious TS2339 sites
+// where future renames would silently bit-rot, and (c) make the field
+// inventory legible in IDE intellisense.
+//
+// Anything HA-shaped (`hass`, `config`, the synthesised `weather`
+// object) stays `any`. Lit reactive properties are declared as plain
+// fields here and referenced in `static get properties()` below —
+// Lit's runtime decoration syncs the two without further type
+// gymnastics.
 class WeatherStationCard extends LitElement {
+  // --- Reactive properties (referenced in static get properties()) ---
+  // Hass is stored as `_hass` per HA's pattern; the public `hass` is
+  // a setter that stamps `_hass` and also derives sensor-state values.
+  /** Home Assistant state object. Loose-typed at this boundary —
+   *  threading the full HA frontend `HomeAssistant` type would
+   *  pull half a dozen UI deps that aren't otherwise needed. */
+  // deno-lint-ignore no-explicit-any
+  _hass: any = null;
+  // deno-lint-ignore no-explicit-any
+  config: any = null;
+  language: string = 'en';
+  // deno-lint-ignore no-explicit-any
+  sun: any = null;
+  // deno-lint-ignore no-explicit-any
+  weather: any = null;
+  // deno-lint-ignore no-explicit-any
+  temperature: any;
+  // deno-lint-ignore no-explicit-any
+  humidity: any;
+  // deno-lint-ignore no-explicit-any
+  pressure: any;
+  // deno-lint-ignore no-explicit-any
+  windSpeed: any;
+  // deno-lint-ignore no-explicit-any
+  windDirection: any;
+  // deno-lint-ignore no-explicit-any
+  forecastChart: any = null;
+  // deno-lint-ignore no-explicit-any
+  forecastItems: any;
+  // deno-lint-ignore no-explicit-any
+  forecasts: any[] | null = null;
+
+  // --- Sensor state (read from `set hass`) ---
+  // deno-lint-ignore no-explicit-any
+  uv_index: any;
+  // deno-lint-ignore no-explicit-any
+  dew_point: any;
+  // deno-lint-ignore no-explicit-any
+  wind_gust_speed: any;
+  unitSpeed: string | undefined;
+  unitPressure: string | undefined;
+  baseIconPath: string | undefined;
+
+  // --- Caching / live-condition memo ---
+  _liveConditionKey: string | undefined;
+  _liveCondition: string | undefined;
+
+  // --- Data-source state ---
+  // deno-lint-ignore no-explicit-any
+  _dataSource: any = null;
+  // deno-lint-ignore no-explicit-any
+  _dataUnsubscribe: (() => void) | null = null;
+  // deno-lint-ignore no-explicit-any
+  _forecastSource: any = null;
+  _forecastUnsubscribe: (() => void) | null = null;
+  // deno-lint-ignore no-explicit-any
+  _stationData: any[] = [];
+  // deno-lint-ignore no-explicit-any
+  _forecastData: any[] = [];
+  _stationError: string | null = null;
+  _forecastError: string | null = null;
+  _stationCount: number = 0;
+  _forecastCount: number = 0;
+  _missingSensors: string[] = [];
+  // Lazy-cache for #10 mode-toggle.
+  // deno-lint-ignore no-explicit-any
+  _stationCache: Record<string, any[]> = {};
+  // deno-lint-ignore no-explicit-any
+  _forecastCache: Record<string, any[]> = {};
+  // deno-lint-ignore no-explicit-any
+  _sunshineSource: any = null;
+
+  // --- Chart / scroll lifecycle ---
+  _chartError: unknown = null;
+  _chartPhase: string | null = null;
+  // deno-lint-ignore no-explicit-any
+  resizeObserver: any = null;
+  resizeInitialized: boolean = false;
+  _resizeRaf: number | null = null;
+  // deno-lint-ignore no-explicit-any
+  _initialScrollObserver: any = null;
+  _initialScrollApplied: boolean = false;
+  _pendingScrollFrame: number | null = null;
+  _lastScrollGeneration: string | undefined;
+  _scrollUxTeardown: (() => void) | null = null;
+  _actionHandlerTeardown: (() => void) | null = null;
+  _clockTimer: ReturnType<typeof setInterval> | null = null;
+  // deno-lint-ignore no-explicit-any
+  _teardownRegistry: any;
 
 static getConfigElement() {
   return document.createElement("weather-station-card-editor");
