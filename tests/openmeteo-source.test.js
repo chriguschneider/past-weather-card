@@ -378,6 +378,48 @@ describe('OpenMeteoSunshineSource', () => {
     await p;
     expect(listener).not.toHaveBeenCalled();
   });
+
+  it('survives a getItem that throws (corrupted-storage path, #56 coverage)', () => {
+    // Storage that always throws on read — covers the loadFromStorage
+    // catch branch.
+    const throwingStorage = {
+      getItem: () => { throw new Error('storage corrupted'); },
+      setItem: () => {},
+    };
+    expect(() => new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon,
+      fetchImpl: vi.fn(() => Promise.reject(new Error('no fetch'))),
+      storage: throwingStorage, now,
+    })).not.toThrow();
+  });
+
+  it('survives a setItem that throws (quota / private-mode path, #56 coverage)', async () => {
+    const throwingStorage = {
+      getItem: () => null,
+      setItem: () => { throw new Error('quota exceeded'); },
+    };
+    const fetchSpy = vi.fn(async () => new Response(JSON.stringify({
+      daily: { time: ['2026-05-21'], sunshine_duration: [50000] },
+    })));
+    const src = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon, fetchImpl: fetchSpy, storage: throwingStorage, now,
+    });
+    src.setListener(vi.fn());
+    await expect(src.ensureFresh()).resolves.not.toThrow();
+  });
+
+  it('abort() is safe when AbortController.abort() throws (older-polyfill path, #56 coverage)', () => {
+    const src = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon,
+      fetchImpl: vi.fn(() => new Promise(() => {})), // never-resolving
+      storage: makeStorage(), now,
+    });
+    src.setListener(vi.fn());
+    void src.ensureFresh();
+    // Stub the in-flight controller so its abort() throws.
+    src._abort = { abort: () => { throw new Error('double abort'); } };
+    expect(() => src.abort()).not.toThrow();
+  });
 });
 
 describe('readCachedAvailability', () => {
