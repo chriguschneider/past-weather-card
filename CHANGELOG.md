@@ -4,6 +4,84 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] — 2026-05-07
+
+User-facing follow-ups to v1.5 plus dependency hygiene. Two visible
+fixes (multi-card cross-talk on the dashboard; today's sunshine value
+again reflects what was measured), one new under-the-hood feature
+(sunshine forecast now estimates from the weather provider's cloud
+coverage when no dedicated sunshine sensor is configured), and a
+quiet upgrade to Lit 3 that shaves 400 bytes off the bundle.
+
+### Multi-card dashboards: no more sibling reloads on toggle
+
+If you have **two or more weather-station-cards on the same Lovelace
+dashboard**, clicking the daily ↔ today ↔ hourly button on one card
+no longer triggers an unnecessary chart redraw on the others. HA's
+WebSocket layer fan-outs the entity's forecast to every active
+subscriber whenever any one of them resubscribes — the card now
+short-circuits when the incoming payload is identical to what it
+already shows.
+
+### Today's sunshine column now reflects what's actually measured
+
+The v1.4 substitution that swapped today's column for the Open-Meteo
+forecast value (to avoid the "tiny number in the morning" surprise)
+created a worse problem in the afternoon: an overcast afternoon would
+still display "11 h" because the morning had predicted it,
+contradicting what was visible out the window. **Reverted** — today
+now reads the recorder running daily-max like every other day, even
+when the value is small early on. Empirical truth wins over
+predicted truth.
+
+### Sunshine forecast: works on more weather providers
+
+The forecast block now estimates sunshine duration from the weather
+provider's `cloud_coverage` field as a fallback when neither a
+dedicated sunshine sensor nor the Open-Meteo overlay resolves a
+value. Affects users on **Met.no**, **AccuWeather**, **hg1337/dwd**
+— their forecast rows previously came up empty without a separate
+sunshine setup. The estimate is honest about being a proxy
+(Kasten-style empirical formula); users with the FL550/dwd_weather
+"Sun duration" sensor or an Open-Meteo REST sensor still get the
+WMO-grade source as the preferred path. Tunable via
+`condition_mapping.sunshine_cloud_exponent` (default 1.7).
+
+### Library upgrade — Lit 2 → 3
+
+Internal upgrade from the Lit web-components library to its current
+major release. No behaviour change visible to users. Shaves ~400
+bytes off the bundle thanks to better tree-shaking. The card uses
+the property-declarations API (not decorators), so the upgrade was
+mechanical — no migration risk visible in the test suite or the
+visual baselines.
+
+### README screenshots render correctly on mobile
+
+Long `<picture>` blocks in the hero table previously confused
+GitHub's mobile-web sanitizer, which rendered the raw HTML next to
+the image. Single-line `<picture>` form now renders consistently on
+desktop and mobile.
+
+### Issues closed
+
+- #6 — Daily sunshine-duration row (F3 cloud-coverage Kasten
+  fallback; B2 lux derivation deferred to v1.7)
+- #24 — `@types/chart.js` deprecated stub removed (chart.js v4
+  ships its own types)
+- #25 — Lit 2 → 3
+- #31 — ESLint warning reduction (270 → 157, -42 %; cognitive-
+  complexity refactors deferred to v1.7)
+- #36 — SonarCloud baseline triage (closed in v1.5; #6/#42 are the
+  remaining surfaces)
+- #37 — Sunshine today-value (Option A, measured)
+- #43 — README mobile picture-block rendering
+- #55 — Multi-card dashboard mode-toggle cross-talk
+
+`#33` (main.ts `@ts-nocheck` removal) deferred to v1.7 — the
+strict-type pass surfaced 404 errors that need a focused refactor
+of their own.
+
 ## [1.5.0] — 2026-05-07
 
 Performance + tech-debt release. The big visible win is the daily ↔ today
