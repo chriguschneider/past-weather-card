@@ -176,6 +176,38 @@ describe('MeasuredDataSource._buildForecast', () => {
     // truth even when small early in the day.
     expect(out[0].sunshine).toBe(1440);
   });
+
+  it('falls back to the lux-derivation map when no sunshine_duration sensor is set (#66 B2)', () => {
+    const ds = new MeasuredDataSource(fakeHass, { sensors, days: 3 });
+    const stats = {};
+    // Pre-computed lux-derivation result (as if `_fetchLuxSunshine`
+    // returned this map). Keys are local-date YYYY-MM-DD.
+    const dayStart = dayMs(1).date;
+    const dayKey = `${dayStart.getFullYear()}-${String(dayStart.getMonth() + 1).padStart(2, '0')}-${String(dayStart.getDate()).padStart(2, '0')}`;
+    const luxByDate = new Map([[dayKey, 7.5]]); // 7.5 h of sunshine
+    const out = ds._buildForecast(stats, sensors, startDay, 3, luxByDate);
+    expect(out[0].sunshine).toBe(7.5);
+  });
+
+  it('recorder sunshine_duration sensor still wins over the lux-derivation map (#66 precedence)', () => {
+    const sensorsWithSunshine = { ...sensors, sunshine_duration: 'sensor.sun' };
+    const ds = new MeasuredDataSource(fakeHass, { sensors: sensorsWithSunshine, days: 3 });
+    const todayStart = dayMs(1).date;
+    const stats = {
+      'sensor.sun': [{ start: todayStart.toISOString(), max: 999 }],
+    };
+    const dayKey = `${todayStart.getFullYear()}-${String(todayStart.getMonth() + 1).padStart(2, '0')}-${String(todayStart.getDate()).padStart(2, '0')}`;
+    const luxByDate = new Map([[dayKey, 7.5]]);
+    const out = ds._buildForecast(stats, sensorsWithSunshine, startDay, 3, luxByDate);
+    // Method C (recorder sensor) wins — 999, not 7.5.
+    expect(out[0].sunshine).toBe(999);
+  });
+
+  it('emits null sunshine when no source resolves and the lux map is empty (#66)', () => {
+    const ds = new MeasuredDataSource(fakeHass, { sensors, days: 3 });
+    const out = ds._buildForecast({}, sensors, startDay, 3, new Map());
+    expect(out[0].sunshine).toBeNull();
+  });
 });
 
 describe('MeasuredDataSource hourly mode', () => {

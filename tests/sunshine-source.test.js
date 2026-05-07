@@ -9,6 +9,7 @@ import {
   attachSunshine,
   overlayFromOpenMeteo,
   sunshineFractions,
+  sunshineFromLuxHistory,
 } from '../src/sunshine-source.js';
 
 describe('dayLengthHours', () => {
@@ -571,6 +572,128 @@ describe('sunshineFractions', () => {
     // Defensive — call sites should always pass aligned arrays, but
     // a length mismatch shouldn't crash the chart.
     expect(sunshineFractions([5, 6, 7], [12])).toEqual([5 / 12, null, null]);
+  });
+});
+
+describe('sunshineFromLuxHistory (#66 Method B2)', () => {
+  // Köniz / Bern (CLAUDE.md location): 46.91°N, 7.42°E.
+  const LAT = 46.91;
+  const LON = 7.42;
+  const MIN = 60 * 1000;
+
+  // Build a deterministic local-noon timestamp for a known summer day —
+  // far from sunrise / sunset so the clearsky_lux is well above 0.
+  function summerNoon() {
+    const d = new Date(2026, 5, 21, 12, 0, 0, 0); // June 21 local
+    return d.getTime();
+  }
+
+  it('returns [] for empty / single-sample input', () => {
+    expect(sunshineFromLuxHistory([], LAT, LON)).toEqual([]);
+    expect(sunshineFromLuxHistory([{ ts: 0, lux: 50000 }], LAT, LON)).toEqual([]);
+  });
+
+  it('returns [] for missing lat / lon', () => {
+    const samples = [
+      { ts: summerNoon(), lux: 80000 },
+      { ts: summerNoon() + MIN, lux: 80000 },
+    ];
+    expect(sunshineFromLuxHistory(samples, NaN, LON)).toEqual([]);
+    expect(sunshineFromLuxHistory(samples, LAT, NaN)).toEqual([]);
+  });
+
+  it('counts an above-threshold interval at solar noon as sunshine', () => {
+    // 10 minutes of constant 80 000 lx at noon — clearsky ≈ 100 000 lx.
+    // Ratio 0.8 ≥ 0.6 default → all 10 min counted.
+    const start = summerNoon();
+    const samples = [];
+    for (let i = 0; i <= 10; i++) {
+      samples.push({ ts: start + i * MIN, lux: 80000 });
+    }
+    const result = sunshineFromLuxHistory(samples, LAT, LON);
+    expect(result).toHaveLength(1);
+    expect(result[0].hours).toBeCloseTo(10 / 60, 5);
+  });
+
+  it('skips intervals below threshold (overcast)', () => {
+    const start = summerNoon();
+    const samples = [];
+    for (let i = 0; i <= 10; i++) {
+      // 20 000 lx at noon is ~0.2 ratio — well below default 0.6.
+      samples.push({ ts: start + i * MIN, lux: 20000 });
+    }
+    expect(sunshineFromLuxHistory(samples, LAT, LON)).toEqual([]);
+  });
+
+  it('respects a custom threshold (lower → more sunshine counted)', () => {
+    const start = summerNoon();
+    // 50 000 lx at noon ≈ 0.5 ratio — below default 0.6, above 0.4.
+    const samples = [];
+    for (let i = 0; i <= 10; i++) {
+      samples.push({ ts: start + i * MIN, lux: 50000 });
+    }
+    expect(sunshineFromLuxHistory(samples, LAT, LON, 0.6)).toEqual([]);
+    const out = sunshineFromLuxHistory(samples, LAT, LON, 0.4);
+    expect(out).toHaveLength(1);
+    expect(out[0].hours).toBeGreaterThan(0);
+  });
+
+  it('skips pathological gaps longer than maxIntervalMs (default 10 min)', () => {
+    const start = summerNoon();
+    const samples = [
+      { ts: start, lux: 80000 },
+      { ts: start + 30 * MIN, lux: 80000 }, // 30-min gap — skip
+      { ts: start + 31 * MIN, lux: 80000 }, // 1-min gap right after — count
+    ];
+    const result = sunshineFromLuxHistory(samples, LAT, LON);
+    expect(result).toHaveLength(1);
+    // Only the second pair (1 min) counts, not the 30-min skip.
+    expect(result[0].hours).toBeCloseTo(1 / 60, 5);
+  });
+
+  it('returns 0 sunshine at night even with bright lux readings (clearsky=0 path)', () => {
+    // 03:00 in summer — sun below horizon at 46.91°N: clearsky_lux is 0.
+    const night = new Date(2026, 5, 21, 3, 0, 0, 0).getTime();
+    const samples = [
+      { ts: night, lux: 80000 }, // anomalous bright reading at 03:00 (e.g. headlights)
+      { ts: night + MIN, lux: 80000 },
+    ];
+    expect(sunshineFromLuxHistory(samples, LAT, LON)).toEqual([]);
+  });
+
+  it('buckets samples by local date — multiple days in one history pull', () => {
+    const day1Noon = new Date(2026, 5, 21, 12, 0, 0, 0).getTime();
+    const day2Noon = new Date(2026, 5, 22, 12, 0, 0, 0).getTime();
+    const samples = [
+      { ts: day1Noon, lux: 80000 },
+      { ts: day1Noon + MIN, lux: 80000 },
+      { ts: day2Noon, lux: 80000 },
+      { ts: day2Noon + MIN, lux: 80000 },
+    ];
+    const result = sunshineFromLuxHistory(samples, LAT, LON);
+    expect(result).toHaveLength(2);
+    expect(result[0].date < result[1].date).toBe(true);
+    expect(result[0].hours).toBeCloseTo(1 / 60, 5);
+    expect(result[1].hours).toBeCloseTo(1 / 60, 5);
+  });
+
+  it('is robust to malformed samples (non-finite, negative, out-of-order)', () => {
+    const start = summerNoon();
+    const samples = [
+      { ts: NaN, lux: 80000 },
+      { ts: start + MIN, lux: 80000 },
+      { ts: start, lux: 80000 },
+      { ts: start + 2 * MIN, lux: -50 }, // negative — filtered
+      { ts: start + 3 * MIN, lux: 80000 },
+    ];
+    expect(() => sunshineFromLuxHistory(samples, LAT, LON)).not.toThrow();
+    const result = sunshineFromLuxHistory(samples, LAT, LON);
+    // After filtering NaN and negative, valid samples are at start, +1m,
+    // and +3m. The first interval (1 min) is sunshine; the second
+    // interval (2 min) — but second sample paired with the +3m bumps
+    // up against the maxIntervalMs default still under 10 min so it
+    // counts.
+    expect(result.length).toBeGreaterThanOrEqual(1);
   });
 });
 

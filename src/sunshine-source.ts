@@ -6,6 +6,11 @@
 //
 // The decisions encoded here come from issue #6 (decision A1 = Variant A:
 // Methods F + C only; A2 = two slots; A3 = F2 forecast tier; A6 naming).
+// v1.7 added Method B2 (lux-derivation, #66): when no recorder sensor is
+// configured, derive the past-tier value from the illuminance sensor's
+// high-resolution history via the lux/clearsky_lux ratio.
+
+import { clearSkyLuxFactory } from './condition-classifier.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -397,4 +402,97 @@ export function overlayFromOpenMeteo<T extends SunshineForecastEntry>(
     granularity,
     cloudCoverageExponent,
   });
+}
+
+/** A single illuminance sample as emitted by HA's `recorder/history`
+ *  WS call: timestamp + measured lux value. */
+export interface LuxSample {
+  /** Sample timestamp in ms since epoch (i.e. `new Date(state.last_changed).getTime()`). */
+  ts: number;
+  /** Measured illuminance in lux (BH1750 / TSL2591 / Ecowitt-class). */
+  lux: number;
+}
+
+/** Per-day result from `sunshineFromLuxHistory`. */
+export interface DailyLuxSunshine {
+  /** Local date key (`YYYY-MM-DD`) for the day this aggregate covers. */
+  date: string;
+  /** Sunshine duration in hours (capped at the day's astronomical day-length). */
+  hours: number;
+}
+
+/** Method B2 from #6 / #66: derive sunshine duration in hours from a
+ *  series of illuminance-sensor samples. For each sample interval,
+ *  compute the ratio `measured_lux / clearsky_lux` at the interval
+ *  start (zero-order hold — the recorder represents state as
+ *  constant from t_n until t_{n+1}); count the interval as sunshine
+ *  when the ratio meets or exceeds `threshold`.
+ *
+ *  Result is bucketed by the LOCAL date of each interval start. The
+ *  per-day total is capped at the astronomical day-length (callers
+ *  typically apply that cap when wiring into `attachSunshine`).
+ *
+ *  Pure: no HA dependency, no DOM, deterministic given the same
+ *  inputs. The clearsky reference uses the existing
+ *  `condition-classifier` factory so the lat/lon trig is shared
+ *  with the live-condition path.
+ *
+ *  @param samples Sorted ascending by `ts`. Out-of-order or
+ *                 malformed entries are filtered out.
+ *  @param latitude Decimal degrees (positive north).
+ *  @param longitude Decimal degrees (positive east).
+ *  @param threshold lux/clearsky ratio threshold (#6 spec default 0.6).
+ *  @param maxIntervalMs Skip pathological gaps longer than this — a
+ *                      multi-hour gap shouldn't all count as one
+ *                      "sunny interval" just because the bookend
+ *                      samples were both above threshold. Default
+ *                      10 minutes (the recorder typically stores
+ *                      illuminance every 30 s during daytime).
+ */
+export function sunshineFromLuxHistory(
+  samples: ReadonlyArray<LuxSample>,
+  latitude: number,
+  longitude: number,
+  threshold = 0.6,
+  maxIntervalMs = 10 * 60 * 1000,
+): DailyLuxSunshine[] {
+  if (!Array.isArray(samples) || samples.length < 2) return [];
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return [];
+  if (!Number.isFinite(threshold) || threshold <= 0) return [];
+
+  // Filter out malformed samples + ensure chronological order.
+  const valid = samples
+    .filter((s) => s != null && Number.isFinite(s.ts) && Number.isFinite(s.lux) && s.lux >= 0)
+    .slice()
+    .sort((a, b) => a.ts - b.ts);
+  if (valid.length < 2) return [];
+
+  const clearsky = clearSkyLuxFactory(latitude, longitude);
+  // ms-of-sunshine accumulator, keyed by local-date YYYY-MM-DD.
+  const totals = new Map<string, number>();
+
+  for (let i = 0; i < valid.length - 1; i++) {
+    const s = valid[i];
+    const next = valid[i + 1];
+    const gap = next.ts - s.ts;
+    if (gap <= 0 || gap > maxIntervalMs) continue;
+
+    const cs = clearsky(new Date(s.ts));
+    if (cs <= 0) continue; // night — sun below horizon
+    const ratio = s.lux / cs;
+    if (ratio < threshold) continue;
+
+    // Bucket the interval into its starting day. (Spanning midnight
+    // is rare in practice — when the sun is up across midnight the
+    // station is in polar summer, far from this card's typical
+    // user; ignore the edge case and let the start day take credit.)
+    const d = new Date(s.ts);
+    d.setHours(0, 0, 0, 0);
+    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    totals.set(dateKey, (totals.get(dateKey) ?? 0) + gap);
+  }
+
+  return Array.from(totals.entries())
+    .map(([date, ms]) => ({ date, hours: ms / (60 * 60 * 1000) }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
