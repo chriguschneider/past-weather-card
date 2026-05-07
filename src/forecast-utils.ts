@@ -227,6 +227,28 @@ export function forecastFetchKey(cfg: { forecast?: { type?: string } | null } | 
   return (type === 'hourly' || type === 'today') ? 'hourly' : 'daily';
 }
 
+/** Structural deep-equality for two forecast arrays. Used by the data
+ *  source subscribe callbacks (#55) to skip re-renders when HA's
+ *  WebSocket layer fan-outs an identical payload — common when one
+ *  card's resubscribe causes HA to broadcast the entity's current
+ *  state to every subscriber of that entity, including sibling
+ *  weather-station-cards on the same dashboard.
+ *
+ *  Cost: ~1 ms for a 168-entry hourly forecast at typical entry size,
+ *  cheaper than a full Lit re-render + Chart.js redraw. JSON.stringify
+ *  is sufficient because forecast entries are flat objects with
+ *  primitive values (number / string / null) in deterministic key
+ *  order — no Map / Set / Date instances. */
+export function forecastsEqual(
+  a: ReadonlyArray<unknown> | null | undefined,
+  b: ReadonlyArray<unknown> | null | undefined,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 /** Returns the local-midnight start-of-today as ms-since-epoch. Pure
  *  helper used by the midnight-transition guards below — kept as a
  *  function (rather than `Date.now() - Date.now() % DAY_MS`) so each

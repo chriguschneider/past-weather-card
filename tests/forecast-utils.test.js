@@ -10,6 +10,7 @@ import {
   nextForecastType,
   stationFetchKey,
   forecastFetchKey,
+  forecastsEqual,
 } from '../src/forecast-utils.js';
 
 // Build N consecutive hourly ISO timestamps starting at the given base.
@@ -604,5 +605,50 @@ describe('stationFetchKey / forecastFetchKey (#10 lazy-cache)', () => {
     expect(stationFetchKey({ forecast: null })).toBe('day');
     expect(stationFetchKey({ forecast: { type: 'gibberish' } })).toBe('day');
     expect(forecastFetchKey({ forecast: { type: 'gibberish' } })).toBe('daily');
+  });
+});
+
+describe('forecastsEqual (#55 multi-card fan-out suppression)', () => {
+  it('treats reference-identical arrays as equal', () => {
+    const a = [{ datetime: 't1', temperature: 20 }];
+    expect(forecastsEqual(a, a)).toBe(true);
+  });
+
+  it('treats null / undefined inputs as not-equal to a real array', () => {
+    expect(forecastsEqual(null, [{ datetime: 't1' }])).toBe(false);
+    expect(forecastsEqual([{ datetime: 't1' }], undefined)).toBe(false);
+  });
+
+  it('treats both-null inputs as equal (cheap reference path)', () => {
+    expect(forecastsEqual(null, null)).toBe(true);
+    expect(forecastsEqual(undefined, undefined)).toBe(true);
+  });
+
+  it('returns true for structurally identical arrays from different references', () => {
+    const a = [{ datetime: 't1', temperature: 20, condition: 'sunny' }];
+    const b = [{ datetime: 't1', temperature: 20, condition: 'sunny' }];
+    expect(forecastsEqual(a, b)).toBe(true);
+  });
+
+  it('returns false on length mismatch (early-exit)', () => {
+    const a = [{ datetime: 't1' }];
+    const b = [{ datetime: 't1' }, { datetime: 't2' }];
+    expect(forecastsEqual(a, b)).toBe(false);
+  });
+
+  it('returns false on a single-field difference', () => {
+    const a = [{ datetime: 't1', temperature: 20 }];
+    const b = [{ datetime: 't1', temperature: 21 }];
+    expect(forecastsEqual(a, b)).toBe(false);
+  });
+
+  it('returns false when a null field replaces a non-null one', () => {
+    const a = [{ datetime: 't1', precipitation: 0 }];
+    const b = [{ datetime: 't1', precipitation: null }];
+    expect(forecastsEqual(a, b)).toBe(false);
+  });
+
+  it('handles empty-array equality (newly-mounted card receives empty payload)', () => {
+    expect(forecastsEqual([], [])).toBe(true);
   });
 });
