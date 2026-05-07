@@ -20,6 +20,7 @@ import {
 } from './condition-classifier.js';
 import { WeatherEntityFeature, type ConditionId } from './const.js';
 import type { ForecastEntry } from './forecast-utils.js';
+import { sunshineFromLuxHistory, type LuxSample } from './sunshine-source.js';
 
 const POLL_INTERVAL_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -67,7 +68,12 @@ export interface DataSourceConfig {
   days?: number | string;
   forecast?: { type?: 'daily' | 'hourly' | 'today' } | null;
   sensors?: SensorMap;
-  condition_mapping?: ConditionThresholdOverrides;
+  condition_mapping?: ConditionThresholdOverrides & {
+    /** Threshold for the Method-B2 lux-derivation (#66): a sample
+     *  counts as sunshine when `measured_lux / clearsky_lux ≥ this`.
+     *  Default 0.6 per the #6 spec. */
+    sunshine_lux_ratio?: number;
+  };
   weather_entity?: string;
   show_station?: boolean;
   show_forecast?: boolean;
@@ -280,7 +286,75 @@ export class MeasuredDataSource {
       types: ['min', 'max', 'mean', 'change', 'sum'],
     });
 
-    return this._buildForecast(stats, sensors, start, days);
+    // Method B2 fallback (#66): when the user has an illuminance sensor
+    // configured but no `sensors.sunshine_duration`, derive sunshine
+    // duration from the high-resolution illuminance history via the
+    // lux/clearsky_lux ratio. Skipped silently if either input is
+    // missing — Open-Meteo overlay or F3 then fills the row.
+    const luxByDate = await this._fetchLuxSunshine(sensors, start, end);
+
+    return this._buildForecast(stats, sensors, start, days, luxByDate);
+  }
+
+  /** B2 past-tier helper (#66): fetch the configured illuminance
+   *  sensor's high-resolution history and convert it into a per-day
+   *  sunshine-hours map. Returns `null` when the path is inapplicable
+   *  (no illuminance sensor, recorder sensor takes precedence, or
+   *  the WS call fails) so the caller can short-circuit to the next
+   *  precedence tier. */
+  private async _fetchLuxSunshine(
+    sensors: SensorMap,
+    start: Date,
+    end: Date,
+  ): Promise<Map<string, number> | null> {
+    if (!this.hass) return null;
+    const luxId = sensors.illuminance;
+    if (!luxId || sensors.sunshine_duration) return null;
+    const lat = this.hass.config?.latitude;
+    const lon = this.hass.config?.longitude;
+    if (!Number.isFinite(lat as number) || !Number.isFinite(lon as number)) return null;
+
+    // history/history_during_period is the modern, compact recorder
+    // history WS call (HA 2022+). Returns
+    // { [entity_id]: [ { s: '<state>', lu: <unix-seconds> }, … ] }.
+    let history: Record<string, Array<{ s?: unknown; lu?: unknown }>> = {};
+    try {
+      history = await this.hass.callWS<typeof history>({
+        type: 'history/history_during_period',
+        start_time: start.toISOString(),
+        end_time: end.toISOString(),
+        entity_ids: [luxId],
+        minimal_response: true,
+        no_attributes: true,
+        significant_changes_only: false,
+      });
+    } catch (err) {
+      // Recorder unavailable / entity gone / permission — silently
+      // fall through to the next precedence tier rather than show
+      // an error banner for an opportunistic enhancement.
+      console.debug('[weather-station-card] lux-history fetch failed', err);
+      return null;
+    }
+
+    const samples: LuxSample[] = [];
+    for (const row of (history[luxId] || [])) {
+      const ts = typeof row.lu === 'number' ? row.lu * 1000 : NaN;
+      const lux = typeof row.s === 'string' ? parseFloat(row.s) : NaN;
+      if (Number.isFinite(ts) && Number.isFinite(lux) && lux >= 0) {
+        samples.push({ ts, lux });
+      }
+    }
+    if (samples.length < 2) return null;
+
+    const cm = this.config.condition_mapping || {};
+    const threshold = (cm.sunshine_lux_ratio != null && Number.isFinite(cm.sunshine_lux_ratio))
+      ? Number(cm.sunshine_lux_ratio)
+      : 0.6;
+
+    const perDay = sunshineFromLuxHistory(samples, lat as number, lon as number, threshold);
+    const map = new Map<string, number>();
+    for (const e of perDay) map.set(e.date, e.hours);
+    return map;
   }
 
   private _buildForecast(
@@ -288,6 +362,7 @@ export class MeasuredDataSource {
     sensors: SensorMap,
     start: Date,
     days: number,
+    luxByDate: Map<string, number> | null = null,
   ): ForecastEntry[] {
     // Index each entity's series by midnight-of-day so day alignment doesn't
     // depend on positional indices (the API omits entries for empty days).
@@ -351,9 +426,22 @@ export class MeasuredDataSource {
       // afternoon would still show "11 h" because the morning had
       // predicted it. Showing the measured running total is the
       // empirical truth even when small early in the day.
-      const sunshineRaw = sensors.sunshine_duration
+      let sunshineRaw = sensors.sunshine_duration
         ? at(sensors.sunshine_duration, 'max')
         : null;
+      // B2 fallback (#66): when no recorder sunshine sensor resolved
+      // a value, look up the per-day total from the lux-derivation
+      // map computed from the illuminance sensor's history. The
+      // map's date key is `YYYY-MM-DD` in the local timezone — same
+      // shape `sunshineFromLuxHistory` emits. Recorder sensor
+      // (Method C) still wins when both are available.
+      if (sunshineRaw == null && luxByDate) {
+        const dayKeyStr = `${dayStart.getFullYear()}-${String(dayStart.getMonth() + 1).padStart(2, '0')}-${String(dayStart.getDate()).padStart(2, '0')}`;
+        const luxHours = luxByDate.get(dayKeyStr);
+        if (luxHours != null && Number.isFinite(luxHours)) {
+          sunshineRaw = luxHours;
+        }
+      }
 
       out.push({
         datetime: dayStart.toISOString(),
