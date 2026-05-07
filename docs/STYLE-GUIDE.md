@@ -175,26 +175,69 @@ All images carry meaningful `alt` text.
 
 ## CHANGELOG format
 
-Follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and SemVer. Header:
+Follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and SemVer.
+
+### Audience
+
+The CHANGELOG entry is **not** an engineering log. The release workflow
+uploads it verbatim as the GitHub release body, and HACS shows that body
+inside its in-app update dialog. The reader is a dashboard owner deciding
+whether to click *Update* — not a future maintainer reading git history.
+They don't know what ESLint, dependency-cruiser, or `vitest.config.js`
+are, and they shouldn't have to.
+
+Write for that reader. Plain user-perspective English, lead with what
+the user gains or has to do (re-configure, clear cache, update YAML, …).
+
+### Voice
+
+- **Lead with impact, not mechanism.** "Hourly chart now scrolls smoothly
+  on touch devices" is the headline; *how* it was achieved (rAF
+  coalescing, label cache, …) is at most a parenthetical.
+- **No tool names** unless directly relevant to the user. ESLint,
+  dependency-cruiser, vitest, sonarjs, CodeQL, etc. belong in commit
+  messages and PRs.
+- **No file paths.** `src/main.ts`, `chart/styles.ts` are noise to the
+  user.
+- **No internal metrics.** Coverage percentages, lint-warning counts,
+  threshold numbers, bundle-byte deltas — all internal.
+- **No multi-paragraph rationale.** Link the issue / PR instead.
+
+### Structure
 
 ```markdown
 ## [X.Y.Z] — YYYY-MM-DD
 
-[1-line release theme]
+[1–2 sentences answering "what does this mean for me?" — what's new
+or better, and whether the user needs to do anything. If there are
+no user-facing changes, say exactly that in one plain sentence and
+keep the rest of the entry short — don't pad with tooling detail.]
 
 ### Added
-- ...
+- [User-visible new capability, in their words.]
 ### Changed
-- ...
+- [User-visible behaviour difference. Mention the mechanism only if
+  it helps the user understand a trade-off.]
 ### Fixed
-- ...
+- [What was broken from the user's perspective; what's fixed now.]
 ### Removed
 - ...
 ### Deprecated
 - ...
+### Under the hood
+- [Internal cleanup, build/CI work, refactors with zero user-facing
+  effect. One short line each. If the whole release is internal,
+  this is the only section after the lead.]
 ### Deferred to vX.Y+1
 - ...
 ```
+
+### The "would they click Update?" test
+
+Before committing the entry, re-read it as a HACS user seeing it in the
+update dialog with no other context. Can they tell whether the update
+affects them and whether they need to do anything? If the answer is
+"no, they'd just be confused by the jargon", rewrite.
 
 Reference issues / PRs as `(#123)` or full URL on first mention.
 

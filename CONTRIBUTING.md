@@ -97,7 +97,12 @@ present, dist in sync); the rest are convention.
 2. **CHANGELOG entry** — prepend a `## [X.Y.Z] — YYYY-MM-DD` block
    (format: see [docs/STYLE-GUIDE.md](docs/STYLE-GUIDE.md#changelog-format)).
    The build workflow extracts this verbatim into the GitHub release
-   body when you push the tag.
+   body when you push the tag, and HACS shows that body in its in-app
+   update dialog. **Write for that reader, not for engineers**: plain
+   user-perspective English, lead with the user impact, keep
+   build/tooling detail in a short "Under the hood" section. If a
+   release has no user-facing changes, say so plainly in one sentence
+   and stop — don't pad with internal jargon.
 3. **Verify these docs reflect what changed** — a release is a good
    time to catch doc drift. None of these are mandatory per release,
    but ask yourself for each:
