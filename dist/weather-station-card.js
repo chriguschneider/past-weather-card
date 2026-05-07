@@ -212,7 +212,7 @@
         ></ha-switch>
         <label class="switch-label">${n("show_time")}</label>
       </div>
-      ${!0===s.show_time?et`
+      ${!0===s.show_main&&!0===s.show_time?et`
         <div class="switch-container" style="padding-left:20px;">
           <ha-switch
             @change="${t=>r(t,"show_time_seconds")}"
@@ -252,8 +252,7 @@
       ></ha-switch>
       <label class="switch-label">${n("show_attributes")}</label>
     </div>
-    ${!0===s.show_attributes?et`
-      ${a("humidity")?et`
+    ${!0===s.show_attributes&&a("humidity")?et`
         <div class="switch-container">
           <ha-switch
             @change="${t=>r(t,"show_humidity")}"
@@ -262,7 +261,7 @@
           <label class="switch-label">${n("show_humidity")}</label>
         </div>
       `:""}
-      ${a("pressure")?et`
+      ${!0===s.show_attributes&&a("pressure")?et`
         <div class="switch-container">
           <ha-switch
             @change="${t=>r(t,"show_pressure")}"
@@ -271,7 +270,7 @@
           <label class="switch-label">${n("show_pressure")}</label>
         </div>
       `:""}
-      ${a("dew_point")?et`
+      ${!0===s.show_attributes&&a("dew_point")?et`
         <div class="switch-container">
           <ha-switch
             @change="${t=>r(t,"show_dew_point")}"
@@ -280,7 +279,7 @@
           <label class="switch-label">${n("show_dew_point")}</label>
         </div>
       `:""}
-      ${a("wind_direction")?et`
+      ${!0===s.show_attributes&&a("wind_direction")?et`
         <div class="switch-container">
           <ha-switch
             @change="${t=>r(t,"show_wind_direction")}"
@@ -289,7 +288,7 @@
           <label class="switch-label">${n("show_wind_direction")}</label>
         </div>
       `:""}
-      ${a("wind_speed")?et`
+      ${!0===s.show_attributes&&a("wind_speed")?et`
         <div class="switch-container">
           <ha-switch
             @change="${t=>r(t,"show_wind_speed")}"
@@ -298,7 +297,7 @@
           <label class="switch-label">${n("show_wind_speed")}</label>
         </div>
       `:""}
-      ${a("gust_speed")?et`
+      ${!0===s.show_attributes&&a("gust_speed")?et`
         <div class="switch-container">
           <ha-switch
             @change="${t=>r(t,"show_wind_gust_speed")}"
@@ -307,6 +306,7 @@
           <label class="switch-label">${n("show_wind_gust_speed")}</label>
         </div>
       `:""}
+    ${!0===s.show_attributes?et`
       <div class="switch-container">
         <ha-switch
           @change="${t=>r(t,"show_sun")}"

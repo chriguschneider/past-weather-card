@@ -47,7 +47,7 @@ export function renderLayoutSection(editor: EditorLike, ctx: EditorContext): Tem
         ></ha-switch>
         <label class="switch-label">${t('show_time')}</label>
       </div>
-      ${cfg.show_time === true ? html`
+      ${cfg.show_main === true && cfg.show_time === true ? html`
         <div class="switch-container" style="padding-left:20px;">
           <ha-switch
             @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_time_seconds')}"
@@ -87,8 +87,7 @@ export function renderLayoutSection(editor: EditorLike, ctx: EditorContext): Tem
       ></ha-switch>
       <label class="switch-label">${t('show_attributes')}</label>
     </div>
-    ${cfg.show_attributes === true ? html`
-      ${hasSensor('humidity') ? html`
+    ${cfg.show_attributes === true && hasSensor('humidity') ? html`
         <div class="switch-container">
           <ha-switch
             @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_humidity')}"
@@ -97,7 +96,7 @@ export function renderLayoutSection(editor: EditorLike, ctx: EditorContext): Tem
           <label class="switch-label">${t('show_humidity')}</label>
         </div>
       ` : ''}
-      ${hasSensor('pressure') ? html`
+      ${cfg.show_attributes === true && hasSensor('pressure') ? html`
         <div class="switch-container">
           <ha-switch
             @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_pressure')}"
@@ -106,7 +105,7 @@ export function renderLayoutSection(editor: EditorLike, ctx: EditorContext): Tem
           <label class="switch-label">${t('show_pressure')}</label>
         </div>
       ` : ''}
-      ${hasSensor('dew_point') ? html`
+      ${cfg.show_attributes === true && hasSensor('dew_point') ? html`
         <div class="switch-container">
           <ha-switch
             @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_dew_point')}"
@@ -115,7 +114,7 @@ export function renderLayoutSection(editor: EditorLike, ctx: EditorContext): Tem
           <label class="switch-label">${t('show_dew_point')}</label>
         </div>
       ` : ''}
-      ${hasSensor('wind_direction') ? html`
+      ${cfg.show_attributes === true && hasSensor('wind_direction') ? html`
         <div class="switch-container">
           <ha-switch
             @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_wind_direction')}"
@@ -124,7 +123,7 @@ export function renderLayoutSection(editor: EditorLike, ctx: EditorContext): Tem
           <label class="switch-label">${t('show_wind_direction')}</label>
         </div>
       ` : ''}
-      ${hasSensor('wind_speed') ? html`
+      ${cfg.show_attributes === true && hasSensor('wind_speed') ? html`
         <div class="switch-container">
           <ha-switch
             @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_wind_speed')}"
@@ -133,7 +132,7 @@ export function renderLayoutSection(editor: EditorLike, ctx: EditorContext): Tem
           <label class="switch-label">${t('show_wind_speed')}</label>
         </div>
       ` : ''}
-      ${hasSensor('gust_speed') ? html`
+      ${cfg.show_attributes === true && hasSensor('gust_speed') ? html`
         <div class="switch-container">
           <ha-switch
             @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_wind_gust_speed')}"
@@ -142,6 +141,7 @@ export function renderLayoutSection(editor: EditorLike, ctx: EditorContext): Tem
           <label class="switch-label">${t('show_wind_gust_speed')}</label>
         </div>
       ` : ''}
+    ${cfg.show_attributes === true ? html`
       <div class="switch-container">
         <ha-switch
           @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_sun')}"
