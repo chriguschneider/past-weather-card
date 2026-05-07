@@ -4,6 +4,63 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] — 2026-05-07
+
+Quality + sunshine pass. The headline visible win is for users who
+have a lux/illuminance sensor but no dedicated sunshine-duration
+sensor — the past chart's sunshine row now fills in automatically
+from your sensor's history rather than coming up empty when
+Open-Meteo isn't reachable. Everything else is internal: tighter
+typing on the card's main file, a SonarCloud-coverage-gate fix,
+and a small cleanup of the static-analysis backlog.
+
+### Past sunshine: works for users with just an illuminance sensor
+
+If your weather-station has an illuminance sensor (BH1750, TSL2591,
+Ecowitt lux, …) but no dedicated `sensor.sunshine_duration` and no
+internet connection from Home Assistant to Open-Meteo, the past
+block's sunshine row used to come up empty. v1.7 derives sunshine
+duration directly from the lux sensor's history: it walks the
+high-resolution recorder samples and counts time intervals where
+the measured illuminance is at least 60 % of the theoretical clear-
+sky illuminance for that lat/lon and time of day. The threshold is
+tunable via `condition_mapping.sunshine_lux_ratio`.
+
+The result is honest about being a proxy — it's an estimate from
+the sensor, not a WMO-conformant measurement. If you have
+`sensors.sunshine_duration` configured (e.g. via the FL550 / DWD or
+an Open-Meteo REST sensor), that still wins.
+
+### Internal cleanup
+
+- **Field-declaration block on the card class.** The card's main
+  file (`main.ts`) had ~50 instance fields declared implicitly via
+  runtime assignments. They're now explicit class properties with
+  category comments — IDE intellisense lists them, refactor and
+  rename are safer. The full strict-type pass on this file is
+  scheduled for v1.8 (it surfaces the expected ~110 typecheck
+  errors that need a focused refactor).
+- **SonarCloud coverage gate.** The new-code coverage measure
+  was failing the quality gate at 77.9 %. v1.7 adds tests for the
+  silent error-handlers in the Open-Meteo source (corrupted
+  storage, quota exceeded, double-abort polyfills) so the gate
+  flips to passing.
+- **Code-smell cleanup, part one.** Six SonarCloud findings cleared
+  via mechanical fixes — three redundant `Promise.resolve()` calls
+  in async functions, three unnecessary type assertions. The bulk
+  of the 132-finding backlog (cognitive-complexity refactors and
+  Lit-html nested-ternary idioms) stays open for v1.8.
+
+### Issues closed
+
+- #66 — Sunshine past-tier lux derivation (Method B2 from #6)
+- #56 — SonarCloud new-code coverage gate close (partial — see PR
+  #69)
+- #33 — main.ts `@ts-nocheck` field-declaration pass (partial — full
+  strict pass deferred to v1.8 per PR #70)
+- #57 — SonarCloud code-smells cleanup (partial — 6 of 132 cleared
+  per PR #71)
+
 ## [1.6.0] — 2026-05-07
 
 User-facing follow-ups to v1.5 plus dependency hygiene. Two visible
