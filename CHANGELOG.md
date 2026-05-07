@@ -4,6 +4,79 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] — 2026-05-07
+
+Quality-stack-finalisation release. No new user-facing features — the
+release closes out the typing and static-analysis backlog that's
+accumulated over v1.5–v1.7. Headline behind-the-scenes wins: main.ts
+finally drops `@ts-nocheck`, the chart's biggest plugin file is split
+along its natural seams, and SonarCloud's quality gate finally goes
+green.
+
+### TypeScript: main.ts is now strict-checked
+
+The card's main file (`main.ts`) carried a top-of-file
+`// @ts-nocheck` since the v1.2 TypeScript migration — disabling all
+type checking for ~1,500 lines of LitElement / HA / Chart.js wiring.
+v1.8 removes the opt-out. Real types throughout: a `HassMain` shape
+extends the data-source `HassLike` with the locale fields the live-
+condition / clock paths read; `HassEntityState` types the
+`hass.states[eid]` index access; lifecycle hooks are typed
+`Map<PropertyKey, unknown>`; data-source fields use the actual class
+references so subscribe-callback events infer end-to-end.
+
+The remaining `any` annotations cluster at the HA-shape boundary
+(user YAML in `setConfig`, the synthesised `weather` attribute bag,
+chart args) — each carries an `// eslint-disable no-explicit-any`
+so future tightening passes can grep them. Refactor-safety in the
+file goes from "trust the runtime" to "tsc says yes".
+
+### Chart-plugin file split
+
+The `chart/plugins.ts` file had grown to 600 lines through organic
+v0.6→v1.x additions. SonarCloud flagged the `dailyTickLabelsPlugin`
+afterDraw at cognitive complexity 46 — the worst function in the
+codebase. v1.8 splits the file along natural seams: one file per
+plugin under `chart/plugins/`, with the old `chart/plugins.ts` kept
+as a barrel re-export so existing imports work unchanged. Inside
+the daily-tick-labels file, the afterDraw hook is now a 4-line
+dispatch on `forecast.type` — extract helpers for the
+'today / hourly' and 'daily' branches drop the cognitive
+complexity to ~7.
+
+### SonarCloud quality gate: green
+
+The new-code coverage measure was failing the gate at 75 %. v1.8
+adds tests for the v1.7-introduced `_fetchLuxSunshine` WS path
+(B2 lux derivation) — eight cases mocking `hass.callWS` for the
+no-illuminance / no-lat-lon / WS-failure / threshold-sweep /
+malformed-sample paths. Coverage on `data-source.ts` rises from
+77 % to 83 % (line) and 62 % to 71 % (branch); the gate flips to
+**PASS**.
+
+### Code-smell trim
+
+Six smaller SonarCloud findings cleared:
+
+- 3 redundant `Promise.resolve()` calls in async functions (a
+  no-op; bare `return` is sufficient).
+- 6 of 7 nested ternaries in the editor's attribute-toggle cluster
+  flattened into single ternaries that combine the outer + inner
+  predicate via `&&`.
+
+The full 127-finding backlog still has the `void` operator false
+positives (intentional discard pattern, won't-fix in code) and the
+~90 MINOR style-rule longtail. Both stay open for ongoing
+incremental cleanup.
+
+### Issues closed
+
+- #33 — main.ts `@ts-nocheck` removal (full strict pass)
+- #56 — SonarCloud new_coverage quality gate (now PASS)
+- #57 — SonarCloud code-smells cleanup (cognitive-complexity
+  refactors + nested-ternary partial; the MINOR-rule backlog
+  continues)
+
 ## [1.7.0] — 2026-05-07
 
 Quality + sunshine pass. The headline visible win is for users who
