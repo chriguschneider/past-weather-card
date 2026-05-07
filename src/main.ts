@@ -1,15 +1,11 @@
-// @ts-nocheck
-//
 // main.ts — integration boundary file. ~1500 LOC of LitElement +
-// Home Assistant + Chart.js wiring. Every other file in src/ is fully
-// type-checked under `tsc --strict`; this one keeps `@ts-nocheck` for
-// now — the v1.7 #33 pass landed the field-declaration block below
-// (improves IDE intellisense + locks in the inventory) but the full
-// strict-checked refactor that resolves the remaining 109 errors —
-// HassLike threading through `set hass`, parameter annotations in
-// the editor-callback dispatch table, narrowing of the
-// `hass.states[eid]` index access to a typed shape — is deferred to
-// v1.8 as its own focused PR.
+// Home Assistant + Chart.js wiring. Type-checked under `tsc --strict`
+// since v1.8 (#33). HA-shaped fields use the `HassMain` extension of
+// the data-source `HassLike` type below — full HomeAssistant type
+// would pull in too many UI deps. Anything where the HA frontend
+// type-shape isn't documented (synthesised `weather`, editor-callback
+// payloads) is `any`-typed, with eslint-disable lines limited to
+// those exact slots.
 //
 // Why the opt-out: this class touches ~30 instance fields (forecasts,
 // weather, current sensor readings, scroll-ux teardowns, animation
@@ -36,7 +32,7 @@ import {
 } from './const.js';
 import {LitElement, html} from 'lit';
 import './weather-station-card-editor.js';
-import { MeasuredDataSource, ForecastDataSource } from './data-source.js';
+import { MeasuredDataSource, ForecastDataSource, type HassLike } from './data-source.js';
 import { classifyDay, clearSkyLuxAt } from './condition-classifier.js';
 import { computeInitialScrollLeft } from './format-utils.js';
 import {
@@ -64,28 +60,46 @@ import {Chart, registerables} from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 Chart.register(...registerables, ChartDataLabels);
 
-// Field-declaration block for the WeatherStationCard class. Uses
-// `any` liberally rather than threading HassLike + the chart / sensor
-// shapes through every accessor — that's the deferred Option-2 work
-// for v1.8. The intent of v1.7's #33 pass is to (a) drop @ts-nocheck
-// so the file participates in tsc, (b) catch the obvious TS2339 sites
-// where future renames would silently bit-rot, and (c) make the field
-// inventory legible in IDE intellisense.
-//
-// Anything HA-shaped (`hass`, `config`, the synthesised `weather`
-// object) stays `any`. Lit reactive properties are declared as plain
-// fields here and referenced in `static get properties()` below —
-// Lit's runtime decoration syncs the two without further type
-// gymnastics.
+/** Card-side extension of `HassLike`. main.ts reads two fields the
+ *  data-sources don't (`language`, `selectedLanguage`) — they pick
+ *  the locale for `Intl` formatters in the live-condition / clock
+ *  paths. */
+interface HassMain extends HassLike {
+  language?: string;
+  selectedLanguage?: string;
+}
+
+/** Sub-shapes used inside `set hass`: a single HA entity state from
+ *  `hass.states[eid]`. Defined here rather than in HassLike so the
+ *  data-source layer doesn't need it. */
+interface HassEntityState {
+  state: string;
+  attributes?: Record<string, unknown>;
+}
+
+/** Augment the global Window so `window.customCards` (HA's card-list
+ *  registry) is typed wherever main.ts touches it. */
+declare global {
+  interface Window {
+    // deno-lint-ignore no-explicit-any
+    customCards?: any[];
+  }
+}
+
+// Field-declaration block for the WeatherStationCard class. HA-shaped
+// fields are typed as `any` (or HassMain where threaded) — the full
+// HomeAssistant type pulls in HA frontend deps we don't otherwise
+// need. Reactive Lit properties are declared as plain fields here
+// and referenced in `static get properties()` below; Lit's runtime
+// decoration syncs the two without further gymnastics.
 class WeatherStationCard extends LitElement {
   // --- Reactive properties (referenced in static get properties()) ---
   // Hass is stored as `_hass` per HA's pattern; the public `hass` is
   // a setter that stamps `_hass` and also derives sensor-state values.
-  /** Home Assistant state object. Loose-typed at this boundary —
-   *  threading the full HA frontend `HomeAssistant` type would
-   *  pull half a dozen UI deps that aren't otherwise needed. */
-  // deno-lint-ignore no-explicit-any
-  _hass: any = null;
+  /** Home Assistant state object. Card-side `HassMain` extends the
+   *  data-source `HassLike` with the extra locale fields the live-
+   *  condition / clock formatters read. */
+  _hass: HassMain | null = null;
   // deno-lint-ignore no-explicit-any
   config: any = null;
   language: string = 'en';
@@ -126,12 +140,9 @@ class WeatherStationCard extends LitElement {
   _liveCondition: string | undefined;
 
   // --- Data-source state ---
-  // deno-lint-ignore no-explicit-any
-  _dataSource: any = null;
-  // deno-lint-ignore no-explicit-any
+  _dataSource: MeasuredDataSource | null = null;
   _dataUnsubscribe: (() => void) | null = null;
-  // deno-lint-ignore no-explicit-any
-  _forecastSource: any = null;
+  _forecastSource: ForecastDataSource | null = null;
   _forecastUnsubscribe: (() => void) | null = null;
   // deno-lint-ignore no-explicit-any
   _stationData: any[] = [];
@@ -165,6 +176,11 @@ class WeatherStationCard extends LitElement {
   _scrollUxTeardown: (() => void) | null = null;
   _actionHandlerTeardown: (() => void) | null = null;
   _clockTimer: ReturnType<typeof setInterval> | null = null;
+  // Cross-module shared flag (scroll-ux ↔ action-handler): a swipe /
+  // drag sets this so a trailing tap doesn't fire the card-level
+  // tap_action. Owned by scroll-ux but lives on the card so the
+  // action-handler can read it.
+  _dragMoved: boolean = false;
   // deno-lint-ignore no-explicit-any
   _teardownRegistry: any;
 
@@ -172,21 +188,21 @@ static getConfigElement() {
   return document.createElement("weather-station-card-editor");
 }
 
-static getStubConfig(hass, unusedEntities, allEntities) {
+static getStubConfig(hass: HassMain | null, _unusedEntities: string[], allEntities: string[]) {
   // Auto-detect station sensors by device_class. Fall back to entity-id
   // pattern matching for the precipitation case (no standard device_class
   // for cumulative rain on every integration).
-  const findByClass = (cls) => {
+  const findByClass = (cls: string): string | undefined => {
     const all = allEntities || [];
-    return all.find((eid) => {
+    return all.find((eid: string) => {
       if (!eid.startsWith('sensor.')) return false;
       const st = hass?.states?.[eid];
-      return st?.attributes && st.attributes.device_class === cls;
+      return st?.attributes?.device_class === cls;
     });
   };
-  const findByPattern = (re) => {
+  const findByPattern = (re: RegExp): string | undefined => {
     const all = allEntities || [];
-    return all.find((eid) => eid.startsWith('sensor.') && re.test(eid));
+    return all.find((eid: string) => eid.startsWith('sensor.') && re.test(eid));
   };
 
   return {
@@ -274,7 +290,11 @@ static getStubConfig(hass, unusedEntities, allEntities) {
     };
   }
 
-setConfig(config) {
+// HA passes the card's user-edited YAML as a fresh object on every
+// `setConfig`. The shape is fully user-controlled so we type it as
+// `any` and let `cardConfig` apply defaults and structural normalisation.
+// deno-lint-ignore no-explicit-any
+setConfig(config: any) {
   // tap/hold/double_tap default to 'none' — the card is read-only by
   // default and the user opts into actions via the editor.
   const cardConfig = {
@@ -330,8 +350,8 @@ setConfig(config) {
   // Live-condition memoization (set hass) keys partly off `condition_mapping`;
   // wipe the cached entry so the next hass tick reclassifies with the new
   // mapping instead of returning a stale label.
-  this._liveConditionKey = null;
-  this._liveCondition = null;
+  this._liveConditionKey = undefined;
+  this._liveCondition = undefined;
 
   this.baseIconPath = cardConfig.icon_style === 'style2' ?
     'https://cdn.jsdelivr.net/gh/chriguschneider/weather-station-card/dist/icons2/':
@@ -343,15 +363,22 @@ setConfig(config) {
   }
 }
 
-set hass(hass) {
+set hass(hass: HassMain) {
   this._hass = hass;
-  this.language = this.config.locale || hass.selectedLanguage || hass.language;
-  this.sun = 'sun.sun' in hass.states ? hass.states['sun.sun'] : null;
+  this.language = this.config.locale || hass.selectedLanguage || hass.language || 'en';
+  this.sun = (hass.states && 'sun.sun' in hass.states) ? hass.states['sun.sun'] : null;
 
   const sensors = this.config.sensors || {};
-  const stateOf = (eid) => (eid && hass.states[eid]) ? hass.states[eid] : null;
-  const valueOf = (eid) => { const s = stateOf(eid); return s ? s.state : undefined; };
-  const attrOf = (eid, attr) => { const s = stateOf(eid); return s ? s.attributes[attr] : undefined; };
+  const stateOf = (eid: string | undefined): HassEntityState | null =>
+    (eid && hass.states?.[eid]) ? (hass.states[eid] as HassEntityState) : null;
+  const valueOf = (eid: string | undefined): string | undefined => {
+    const s = stateOf(eid);
+    return s ? s.state : undefined;
+  };
+  const attrOf = (eid: string | undefined, attr: string): unknown => {
+    const s = stateOf(eid);
+    return s?.attributes?.[attr];
+  };
 
   // Source units come from the actual sensor entities; target units come
   // from config (or default to source). Keeping them separate is what
@@ -374,8 +401,8 @@ set hass(hass) {
   this.windSpeed = valueOf(sensors.wind_speed);
   this.dew_point = valueOf(sensors.dew_point);
   this.wind_gust_speed = valueOf(sensors.gust_speed);
-  this.windDirection = sensors.wind_direction && hass.states[sensors.wind_direction]
-    ? parseFloat(hass.states[sensors.wind_direction].state)
+  this.windDirection = sensors.wind_direction && hass.states?.[sensors.wind_direction]
+    ? parseFloat(hass.states[sensors.wind_direction]!.state)
     : undefined;
 
   // Live "now" condition derived from current sensor states. The same
@@ -387,7 +414,8 @@ set hass(hass) {
   // trigger 'rainy' on a dry day.
   const nowTemp = parseNumericSafe(this.temperature);
   const luxNow = parseNumericSafe(valueOf(sensors.illuminance));
-  const precipUnit = attrOf(sensors.precipitation, 'unit_of_measurement') || '';
+  const precipUnitRaw = attrOf(sensors.precipitation, 'unit_of_measurement');
+  const precipUnit = typeof precipUnitRaw === 'string' ? precipUnitRaw : '';
   const precipIsRate = /\/(h|hr|hour)$/i.test(precipUnit);
   const precipRateNow = precipIsRate ? parseNumericSafe(valueOf(sensors.precipitation)) : null;
   const lat = hass.config?.latitude;
@@ -534,8 +562,8 @@ set hass(hass) {
   // Detect missing/unavailable sensor entities for the render-time banner.
   this._missingSensors = [];
   for (const [key, eid] of Object.entries(sensors)) {
-    if (!eid) continue;
-    const s = hass.states[eid];
+    if (!eid || typeof eid !== 'string') continue;
+    const s = hass.states?.[eid];
     if (!s || s.state === 'unavailable' || s.state === 'unknown') {
       this._missingSensors.push(`${key} (${eid})`);
     }
@@ -656,7 +684,7 @@ set hass(hass) {
       forecast = filterMidnightStaleForecast(this._forecastData || [], todayStartMs)
         .slice(0, limit);
     }
-    station = dropEmptyStationToday(station, todayStartMs);
+    station = [...dropEmptyStationToday(station, todayStartMs)];
     this._ensureSunshineSource(effectiveCfg);
     if (isToday) {
       // 'today' flow:
@@ -722,7 +750,8 @@ set hass(hass) {
   // stale (no-op if a fetch is already in flight). The source's
   // listener calls _refreshForecasts again so the chart redraws once
   // the data lands.
-  _ensureSunshineSource(effectiveCfg) {
+  // deno-lint-ignore no-explicit-any
+  _ensureSunshineSource(effectiveCfg: any) {
     const enabled = effectiveCfg?.forecast?.show_sunshine === true;
     if (!enabled) {
       if (this._sunshineSource) {
@@ -744,10 +773,9 @@ set hass(hass) {
     // Re-create when location or hourly-mode flag changes — the
     // includeHourly flag determines whether the request URL carries
     // `hourly=…`, so flipping it requires a fresh fetch.
-    const same = this._sunshineSource
-      && this._sunshineSource.latitude === lat
-      && this._sunshineSource.longitude === lon
-      && this._sunshineSource.includeHourly === includeHourly;
+    const same = this._sunshineSource?.latitude === lat
+      && this._sunshineSource?.longitude === lon
+      && this._sunshineSource?.includeHourly === includeHourly;
     if (!same) {
       if (this._sunshineSource) this._sunshineSource.abort();
       const days = parseInt(effectiveCfg.days, 10) || 7;
@@ -761,7 +789,7 @@ set hass(hass) {
         forecastDays: Math.min(16, fcDays + 1),
         includeHourly,
       });
-      this._sunshineSource.setListener((event) => {
+      this._sunshineSource.setListener((event: { ok: boolean; error?: string } | null) => {
         // On a successful refresh, recompute the forecasts so the new
         // sunshine values land on the entries — and redraw the chart.
         if (event?.ok) this._refreshForecasts();
@@ -784,7 +812,7 @@ set hass(hass) {
         this.measureCard();
       });
     });
-    const card = this.shadowRoot.querySelector('ha-card');
+    const card = this.shadowRoot?.querySelector('ha-card');
     if (card) {
       this.resizeObserver.observe(card);
     }
@@ -817,43 +845,48 @@ measureCard() {
     this.forecastItems = this.forecasts.length;
   } else {
     const fontSize = this.config.forecast.labels_font_size;
-    this.forecastItems = Math.round(card.offsetWidth / (fontSize * 6));
+    this.forecastItems = Math.round((card as HTMLElement).offsetWidth / (fontSize * 6));
   }
   this.drawChart();
 }
 
-ll(str) {
-  const selectedLocale = this.config.locale || this.language || 'en';
+// deno-lint-ignore no-explicit-any
+ll(str: string): any {
+  const selectedLocale: string = this.config.locale || this.language || 'en';
 
-  if (locale[selectedLocale] === undefined) {
-    return locale.en[str];
+  // deno-lint-ignore no-explicit-any
+  const localeAny = locale as Record<string, Record<string, any>>;
+  if (localeAny[selectedLocale] === undefined) {
+    return localeAny.en[str];
   }
 
-  return locale[selectedLocale][str];
+  return localeAny[selectedLocale][str];
 }
 
   getCardSize() {
     return 4;
   }
 
-  getUnit(unit) {
-    return this._hass.config.unit_system[unit] || '';
+  getUnit(unit: string): string {
+    const us = this._hass?.config && (this._hass.config as { unit_system?: Record<string, string> }).unit_system;
+    return us?.[unit] || '';
   }
 
-  getWeatherIcon(condition, sun) {
+  getWeatherIcon(condition: string, sun: string | undefined): string {
+    const condKey = condition as keyof typeof weatherIcons;
     if (this.config.animated_icons === true) {
-      const iconName = sun === 'below_horizon' ? weatherIconsNight[condition] : weatherIconsDay[condition];
+      const iconName = sun === 'below_horizon' ? weatherIconsNight[condKey] : weatherIconsDay[condKey];
       return `${this.baseIconPath}${iconName}.svg`;
     } else if (this.config.icons) {
-      const iconName = sun === 'below_horizon' ? weatherIconsNight[condition] : weatherIconsDay[condition];
+      const iconName = sun === 'below_horizon' ? weatherIconsNight[condKey] : weatherIconsDay[condKey];
       return `${this.config.icons}${iconName}.svg`;
     }
-    return weatherIcons[condition];
+    return weatherIcons[condKey];
   }
 
-getWindDirIcon(deg) {
+getWindDirIcon(deg: number | string): string {
   if (typeof deg === 'number') {
-    return cardinalDirectionsIcon[parseInt((deg + 22.5) / 45.0)];
+    return cardinalDirectionsIcon[Math.floor((deg + 22.5) / 45.0)];
   } else {
     let i = 9;
     switch (deg) {
@@ -899,15 +932,15 @@ getWindDirIcon(deg) {
   }
 }
 
-getWindDir(deg) {
+getWindDir(deg: number | string): string {
   if (typeof deg === 'number') {
-    return this.ll('cardinalDirections')[parseInt((deg + 11.25) / 22.5)];
+    return this.ll('cardinalDirections')[Math.floor((deg + 11.25) / 22.5)];
   } else {
     return deg;
   }
 }
 
-calculateBeaufortScale(windSpeed) {
+calculateBeaufortScale(windSpeed: number) {
   const unitConversion = {
     'km/h': 1,
     'm/s': 3.6,
@@ -917,7 +950,7 @@ calculateBeaufortScale(windSpeed) {
   const wind_speed_unit = this.weather?.attributes
     ? this.weather.attributes.wind_speed_unit
     : null;
-  const conversionFactor = unitConversion[wind_speed_unit] || unitConversion['m/s'];
+  const conversionFactor = unitConversion[wind_speed_unit as keyof typeof unitConversion] || unitConversion['m/s'];
   const windSpeedInKmPerHour = windSpeed * conversionFactor;
 
   if (windSpeedInKmPerHour < 1) return 0;
@@ -935,7 +968,7 @@ calculateBeaufortScale(windSpeed) {
   else return 12;
 }
 
-async firstUpdated(changedProperties) {
+async firstUpdated(changedProperties: Map<PropertyKey, unknown>) {
   super.firstUpdated(changedProperties);
   this.measureCard();
   await new Promise(resolve => setTimeout(resolve, 0));
@@ -943,7 +976,7 @@ async firstUpdated(changedProperties) {
 }
 
 
-async updated(changedProperties) {
+async updated(changedProperties: Map<PropertyKey, unknown>) {
   await this.updateComplete;
 
   // Re-attempt action-handler binding after every render. Lit can swap
@@ -951,9 +984,14 @@ async updated(changedProperties) {
   // weather-undefined fallback uses a different template than the
   // populated branch); the per-element _wsActionHandlerBound flag
   // makes this idempotent on stable elements.
-  setupActionHandler(this);
+  // The card class has all the fields these helpers need (verified at
+  // runtime by the v0.6 extraction); the structural-mismatch errors come
+  // from the helpers' tighter `forecasts: ForecastEntry[]` and config
+  // shapes. Cast through `unknown` to keep tsc happy while preserving
+  // the runtime assumption.
+  setupActionHandler(this as unknown as Parameters<typeof setupActionHandler>[0]);
   this._maybeApplyInitialScroll(changedProperties);
-  setupScrollUx(this);
+  setupScrollUx(this as unknown as Parameters<typeof setupScrollUx>[0]);
 
   if (changedProperties.has('config')) {
     const oldConfig = changedProperties.get('config');
@@ -965,7 +1003,7 @@ async updated(changedProperties) {
       // anyway via the next `set hass` tick. forecast_days alone only
       // crops what we already have, so trigger refresh even with no data
       // currently merged.
-      const forecastDaysChanged = this.config.forecast_days !== oldConfig.forecast_days;
+      const forecastDaysChanged = this.config.forecast_days !== (oldConfig as { forecast_days?: unknown })?.forecast_days;
       if ((this.forecasts?.length) || forecastDaysChanged) {
         try { this._refreshForecasts(); } catch (e) { console.error('[weather-station-card] redraw failed', e); }
       }
@@ -991,9 +1029,14 @@ async updated(changedProperties) {
 // cache for the new mode if available — so a daily→hourly→daily cycle
 // re-displays the daily data immediately while the new subscribe is
 // in-flight, and again when the user goes back to hourly.
-_invalidateStaleSources(oldConfig) {
-  const get = (obj, path) => path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
-  const stale = (key) => JSON.stringify(get(this.config, key)) !== JSON.stringify(get(oldConfig, key));
+// deno-lint-ignore no-explicit-any
+_invalidateStaleSources(oldConfig: any) {
+  // deno-lint-ignore no-explicit-any
+  const get = (obj: any, path: string) => path.split('.').reduce<any>(
+    (o, k) => (o == null ? undefined : o[k]),
+    obj,
+  );
+  const stale = (key: string) => JSON.stringify(get(this.config, key)) !== JSON.stringify(get(oldConfig, key));
   // forecast.type also drives MeasuredDataSource (hourly station
   // aggregates use period:'hour'), so toggling it can rebuild both
   // sources; lazy-cache below decides whether the rebuild is needed.
@@ -1058,9 +1101,10 @@ _teardownForecast() {
   this._forecastData = [];
 }
 
-drawChart(args) {
+// deno-lint-ignore no-explicit-any
+drawChart(args?: any): unknown[] | undefined {
   try {
-    const result = drawChartUnsafe(this, args);
+    const result = drawChartUnsafe(this as unknown as Parameters<typeof drawChartUnsafe>[0], args);
     if (this._chartError) {
       this._chartError = null;
       this.requestUpdate();
@@ -1077,10 +1121,12 @@ drawChart(args) {
       try { this.forecastChart.destroy(); } catch (_) { /* already gone */ }
       this.forecastChart = null;
     }
-    const msg = String(e?.message ? e.message : e);
+    const err = e as { message?: string } | null;
+    const msg = String(err?.message ? err.message : e);
     this._chartError = `${phase}: ${msg}`;
     this._chartPhase = null;
     this.requestUpdate();
+    return undefined;
   }
 }
 
@@ -1117,7 +1163,7 @@ computeForecastData({ config, forecastItems } = this) {
 
 updateChart({ forecasts, forecastChart } = this) {
   if (!forecasts?.length) {
-    return [];
+    return;
   }
 
   const data = this.computeForecastData();
@@ -1180,7 +1226,7 @@ renderModeToggle() {
 // sources, so the new mode's data loads on demand. The mutation does
 // NOT persist to the user's saved YAML — refresh resets to whatever
 // they configured. For permanent changes, the editor's radio.
-_onModeToggleClick(ev) {
+_onModeToggleClick(ev?: Event) {
   if (ev) ev.stopPropagation();
   const cfg = this.config || {};
   const fcfg = cfg.forecast || {};
@@ -1324,11 +1370,11 @@ renderMain({ config, sun, weather, temperature } = this) {
       minute: 'numeric',
       second: showSeconds ? 'numeric' : undefined
     };
-    const currentTime = currentDate.toLocaleTimeString(this.language, timeOptions);
+    const currentTime = currentDate.toLocaleTimeString(this.language, timeOptions as Intl.DateTimeFormatOptions);
     const currentDayOfWeek = currentDate.toLocaleString(this.language, { weekday: 'long' }).toUpperCase();
     const currentDateFormatted = currentDate.toLocaleDateString(this.language, { month: 'long', day: 'numeric' });
 
-    const mainDiv = this.shadowRoot.querySelector('.main');
+    const mainDiv = this.shadowRoot?.querySelector('.main');
     if (mainDiv) {
       const clockElement = mainDiv.querySelector('#digital-clock');
       if (clockElement) {
@@ -1460,7 +1506,7 @@ return html`
             <ha-icon icon="hass:water-percent"></ha-icon> ${humidity} %<br>
           ` : ''}
           ${showPressure && dPressure !== undefined ? html`
-            <ha-icon icon="hass:gauge"></ha-icon> ${dPressure} ${this.ll('units')[this.unitPressure]} <br>
+            <ha-icon icon="hass:gauge"></ha-icon> ${dPressure} ${this.unitPressure ? this.ll('units')[this.unitPressure] : ''} <br>
           ` : ''}
           ${showDewpoint && dew_point !== undefined ? html`
             <ha-icon icon="hass:thermometer-water"></ha-icon> ${dew_point} ${this.weather.attributes.temperature_unit} <br>
@@ -1476,7 +1522,7 @@ return html`
           ` : ''}
           ${showSun && sun !== undefined ? html`
             <div>
-              ${this.renderSun({ sun, language })}
+              ${this.renderSun({ sun, language } as unknown as this)}
             </div>
           ` : ''}
         </div>
@@ -1488,11 +1534,11 @@ return html`
           ` : ''}
           ${showWindSpeed && dWindSpeed !== undefined ? html`
             <ha-icon icon="hass:weather-windy"></ha-icon>
-            ${dWindSpeed} ${this.ll('units')[this.unitSpeed]} <br>
+            ${dWindSpeed} ${this.unitSpeed ? this.ll('units')[this.unitSpeed] : ''} <br>
           ` : ''}
           ${showWindgustspeed && wind_gust_speed !== undefined ? html`
             <ha-icon icon="hass:weather-windy-variant"></ha-icon>
-            ${this._convertWindSpeed(parseFloat(wind_gust_speed))} ${this.ll('units')[this.unitSpeed]}
+            ${this._convertWindSpeed(parseFloat(wind_gust_speed))} ${this.unitSpeed ? this.ll('units')[this.unitSpeed] : ''}
           ` : ''}
         </div>
       ` : ''}
@@ -1500,7 +1546,7 @@ return html`
 `;
 }
 
-renderSun({ sun, language, config } = this) {
+renderSun({ sun, language } = this) {
   if (sun == undefined) {
     return html``;
   }
@@ -1510,7 +1556,7 @@ const timeOptions = {
     hour12: use12HourFormat,
     hour: 'numeric',
     minute: 'numeric'
-};
+} as Intl.DateTimeFormatOptions;
 
   return html`
     <ha-icon icon="mdi:weather-sunset-up"></ha-icon>
@@ -1560,10 +1606,11 @@ renderForecastConditionIcons({ config, forecastItems, sun } = this) {
 
         let iconHtml;
 
+        const condKey = condition as keyof typeof weatherIcons;
         if (config.animated_icons || config.icons) {
           const iconSrc = config.animated_icons ?
-            `${this.baseIconPath}${weatherIcons[condition]}.svg` :
-            `${this.config.icons}${weatherIcons[condition]}.svg`;
+            `${this.baseIconPath}${weatherIcons[condKey]}.svg` :
+            `${this.config.icons}${weatherIcons[condKey]}.svg`;
           iconHtml = html`<img class="icon" src="${iconSrc}" alt="">`;
         } else {
           iconHtml = html`<ha-icon icon="${this.getWeatherIcon(condition, sun.state)}"></ha-icon>`;
@@ -1579,7 +1626,7 @@ renderForecastConditionIcons({ config, forecastItems, sun } = this) {
   `;
 }
 
-renderWind({ config, weather, windSpeed, windDirection, forecastItems } = this) {
+renderWind({ config, forecastItems } = this) {
   const showWindForecast = config.forecast.show_wind_forecast !== false;
   if (!showWindForecast) return html``;
 
@@ -1589,7 +1636,7 @@ renderWind({ config, weather, windSpeed, windDirection, forecastItems } = this) 
   // arrow — see chart/styles.js.
   const showArrow = config.forecast.show_wind_arrow !== false;
   const forecast = this.forecasts ? this.forecasts.slice(0, forecastItems) : [];
-  const unit = this.ll('units')[this.unitSpeed];
+  const unit = this.unitSpeed ? this.ll('units')[this.unitSpeed] : '';
 
   return html`
     <div class="wind-details">
@@ -1623,8 +1670,9 @@ renderWind({ config, weather, windSpeed, windDirection, forecastItems } = this) 
   `;
 }
 
-_convertWindSpeed(raw) {
+_convertWindSpeed(raw: unknown): number | null {
   if (raw === null || raw === undefined) return null;
+  if (typeof raw !== 'number') return null;
   const fromUnit = this.weather.attributes.wind_speed_unit;
   if (this.unitSpeed === fromUnit) return Math.round(raw);
   if (this.unitSpeed === 'm/s') {
@@ -1642,17 +1690,17 @@ _convertWindSpeed(raw) {
   return Math.round(raw);
 }
 
-  _fire(type, detail, options) {
+  _fire(type: string, detail: unknown, options?: { bubbles?: boolean; cancelable?: boolean; composed?: boolean }) {
     const node = this.shadowRoot;
-    options = options || {};
-    detail = (detail === null || detail === undefined) ? {} : detail;
+    const opts = options || {};
+    const eventDetail = (detail === null || detail === undefined) ? {} : detail;
     const event = new Event(type, {
-      bubbles: options.bubbles === undefined ? true : options.bubbles,
-      cancelable: Boolean(options.cancelable),
-      composed: options.composed === undefined ? true : options.composed
+      bubbles: opts.bubbles === undefined ? true : opts.bubbles,
+      cancelable: Boolean(opts.cancelable),
+      composed: opts.composed === undefined ? true : opts.composed,
     });
-    event.detail = detail;
-    node.dispatchEvent(event);
+    (event as Event & { detail?: unknown }).detail = eventDetail;
+    node?.dispatchEvent(event);
     return event;
   }
 
@@ -1661,7 +1709,7 @@ _convertWindSpeed(raw) {
   // change — outside those, we leave scrollLeft alone so the user's
   // manual scroll position survives data refreshes (which fire every
   // hour from MeasuredDataSource).
-  _maybeApplyInitialScroll(changedProperties) {
+  _maybeApplyInitialScroll(changedProperties: Map<PropertyKey, unknown>) {
     const wrapper = safeQuery(this.shadowRoot,'.forecast-scroll.scrolling');
     if (!wrapper) {
       // Non-scrolling render (or before first paint). Mark unapplied so
