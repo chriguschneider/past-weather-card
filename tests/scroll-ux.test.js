@@ -258,6 +258,16 @@ describe('updateScrollDateStamps', () => {
     // dateRight is unconditional in the same-idx case.
     expect(dateLeft).toBeDefined();
   });
+
+  it('survives malformed datetime strings without throwing', () => {
+    const forecasts = [
+      { datetime: 'not-a-real-date' },
+      { datetime: 'still-broken' },
+    ];
+    const { block, wrapper } = mockBlock({ scrollWidth: 400, clientWidth: 100 });
+    const card = mockCard({ block, forecasts });
+    expect(() => updateScrollDateStamps(block, wrapper, card)).not.toThrow();
+  });
 });
 
 // ── setupScrollUx ─────────────────────────────────────────────────────
@@ -300,5 +310,207 @@ describe('setupScrollUx', () => {
     expect(wrapper._wsScrollUxBound).toBe(true);
     card._scrollUxTeardown();
     expect(wrapper._wsScrollUxBound).toBe(false);
+  });
+});
+
+// ── pointer event flow (#32 coverage gap) ────────────────────────────
+// scroll-ux's drag-to-scroll state machine (pointerdown → pointermove →
+// pointerup/pointercancel) is the highest-impact uncovered branch
+// surface (the existing tests covered the public API but stopped short
+// of exercising the in-flight drag state). These tests fire synthesized
+// pointer events through the mock wrapper's dispatchEvent and assert
+// on card._dragMoved, scrollLeft, and dragging-class transitions.
+
+describe('setupScrollUx pointer flow', () => {
+  function fire(wrapper, type, props = {}) {
+    const ev = {
+      type,
+      pointerId: props.pointerId ?? 1,
+      pointerType: props.pointerType ?? 'mouse',
+      clientX: props.clientX ?? 0,
+      stopPropagation: () => {},
+      preventDefault: () => {},
+      ...props,
+    };
+    wrapper.dispatchEvent(ev);
+    return ev;
+  }
+
+  it('mouse drag past DRAG_THRESHOLD sets _dragMoved and updates scrollLeft', () => {
+    const { block, wrapper } = mockBlock({ scrollLeft: 100 });
+    const card = mockCard({ block });
+    setupScrollUx(card);
+
+    fire(wrapper, 'pointerdown', { pointerType: 'mouse', clientX: 50 });
+    expect(wrapper.setPointerCapture).toHaveBeenCalledWith(1);
+    // small move below threshold — no drag yet
+    fire(wrapper, 'pointermove', { pointerType: 'mouse', clientX: 52 });
+    expect(card._dragMoved).toBe(false);
+    // bigger move — past threshold (5px), drag engages
+    fire(wrapper, 'pointermove', { pointerType: 'mouse', clientX: 60 });
+    expect(card._dragMoved).toBe(true);
+    expect(wrapper.scrollLeft).toBe(100 - (60 - 50));
+  });
+
+  it('touch drag past threshold flips _dragMoved but does NOT scroll programmatically', () => {
+    const { block, wrapper } = mockBlock({ scrollLeft: 200 });
+    const card = mockCard({ block });
+    setupScrollUx(card);
+    fire(wrapper, 'pointerdown', { pointerType: 'touch', clientX: 100 });
+    // touch path skips setPointerCapture (mouse-only branch).
+    expect(wrapper.setPointerCapture).not.toHaveBeenCalled();
+    fire(wrapper, 'pointermove', { pointerType: 'touch', clientX: 120 });
+    expect(card._dragMoved).toBe(true);
+    // scrollLeft must NOT be touched — native overflow-x scroll handles it.
+    expect(wrapper.scrollLeft).toBe(200);
+  });
+
+  it('pointermove with mismatched pointerId is ignored', () => {
+    const { block, wrapper } = mockBlock();
+    const card = mockCard({ block });
+    setupScrollUx(card);
+    fire(wrapper, 'pointerdown', { pointerId: 1, clientX: 0 });
+    fire(wrapper, 'pointermove', { pointerId: 99, clientX: 100 });
+    expect(card._dragMoved).toBe(false);
+  });
+
+  it('pointermove without an active pointerdown is ignored', () => {
+    const { block, wrapper } = mockBlock();
+    const card = mockCard({ block });
+    setupScrollUx(card);
+    fire(wrapper, 'pointermove', { clientX: 100 });
+    expect(card._dragMoved).toBe(false);
+  });
+
+  it('pointercancel marks the gesture as a drag even before the threshold', () => {
+    const { block, wrapper } = mockBlock();
+    const card = mockCard({ block });
+    setupScrollUx(card);
+    fire(wrapper, 'pointerdown', { clientX: 0 });
+    // No move at all — but a cancel still escalates _dragMoved so the
+    // tap-suppression rule holds for native-scroll-claimed gestures.
+    fire(wrapper, 'pointercancel', { clientX: 0 });
+    expect(card._dragMoved).toBe(true);
+  });
+
+  it('pointerup after a drag schedules a macrotask reset of _dragMoved', () => {
+    vi.useFakeTimers();
+    try {
+      const { block, wrapper } = mockBlock();
+      const card = mockCard({ block });
+      setupScrollUx(card);
+      fire(wrapper, 'pointerdown', { clientX: 0 });
+      fire(wrapper, 'pointermove', { clientX: 50 });
+      expect(card._dragMoved).toBe(true);
+      fire(wrapper, 'pointerup', { clientX: 50 });
+      // Macrotask hasn't run yet — flag still true so the bubbled
+      // ha-card pointerup listener can still see it.
+      expect(card._dragMoved).toBe(true);
+      vi.advanceTimersByTime(0);
+      expect(card._dragMoved).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('setPointerCapture failure does not abort the drag handler chain', () => {
+    const { block, wrapper } = mockBlock();
+    wrapper.setPointerCapture = vi.fn(() => { throw new Error('not supported'); });
+    const card = mockCard({ block });
+    setupScrollUx(card);
+    expect(() => fire(wrapper, 'pointerdown', { clientX: 0 })).not.toThrow();
+    // Subsequent move still works — drag state is unaffected by the
+    // capture-failure path.
+    fire(wrapper, 'pointermove', { clientX: 50 });
+    expect(card._dragMoved).toBe(true);
+  });
+});
+
+// ── click + scroll-event handlers (#32 coverage gap) ────────────────
+
+describe('setupScrollUx click handlers', () => {
+  it('left-indicator click scrolls one viewport left', () => {
+    const { block, wrapper, left } = mockBlock({ clientWidth: 200 });
+    const card = mockCard({ block });
+    setupScrollUx(card);
+    left.dispatchEvent({ type: 'click', stopPropagation: () => {} });
+    expect(wrapper.scrollBy).toHaveBeenCalledWith({ left: -200 * 0.85, behavior: 'smooth' });
+  });
+
+  it('right-indicator click scrolls one viewport right', () => {
+    const { block, wrapper, right } = mockBlock({ clientWidth: 200 });
+    const card = mockCard({ block });
+    setupScrollUx(card);
+    right.dispatchEvent({ type: 'click', stopPropagation: () => {} });
+    expect(wrapper.scrollBy).toHaveBeenCalledWith({ left: 200 * 0.85, behavior: 'smooth' });
+  });
+
+  it('jump-to-now click smooth-scrolls to the canonical "now" position', () => {
+    const { block, wrapper, jump } = mockBlock({ scrollWidth: 1000, clientWidth: 200 });
+    const card = mockCard({ block, stationCount: 12, forecastCount: 12 });
+    setupScrollUx(card);
+    jump.dispatchEvent({ type: 'click', stopPropagation: () => {} });
+    expect(wrapper.scrollTo).toHaveBeenCalled();
+    const arg = wrapper.scrollTo.mock.calls[0][0];
+    expect(arg.behavior).toBe('smooth');
+    expect(typeof arg.left).toBe('number');
+  });
+
+  it('teardown cancels a pending scroll-rAF (no zombie redraw after disconnect)', () => {
+    const rafCancel = vi.fn();
+    const originalRaf = globalThis.requestAnimationFrame;
+    const originalCaf = globalThis.cancelAnimationFrame;
+    // Stub rAF to record the handle so we can verify it gets cancelled.
+    globalThis.requestAnimationFrame = (() => 42);
+    globalThis.cancelAnimationFrame = rafCancel;
+    try {
+      const { block, wrapper } = mockBlock();
+      const card = mockCard({ block });
+      setupScrollUx(card);
+      // Fire a scroll → rAF pending (rafId = 42).
+      wrapper.dispatchEvent({ type: 'scroll' });
+      // Teardown while the rAF is still pending.
+      card._scrollUxTeardown();
+      expect(rafCancel).toHaveBeenCalledWith(42);
+    } finally {
+      globalThis.requestAnimationFrame = originalRaf;
+      globalThis.cancelAnimationFrame = originalCaf;
+    }
+  });
+
+  it('scroll-rAF callback redraws the chart when forecastChart exposes draw()', () => {
+    const draw = vi.fn();
+    let rafCallback = null;
+    const originalRaf = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = ((cb) => { rafCallback = cb; return 1; });
+    try {
+      const { block, wrapper } = mockBlock();
+      const card = mockCard({ block });
+      card.forecastChart = { draw };
+      setupScrollUx(card);
+      wrapper.dispatchEvent({ type: 'scroll' });
+      // Synchronously invoke the rAF callback to exercise the redraw.
+      expect(rafCallback).toBeTypeOf('function');
+      rafCallback();
+      expect(draw).toHaveBeenCalled();
+    } finally {
+      globalThis.requestAnimationFrame = originalRaf;
+    }
+  });
+
+  it('scroll-rAF callback does not throw when forecastChart is missing draw()', () => {
+    let rafCallback = null;
+    const originalRaf = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = ((cb) => { rafCallback = cb; return 1; });
+    try {
+      const { block, wrapper } = mockBlock();
+      const card = mockCard({ block });
+      // forecastChart deliberately undefined — covers the type-guard branch.
+      setupScrollUx(card);
+      wrapper.dispatchEvent({ type: 'scroll' });
+      expect(() => rafCallback()).not.toThrow();
+    } finally {
+      globalThis.requestAnimationFrame = originalRaf;
+    }
   });
 });
