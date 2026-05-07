@@ -8,6 +8,8 @@ import {
   dropEmptyStationToday,
   aggregateThreeHour,
   nextForecastType,
+  stationFetchKey,
+  forecastFetchKey,
 } from '../src/forecast-utils.js';
 
 // Build N consecutive hourly ISO timestamps starting at the given base.
@@ -571,5 +573,36 @@ describe('nextForecastType', () => {
     t = nextForecastType(t);
     t = nextForecastType(t);
     expect(t).toBe('daily');
+  });
+});
+
+describe('stationFetchKey / forecastFetchKey (#10 lazy-cache)', () => {
+  it('daily mode → day / daily fetch keys', () => {
+    expect(stationFetchKey({ forecast: { type: 'daily' } })).toBe('day');
+    expect(forecastFetchKey({ forecast: { type: 'daily' } })).toBe('daily');
+  });
+
+  it('hourly mode → hour / hourly fetch keys', () => {
+    expect(stationFetchKey({ forecast: { type: 'hourly' } })).toBe('hour');
+    expect(forecastFetchKey({ forecast: { type: 'hourly' } })).toBe('hourly');
+  });
+
+  it("today shares 'hour' / 'hourly' with hourly — toggling between the two needs no refetch", () => {
+    expect(stationFetchKey({ forecast: { type: 'today' } })).toBe('hour');
+    expect(forecastFetchKey({ forecast: { type: 'today' } })).toBe('hourly');
+    // Same keys as 'hourly' → cache restore is a no-op for hourly↔today.
+    expect(stationFetchKey({ forecast: { type: 'today' } }))
+      .toBe(stationFetchKey({ forecast: { type: 'hourly' } }));
+    expect(forecastFetchKey({ forecast: { type: 'today' } }))
+      .toBe(forecastFetchKey({ forecast: { type: 'hourly' } }));
+  });
+
+  it('defaults to daily for missing / unknown types', () => {
+    expect(stationFetchKey(null)).toBe('day');
+    expect(stationFetchKey(undefined)).toBe('day');
+    expect(stationFetchKey({})).toBe('day');
+    expect(stationFetchKey({ forecast: null })).toBe('day');
+    expect(stationFetchKey({ forecast: { type: 'gibberish' } })).toBe('day');
+    expect(forecastFetchKey({ forecast: { type: 'gibberish' } })).toBe('daily');
   });
 });
