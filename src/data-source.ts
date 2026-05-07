@@ -583,7 +583,7 @@ export class ForecastDataSource {
   subscribe(callback: DataSourceListener): Unsubscribe {
     this._listener = callback;
     this._resubscribe();
-    return () => this.unsubscribe();
+    return () => { void this.unsubscribe(); };
   }
 
   async unsubscribe(): Promise<void> {
