@@ -301,7 +301,7 @@ export function attachSunshine<T extends SunshineForecastEntry>(
       cloudCoverageExponent != null
       && !isHourly
       && out.day_length != null
-      && (out.day_length as number) > 0
+      && (out.day_length) > 0
     ) {
       // #6 Option F3: when neither the recorder sensor nor the
       // Open-Meteo overlay resolves a value, fall back to deriving
@@ -309,7 +309,7 @@ export function attachSunshine<T extends SunshineForecastEntry>(
       // for daily granularity — hourly cloud_coverage is too coarse
       // to estimate per-hour sunshine accurately.
       const cc = (entry as { cloud_coverage?: number | null }).cloud_coverage;
-      out.sunshine = sunshineFromCloudCoverageInline(cc, out.day_length as number, cloudCoverageExponent);
+      out.sunshine = sunshineFromCloudCoverageInline(cc, out.day_length, cloudCoverageExponent);
     } else {
       out.sunshine = null;
     }
