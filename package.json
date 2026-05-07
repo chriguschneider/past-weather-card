@@ -33,7 +33,7 @@
   "dependencies": {
     "chart.js": "^4.4.1",
     "chartjs-plugin-datalabels": "^2.2.0",
-    "lit": "^2.8.0"
+    "lit": "^3.3.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
