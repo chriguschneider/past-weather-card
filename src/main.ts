@@ -579,11 +579,22 @@ set hass(hass) {
       this._stationCount = station.length;
       this._forecastCount = forecast.length;
       const granularity = fcType === 'hourly' ? 'hourly' : 'daily';
+      // F3 fallback (#6): when neither sensor.sunshine_duration nor
+      // Open-Meteo resolves a forecast value, the configured exponent
+      // (default 1.7, tunable via condition_mapping.sunshine_cloud_exponent)
+      // lets attachSunshine derive the value from forecast.cloud_coverage
+      // via the Kasten formula. Setting the exponent to null disables
+      // F3 entirely.
+      const cm = effectiveCfg.condition_mapping || {};
+      const cloudExp = (cm.sunshine_cloud_exponent != null && Number.isFinite(cm.sunshine_cloud_exponent))
+        ? Number(cm.sunshine_cloud_exponent)
+        : 1.7;
       this.forecasts = overlayFromOpenMeteo(
         [...station, ...forecast],
         this._hass,
         this._sunshineSource,
         granularity,
+        granularity === 'daily' ? cloudExp : null,
       );
     }
     this.requestUpdate();

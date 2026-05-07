@@ -57,6 +57,14 @@ export interface AttachSunshineOpts {
   hourlyValues?: HourlySunshineInput | null;
   latitude?: number | null;
   granularity?: 'daily' | 'hourly';
+  /** When the recorder sensor and the Open-Meteo overlay both come up
+   *  empty, fall back to the Kasten-style estimator on
+   *  `entry.cloud_coverage` (#6 Option F3). The exponent tunes the
+   *  estimate; default 1.7 (mid-range of Kasten's 1.5–2.0). Off when
+   *  null — the chart shows nothing for the column rather than a
+   *  guess, matching the spec's "omit silently" behaviour for users
+   *  who haven't opted in. */
+  cloudCoverageExponent?: number | null;
 }
 
 // Solar declination in degrees (Cooper 1969). Same approximation the
@@ -239,7 +247,7 @@ export function attachSunshine<T extends SunshineForecastEntry>(
   if (!Array.isArray(forecasts)) return [];
   if (!opts) return forecasts.map((f) => ({ ...f }));
 
-  const { dailyValues, hourlyValues, latitude, granularity = 'daily' } = opts;
+  const { dailyValues, hourlyValues, latitude, granularity = 'daily', cloudCoverageExponent } = opts;
   const isHourly = granularity === 'hourly';
 
   return forecasts.map((entry) => {
@@ -282,11 +290,43 @@ export function attachSunshine<T extends SunshineForecastEntry>(
     const existing = (entry as { sunshine?: number | null }).sunshine;
     if (existing != null && Number.isFinite(existing)) {
       out.sunshine = existing;
-    } else {
+    } else if (value != null) {
       out.sunshine = value;
+    } else if (
+      cloudCoverageExponent != null
+      && !isHourly
+      && out.day_length != null
+      && (out.day_length as number) > 0
+    ) {
+      // #6 Option F3: when neither the recorder sensor nor the
+      // Open-Meteo overlay resolves a value, fall back to deriving
+      // sunshine from the forecast's cloud_coverage via Kasten. Only
+      // for daily granularity — hourly cloud_coverage is too coarse
+      // to estimate per-hour sunshine accurately.
+      const cc = (entry as { cloud_coverage?: number | null }).cloud_coverage;
+      out.sunshine = sunshineFromCloudCoverageInline(cc, out.day_length as number, cloudCoverageExponent);
+    } else {
+      out.sunshine = null;
     }
     return out;
   });
+}
+
+// Inline copy of the Kasten formula — sunshine-source has no other
+// dependency on forecast-utils today and importing one for a single
+// closed-form computation would set up a back-reference. Equivalent
+// to `sunshineFromCloudCoverage` exported from forecast-utils;
+// duplicated to keep the dep graph one-way.
+function sunshineFromCloudCoverageInline(
+  cloudPercent: number | null | undefined,
+  dayLengthH: number,
+  exponent: number,
+): number | null {
+  if (cloudPercent == null || !Number.isFinite(cloudPercent)) return null;
+  const cc = Math.max(0, Math.min(100, cloudPercent));
+  const fraction = 1 - Math.pow(cc / 100, exponent);
+  if (!Number.isFinite(fraction)) return null;
+  return dayLengthH * Math.max(0, fraction);
 }
 
 /** Convert (sunshine_h, dayLength_h) pairs into the 0..1 fractions
@@ -341,6 +381,7 @@ export function overlayFromOpenMeteo<T extends SunshineForecastEntry>(
   hass: HassLatLon | null | undefined,
   source: Partial<SunshineSource> | null | undefined,
   granularity: 'daily' | 'hourly' = 'daily',
+  cloudCoverageExponent: number | null = null,
 ): T[] {
   const lat = hass?.config ? hass.config.latitude : null;
   const dailyValues = source && typeof source.getDailyValues === 'function'
@@ -354,5 +395,6 @@ export function overlayFromOpenMeteo<T extends SunshineForecastEntry>(
     hourlyValues,
     latitude: Number.isFinite(lat as number) ? lat as number : null,
     granularity,
+    cloudCoverageExponent,
   });
 }
