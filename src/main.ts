@@ -48,6 +48,7 @@ import { safeQuery } from './utils/safe-query.js';
 import { parseNumericSafe } from './utils/numeric.js';
 import { setupScrollUx } from './scroll-ux.js';
 import { setupActionHandler } from './action-handler.js';
+import { TeardownRegistry } from './teardown-registry.js';
 import { drawChartUnsafe } from './chart/orchestrator.js';
 import { cardStyles } from './chart/styles.js';
 import {Chart, registerables} from 'chart.js';
@@ -410,6 +411,7 @@ set hass(hass) {
     super();
     this.resizeObserver = null;
     this.resizeInitialized = false;
+    this._teardownRegistry = new TeardownRegistry();
   }
 
   connectedCallback() {
@@ -417,6 +419,46 @@ set hass(hass) {
     if (!this.resizeInitialized) {
       this.delayedAttachResizeObserver();
     }
+    this._registerLifecycleTeardowns();
+  }
+
+  // Wire every disconnect-time cleanup site through the single
+  // TeardownRegistry. Closures dereference `this._foo` at drain time,
+  // so resources that get replaced during the card's lifetime
+  // (e.g. _clockTimer rebuilt on settings change) are still torn down
+  // correctly. Registration is gated on registry.size to keep
+  // reconnect-after-disconnect idempotent.
+  _registerLifecycleTeardowns() {
+    if (this._teardownRegistry.size > 0) return;
+    const r = this._teardownRegistry;
+    r.add(() => this.detachResizeObserver());
+    r.add(() => this._teardownStation());
+    r.add(() => this._teardownForecast());
+    r.add(() => this._teardownInitialScrollObserver());
+    r.add(() => {
+      if (this._sunshineSource) {
+        this._sunshineSource.abort();
+        this._sunshineSource = null;
+      }
+    });
+    r.add(() => {
+      if (this._scrollUxTeardown) {
+        this._scrollUxTeardown();
+        this._scrollUxTeardown = null;
+      }
+    });
+    r.add(() => {
+      if (this._actionHandlerTeardown) {
+        this._actionHandlerTeardown();
+        this._actionHandlerTeardown = null;
+      }
+    });
+    r.add(() => {
+      if (this._clockTimer) {
+        clearInterval(this._clockTimer);
+        this._clockTimer = null;
+      }
+    });
   }
 
   delayedAttachResizeObserver() {
@@ -428,26 +470,7 @@ set hass(hass) {
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    this.detachResizeObserver();
-    this._teardownStation();
-    this._teardownForecast();
-    this._teardownInitialScrollObserver();
-    if (this._sunshineSource) {
-      this._sunshineSource.abort();
-      this._sunshineSource = null;
-    }
-    if (this._scrollUxTeardown) {
-      this._scrollUxTeardown();
-      this._scrollUxTeardown = null;
-    }
-    if (this._actionHandlerTeardown) {
-      this._actionHandlerTeardown();
-      this._actionHandlerTeardown = null;
-    }
-    if (this._clockTimer) {
-      clearInterval(this._clockTimer);
-      this._clockTimer = null;
-    }
+    this._teardownRegistry.drain();
   }
 
   _refreshForecasts() {
