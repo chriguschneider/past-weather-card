@@ -69,8 +69,8 @@ static getStubConfig(hass, unusedEntities, allEntities) {
     const all = allEntities || [];
     return all.find((eid) => {
       if (!eid.startsWith('sensor.')) return false;
-      const st = hass && hass.states && hass.states[eid];
-      return st && st.attributes && st.attributes.device_class === cls;
+      const st = hass?.states?.[eid];
+      return st?.attributes && st.attributes.device_class === cls;
     });
   };
   const findByPattern = (re) => {
@@ -227,7 +227,7 @@ setConfig(config) {
     'https://cdn.jsdelivr.net/gh/chriguschneider/weather-station-card/dist/icons/' ;
 
   this.config = cardConfig;
-  if (!cardConfig.sensors || !cardConfig.sensors.temperature) {
+  if (!cardConfig.sensors?.temperature) {
     throw new Error('Please define at least sensors.temperature in the card config');
   }
 }
@@ -279,8 +279,8 @@ set hass(hass) {
   const precipUnit = attrOf(sensors.precipitation, 'unit_of_measurement') || '';
   const precipIsRate = /\/(h|hr|hour)$/i.test(precipUnit);
   const precipRateNow = precipIsRate ? parseNumericSafe(valueOf(sensors.precipitation)) : null;
-  const lat = hass.config && hass.config.latitude;
-  const lon = hass.config && hass.config.longitude;
+  const lat = hass.config?.latitude;
+  const lon = hass.config?.longitude;
 
   // Memoize: classifyDay walks an ~80-line decision tree and clearSkyLuxAt
   // does ~4 trig ops + cos. Across the 2–5 hass ticks per second that
@@ -565,8 +565,7 @@ set hass(hass) {
   // listener calls _refreshForecasts again so the chart redraws once
   // the data lands.
   _ensureSunshineSource(effectiveCfg) {
-    const enabled = effectiveCfg && effectiveCfg.forecast
-      && effectiveCfg.forecast.show_sunshine === true;
+    const enabled = effectiveCfg?.forecast?.show_sunshine === true;
     if (!enabled) {
       if (this._sunshineSource) {
         this._sunshineSource.abort();
@@ -574,7 +573,7 @@ set hass(hass) {
       }
       return;
     }
-    const cfg = this._hass && this._hass.config;
+    const cfg = this._hass?.config;
     const lat = cfg && Number.isFinite(cfg.latitude) ? cfg.latitude : null;
     const lon = cfg && Number.isFinite(cfg.longitude) ? cfg.longitude : null;
     if (lat == null || lon == null) return;
@@ -607,7 +606,7 @@ set hass(hass) {
       this._sunshineSource.setListener((event) => {
         // On a successful refresh, recompute the forecasts so the new
         // sunshine values land on the entries — and redraw the chart.
-        if (event && event.ok) this._refreshForecasts();
+        if (event?.ok) this._refreshForecasts();
       });
     }
     // Fire-and-forget — the listener handles the redraw on completion.
@@ -656,7 +655,7 @@ measureCard() {
   // via overflow-x scroll), not as a data-cropping cap — so this always
   // renders the full series. Width-based auto-fit only kicks in when no
   // data is loaded yet (initial render before the data sources fire).
-  if (this.forecasts && this.forecasts.length) {
+  if (this.forecasts?.length) {
     this.forecastItems = this.forecasts.length;
   } else {
     const fontSize = this.config.forecast.labels_font_size;
@@ -757,7 +756,7 @@ calculateBeaufortScale(windSpeed) {
     'mph': 1.60934,
   };
 
-  const wind_speed_unit = this.weather && this.weather.attributes
+  const wind_speed_unit = this.weather?.attributes
     ? this.weather.attributes.wind_speed_unit
     : null;
   const conversionFactor = unitConversion[wind_speed_unit] || unitConversion['m/s'];
@@ -809,7 +808,7 @@ async updated(changedProperties) {
       // crops what we already have, so trigger refresh even with no data
       // currently merged.
       const forecastDaysChanged = this.config.forecast_days !== oldConfig.forecast_days;
-      if ((this.forecasts && this.forecasts.length) || forecastDaysChanged) {
+      if ((this.forecasts?.length) || forecastDaysChanged) {
         try { this._refreshForecasts(); } catch (e) { console.error('[weather-station-card] redraw failed', e); }
       }
     }
@@ -867,7 +866,7 @@ drawChart(args) {
       try { this.forecastChart.destroy(); } catch (_) { /* already gone */ }
       this.forecastChart = null;
     }
-    const msg = String(e && e.message ? e.message : e);
+    const msg = String(e?.message ? e.message : e);
     this._chartError = `${phase}: ${msg}`;
     this._chartPhase = null;
     this.requestUpdate();
@@ -906,7 +905,7 @@ computeForecastData({ config, forecastItems } = this) {
 }
 
 updateChart({ forecasts, forecastChart } = this) {
-  if (!forecasts || !forecasts.length) {
+  if (!forecasts?.length) {
     return [];
   }
 
@@ -938,7 +937,7 @@ renderModeToggle() {
   const showsStation = cfg.show_station !== false;
   const showsForecast = cfg.show_forecast === true && !!cfg.weather_entity;
   if (!showsStation && !showsForecast) return '';
-  const type = (cfg.forecast || {}).type;
+  const type = cfg.forecast?.type;
   // 3-way cycle: daily → today → hourly → daily.
   // Icon shows the NEXT mode you'd land on, so users can predict the
   // click. "today" is signified by mdi:clock-time-eight-outline (the
@@ -984,9 +983,9 @@ _onModeToggleClick(ev) {
     // Match the mm-unit sizing rule from precipLabelPlugin so the wind unit
     // ("km/h", "m/s", …) renders at the same compact size as the precip unit
     // alongside its number.
-    const labelsBaseSize = parseInt(config && config.forecast && config.forecast.labels_font_size) || 11;
+    const labelsBaseSize = parseInt(config?.forecast?.labels_font_size) || 11;
     const labelsSmallSize = Math.max(6, Math.round(labelsBaseSize * 0.5));
-    if (!weather || !weather.attributes) {
+    if (!weather?.attributes) {
       return html`
         <style>
           .card {
@@ -1074,7 +1073,7 @@ renderErrorBanner() {
   if (this._chartError) {
     errors.push(`Chart render failed: ${this._chartError}`);
   }
-  if (this._missingSensors && this._missingSensors.length) {
+  if (this._missingSensors?.length) {
     errors.push(`Sensors unavailable: ${this._missingSensors.join(', ')}`);
   }
   if (!errors.length) return html``;
@@ -1483,7 +1482,7 @@ _convertWindSpeed(raw) {
     const generationKey = `${fcfg.type || 'daily'}|${fcfg.number_of_forecasts || 0}`;
 
     let needsReset = !this._initialScrollApplied;
-    if (changedProperties && changedProperties.has('config') && this._lastScrollGeneration
+    if (changedProperties?.has('config') && this._lastScrollGeneration
         && this._lastScrollGeneration !== generationKey) {
       needsReset = true;
     }

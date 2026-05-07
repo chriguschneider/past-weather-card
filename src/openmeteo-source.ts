@@ -114,7 +114,7 @@ export function buildOpenMeteoUrl(
  *  Values come back in seconds; `normalizeSunshineValue` (in
  *  sunshine-source) does the sec→hours conversion at lookup time. */
 export function parseDailySunshine(response: OpenMeteoResponse | null | undefined): DailySunshineEntry[] {
-  if (!response || !response.daily) return [];
+  if (!response?.daily) return [];
   const t = response.daily.time || [];
   const v = response.daily.sunshine_duration || [];
   const out: DailySunshineEntry[] = [];
@@ -131,7 +131,7 @@ export function parseDailySunshine(response: OpenMeteoResponse | null | undefine
  *
  *  Values are seconds of sunshine within that hour, capped at 3600. */
 export function parseHourlySunshine(response: OpenMeteoResponse | null | undefined): HourlySunshineEntry[] {
-  if (!response || !response.hourly) return [];
+  if (!response?.hourly) return [];
   const t = response.hourly.time || [];
   const v = response.hourly.sunshine_duration || [];
   const out: HourlySunshineEntry[] = [];
@@ -203,7 +203,7 @@ export function readCachedAvailability(
   let pastDays = 0;
   let forecastDays = 0;
   for (const item of daily) {
-    if (!item || !item.date) continue;
+    if (!item?.date) continue;
     const d = new Date(item.date);
     d.setHours(0, 0, 0, 0);
     const t = d.getTime();
@@ -227,9 +227,9 @@ export class OpenMeteoSunshineSource {
   forecastDays: number;
   includeHourly: boolean;
 
-  private _fetch: FetchLike | null;
-  private _storage: StorageLike | null;
-  private _now: () => number;
+  private readonly _fetch: FetchLike | null;
+  private readonly _storage: StorageLike | null;
+  private readonly _now: () => number;
 
   private _daily: DailySunshineEntry[] = [];
   private _hourly: HourlySunshineEntry[] = [];
@@ -336,7 +336,7 @@ export class OpenMeteoSunshineSource {
     this._inFlight = (async () => {
       try {
         const res = await (this._fetch as FetchLike)(url, signal ? { signal } : undefined);
-        if (!res || !res.ok) {
+        if (!res?.ok) {
           throw new Error(`Open-Meteo HTTP ${res ? res.status : '<no response>'}`);
         }
         const json = await res.json() as OpenMeteoResponse;

@@ -142,7 +142,7 @@ export function bucketPrecipitation(
   if (current.max == null) return null;
 
   const previous = byBucket.get(previousKey);
-  if (previous && previous.max != null) {
+  if (previous?.max != null) {
     const delta = current.max - previous.max;
     return delta >= 0 ? delta : current.max;
   }
@@ -206,7 +206,7 @@ export class MeasuredDataSource {
       // the card can display a banner instead of hanging on stale data.
       if (this._failureCount >= 3 && this._listener) {
         const e = err as { message?: string } | null;
-        this._listener({ forecast: [], error: String(e && e.message ? e.message : err) });
+        this._listener({ forecast: [], error: String(e?.message ? e.message : err) });
       }
     }
   }
@@ -214,7 +214,7 @@ export class MeasuredDataSource {
   private async _fetchAggregates(): Promise<ForecastEntry[]> {
     if (!this.hass) return [];
     const cfgDays = parseInt(String(this.config.days), 10) || 7;
-    const type = this.config.forecast && this.config.forecast.type;
+    const type = this.config.forecast?.type;
     // 'today' is the 24-hour zoom mode (#17): hourly granularity but
     // forced to a single-day horizon regardless of the user's `days:`
     // setting. Reuses the entire hourly fetch / build path.
@@ -383,7 +383,7 @@ export class MeasuredDataSource {
   }
 
   private _mapCondition(day: ClassifyInputs, dayOfYear: number): ConditionId {
-    const lat = this.hass && this.hass.config ? this.hass.config.latitude : null;
+    const lat = this.hass?.config ? this.hass.config.latitude : null;
     const clearsky_lux = lat != null
       ? clearSkyNoonLux(lat, dayOfYear)
       : 110000; // sea-level perpendicular-sun fallback (IES)
@@ -425,7 +425,7 @@ export class MeasuredDataSource {
     // ~168 hourly rows × ~5 trig calls in clearSkyLuxAt would be ~840 trig
     // ops; with this factory it's ~168 (one cos(hourAngle) per row, the
     // rest reused from the cache).
-    const cfg = this.hass && this.hass.config;
+    const cfg = this.hass?.config;
     const luxFor = clearSkyLuxFactory(cfg ? cfg.latitude : null, cfg ? cfg.longitude : null);
 
     const hourMs = (date: Date): number => {
@@ -440,7 +440,7 @@ export class MeasuredDataSource {
     // the dashboard's "now" panel shows anyway, so it's both correct and
     // consistent UX.
     const liveOf = (eid: string | undefined): number | null => {
-      if (!eid || !this.hass || !this.hass.states) return null;
+      if (!eid || !this.hass?.states) return null;
       const s = this.hass.states[eid];
       if (!s) return null;
       const v = parseFloat(s.state);
@@ -502,7 +502,7 @@ export class MeasuredDataSource {
         const live = liveOf(sensors.precipitation);
         const map = byHour[sensors.precipitation];
         const prev = map ? map.get(prevKey) : null;
-        if (live != null && prev && prev.max != null) {
+        if (live != null && prev?.max != null) {
           const delta = live - prev.max;
           precipitation = delta >= 0 ? delta : live;
         }
@@ -542,7 +542,7 @@ export class MeasuredDataSource {
     // it (e.g. tests).
     let clearsky_lux = hour.clearsky_lux;
     if (clearsky_lux == null) {
-      const cfg = this.hass && this.hass.config;
+      const cfg = this.hass?.config;
       const lat = cfg ? cfg.latitude : null;
       const lon = cfg ? cfg.longitude : null;
       clearsky_lux = (lat != null && lon != null)
@@ -574,7 +574,7 @@ export class ForecastDataSource {
     this.hass = hass;
     // Resubscribe if entity or forecast type changed via config edit.
     const entity = this.config.weather_entity;
-    const type = (this.config.forecast && this.config.forecast.type) || 'daily';
+    const type = (this.config.forecast?.type) || 'daily';
     if (this._listener && (entity !== this._lastEntity || type !== this._lastType)) {
       this._resubscribe();
     }
@@ -626,12 +626,12 @@ export class ForecastDataSource {
       this._emit({ forecast: [], error: 'weather_entity not configured' });
       return;
     }
-    const state = this.hass && this.hass.states && this.hass.states[entity];
+    const state = this.hass?.states?.[entity];
     if (!state) {
       this._emit({ forecast: [], error: `weather entity "${entity}" not found` });
       return;
     }
-    const type = (this.config.forecast && this.config.forecast.type) || 'daily';
+    const type = (this.config.forecast?.type) || 'daily';
     // 'today' is hourly with days=1 — same forecast subscription.
     const isHourly = type === 'hourly' || type === 'today';
     const feature = isHourly ? WeatherEntityFeature.FORECAST_HOURLY : WeatherEntityFeature.FORECAST_DAILY;
@@ -643,7 +643,7 @@ export class ForecastDataSource {
     this._lastEntity = entity;
     this._lastType = type;
     try {
-      if (!this.hass || !this.hass.connection) {
+      if (!this.hass?.connection) {
         this._emit({ forecast: [], error: 'hass connection unavailable' });
         return;
       }
@@ -657,7 +657,7 @@ export class ForecastDataSource {
       );
     } catch (err) {
       const e = err as { message?: string } | null;
-      this._emit({ forecast: [], error: String(e && e.message ? e.message : err) });
+      this._emit({ forecast: [], error: String(e?.message ? e.message : err) });
     }
   }
 

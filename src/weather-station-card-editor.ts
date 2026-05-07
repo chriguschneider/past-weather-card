@@ -20,7 +20,7 @@ interface ValueChangedTarget {
 // Resolve a localized editor string. Falls back along
 // language → base-language → English → key.
 function tEditor(hass: HomeAssistant | null, key: string): string {
-  const lang = (hass && hass.language) || 'en';
+  const lang = (hass?.language) || 'en';
   const baseLang = lang.split('-')[0];
   for (const l of [lang, baseLang, 'en']) {
     const block = (locale as Record<string, { editor?: Record<string, string> } | undefined>)[l]?.editor;
@@ -96,7 +96,7 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
   _sensorsChanged = (event: Event): void => {
     if (!this._config) return;
     const target = event.target as HTMLElement | null;
-    if (!target || target.tagName.toLowerCase() !== 'ha-form') return;
+    if (target?.tagName.toLowerCase() !== 'ha-form') return;
     const detail = (event as CustomEvent<{ value: Record<string, string> }>).detail;
     this.configChanged({ ...this._config, sensors: detail.value });
     this.requestUpdate();
@@ -121,7 +121,7 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
   _unitsChanged = (event: Event): void => {
     if (!this._config) return;
     const target = event.target as HTMLElement | null;
-    if (!target || target.tagName.toLowerCase() !== 'ha-form') return;
+    if (target?.tagName.toLowerCase() !== 'ha-form') return;
     const detail = (event as CustomEvent<{ value: Record<string, string> }>).detail;
     this.configChanged({ ...this._config, units: detail.value });
     this.requestUpdate();
@@ -157,10 +157,10 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
   // editor field depends on this cache).
   _renderSunshineAvailabilityHint(cfg: Record<string, unknown>, t: TFn): unknown {
     const fc = cfg && cfg.forecast as { show_sunshine?: boolean } | undefined;
-    if (!fc || fc.show_sunshine !== true) return '';
+    if (fc?.show_sunshine !== true) return '';
     const hass = this.hass;
-    const lat = hass && hass.config ? hass.config.latitude : null;
-    const lon = hass && hass.config ? hass.config.longitude : null;
+    const lat = hass?.config ? hass.config.latitude : null;
+    const lon = hass?.config ? hass.config.longitude : null;
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return '';
 
     const av = readCachedAvailability(lat as number, lon as number);

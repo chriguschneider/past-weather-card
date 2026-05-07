@@ -29,18 +29,18 @@ interface HassWithStates extends HomeAssistant {
 }
 
 function buildSensorFields(hass: HassWithStates | null): Array<{ key: string; candidates: string[] }> {
-  const all: Array<[string, SensorState]> = hass && hass.states
+  const all: Array<[string, SensorState]> = hass?.states
     ? (Object.entries(hass.states).filter(([, s]) => !!s) as Array<[string, SensorState]>)
     : [];
   const byDeviceClass = (classes: string[]): string[] => all
     .filter(([id, s]) => id.startsWith('sensor.') &&
-      classes.includes((s.attributes && s.attributes.device_class) || ''))
+      classes.includes((s.attributes?.device_class) || ''))
     .map(([id]) => id);
 
   const directionEntities = all
     .filter(([id, s]) => id.startsWith('sensor.') &&
-      ((s.attributes && s.attributes.unit_of_measurement) === '°' ||
-       (s.attributes && s.attributes.unit_of_measurement) === 'deg'))
+      ((s.attributes?.unit_of_measurement) === '°' ||
+       (s.attributes?.unit_of_measurement) === 'deg'))
     .map(([id]) => id);
 
   const uvRegex = /(?:^|[._-])uv(?:[._-]|index|$)/i;
@@ -48,7 +48,7 @@ function buildSensorFields(hass: HassWithStates | null): Array<{ key: string; ca
   const uvEntities = all
     .filter(([id, s]) => {
       if (!id.startsWith('sensor.')) return false;
-      const name = (s.attributes && s.attributes.friendly_name) || '';
+      const name = (s.attributes?.friendly_name) || '';
       return uvRegex.test(id) || uvNameRegex.test(name);
     })
     .map(([id]) => id);

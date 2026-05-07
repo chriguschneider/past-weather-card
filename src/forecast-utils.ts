@@ -253,7 +253,7 @@ export function filterMidnightStaleForecast<T extends { datetime?: string }>(
   if (!Array.isArray(forecast)) return [];
   if (!Number.isFinite(todayStartMs)) return forecast.slice();
   return forecast.filter((entry) => {
-    if (!entry || !entry.datetime) return true;
+    if (!entry?.datetime) return true;
     const t = new Date(entry.datetime).getTime();
     if (!Number.isFinite(t)) return true;
     return t >= todayStartMs;

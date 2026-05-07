@@ -342,7 +342,7 @@ export function overlayFromOpenMeteo<T extends SunshineForecastEntry>(
   source: Partial<SunshineSource> | null | undefined,
   granularity: 'daily' | 'hourly' = 'daily',
 ): T[] {
-  const lat = hass && hass.config ? hass.config.latitude : null;
+  const lat = hass?.config ? hass.config.latitude : null;
   const dailyValues = source && typeof source.getDailyValues === 'function'
     ? source.getDailyValues()
     : null;

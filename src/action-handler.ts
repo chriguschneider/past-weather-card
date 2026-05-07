@@ -91,7 +91,7 @@ export function setupActionHandler(card: ActionHandlerCard): void {
   // toggling tap_action in the editor flips the hand cursor on/off
   // immediately, not only on first render.
   const cfg0 = card.config || ({});
-  const isLive = (a: ActionConfig | undefined): boolean => !!(a && a.action && a.action !== 'none');
+  const isLive = (a: ActionConfig | undefined): boolean => !!(a?.action && a.action !== 'none');
   haCard.style.cursor = (isLive(cfg0.tap_action) || isLive(cfg0.hold_action) || isLive(cfg0.double_tap_action))
     ? 'pointer' : '';
 
@@ -186,9 +186,9 @@ export function setupActionHandler(card: ActionHandlerCard): void {
  *  pointer-event timing; the runtime path is via the fire() closure
  *  inside `setupActionHandler` above. */
 export function runAction(card: ActionHandlerCard, actionConfig: ActionConfig | undefined): void {
-  if (!actionConfig || !actionConfig.action || actionConfig.action === 'none') return;
+  if (!actionConfig?.action || actionConfig.action === 'none') return;
   const hass = card._hass;
-  const fallbackEntity = (card.config && card.config.sensors && card.config.sensors.temperature) || '';
+  const fallbackEntity = (card.config?.sensors?.temperature) || '';
   const action = actionConfig.action;
 
   if (action === 'more-info') {
@@ -238,6 +238,6 @@ export function runAction(card: ActionHandlerCard, actionConfig: ActionConfig | 
   }
   if (action === 'fire-dom-event') {
     card._fire('ll-custom', actionConfig);
-    return;
+    
   }
 }
