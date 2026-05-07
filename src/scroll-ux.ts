@@ -97,7 +97,13 @@ export function setupScrollUx(card: ScrollUxCard): void {
     startX = ev.clientX;
     startScrollLeft = wrapper.scrollLeft;
     if (ev.pointerType === 'mouse') {
-      try { wrapper.setPointerCapture(ev.pointerId); } catch (_) { /* not always supported */ }
+      try {
+        wrapper.setPointerCapture(ev.pointerId);
+      } catch (err) {
+        // setPointerCapture is gated by browser support for pointer
+        // events; older WebViews throw — drag still works without it.
+        void err;
+      }
     }
   };
 
@@ -332,7 +338,10 @@ export function updateScrollDateStamps(
         date: d.toLocaleDateString(lang, { day: 'numeric', month: 'short' }),
         isMidnight,
       };
-    } catch (_) {
+    } catch (err) {
+      // Malformed datetime in the forecast entry — fall back to empty
+      // labels rather than letting one bad bucket break the chart.
+      void err;
       return { date: '', isMidnight: false };
     }
   };
