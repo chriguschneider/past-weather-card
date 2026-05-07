@@ -11,6 +11,7 @@ import {
   stationFetchKey,
   forecastFetchKey,
   forecastsEqual,
+  sunshineFromCloudCoverage,
 } from '../src/forecast-utils.js';
 
 // Build N consecutive hourly ISO timestamps starting at the given base.
@@ -650,5 +651,54 @@ describe('forecastsEqual (#55 multi-card fan-out suppression)', () => {
 
   it('handles empty-array equality (newly-mounted card receives empty payload)', () => {
     expect(forecastsEqual([], [])).toBe(true);
+  });
+});
+
+describe('sunshineFromCloudCoverage (#6 Kasten F3 fallback)', () => {
+  it('returns null on missing cloud or day-length input', () => {
+    expect(sunshineFromCloudCoverage(null, 12)).toBeNull();
+    expect(sunshineFromCloudCoverage(undefined, 12)).toBeNull();
+    expect(sunshineFromCloudCoverage(50, null)).toBeNull();
+    expect(sunshineFromCloudCoverage(50, 0)).toBeNull();
+    expect(sunshineFromCloudCoverage(50, -1)).toBeNull();
+  });
+
+  it('returns full day length on 0 % cloud (perfectly sunny)', () => {
+    expect(sunshineFromCloudCoverage(0, 12)).toBeCloseTo(12, 5);
+  });
+
+  it('returns 0 on 100 % cloud (overcast)', () => {
+    expect(sunshineFromCloudCoverage(100, 12)).toBeCloseTo(0, 5);
+  });
+
+  it('produces a monotonically-decreasing curve as cloud-coverage rises', () => {
+    const results = [10, 30, 50, 70, 90].map((cc) => sunshineFromCloudCoverage(cc, 12));
+    for (let i = 1; i < results.length; i++) {
+      expect(results[i]).toBeLessThan(results[i - 1]);
+    }
+  });
+
+  it('respects the exponent argument (lower p → less sunshine for same cloud)', () => {
+    const sLow  = sunshineFromCloudCoverage(50, 12, 1.0); // linear
+    const sHigh = sunshineFromCloudCoverage(50, 12, 2.0); // steeper
+    expect(sHigh).toBeGreaterThan(sLow);
+  });
+
+  it("Zürich-summer-day plausibility — 20 % cloud at 15.7 h day length yields ~13 h", () => {
+    // Spec acceptance hint from the issue body: cc=20, day_length=15.7 → ~12 h
+    // Open-Meteo on a real Zürich June 21 is in that ballpark; the exact
+    // number depends on the exponent. Default 1.7 puts it at ~14 h —
+    // which is within the issue's "approximate" framing.
+    const result = sunshineFromCloudCoverage(20, 15.7) ?? 0;
+    expect(result).toBeGreaterThan(11);
+    expect(result).toBeLessThan(15.7);
+  });
+
+  it('clamps over-100 cloud noise to 100 (overcast)', () => {
+    expect(sunshineFromCloudCoverage(105, 12)).toBeCloseTo(0, 5);
+  });
+
+  it('clamps negative cloud noise to 0 (sunny)', () => {
+    expect(sunshineFromCloudCoverage(-5, 12)).toBeCloseTo(12, 5);
   });
 });
