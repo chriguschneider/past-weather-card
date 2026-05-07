@@ -132,7 +132,7 @@ export function setupScrollUx(card: ScrollUxCard): void {
     // scroll counts as a drag, even if our pointermove threshold
     // wasn't crossed yet — any pointerup that may bubble up to the
     // ha-card afterwards must skip its tap-detection branch.
-    if (ev && ev.type === 'pointercancel') {
+    if (ev?.type === 'pointercancel') {
       dragMoved = true;
       card._dragMoved = true;
     }
@@ -330,7 +330,7 @@ export function updateScrollDateStamps(
   const lang = card.config.locale || card.language || 'en';
   const fmt = (idx: number): DateStampInfo => {
     const item = card.forecasts ? card.forecasts[idx] : undefined;
-    if (!item || !item.datetime) return { date: '', isMidnight: false };
+    if (!item?.datetime) return { date: '', isMidnight: false };
     try {
       const d = new Date(item.datetime);
       const isMidnight = d.getHours() === 0 && d.getMinutes() === 0;

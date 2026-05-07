@@ -113,6 +113,26 @@ export default tseslint.config(
       'sonarjs/no-redundant-jump': 'warn',
       'sonarjs/regex-complexity': 'warn',
       'no-useless-assignment': 'warn',
+
+      // SonarCloud baseline cleanup (#39 / #36 triage).
+      // - prefer-optional-chain: legacy `&&`-chains cleaned up in
+      //   this sweep; promoted to error to lock in.
+      // - prefer-readonly: zero violations after the sweep; error
+      //   keeps it that way.
+      // - no-useless-return: trailing useless returns gone; error
+      //   prevents reintroduction.
+      // - prefer-nullish-coalescing: ~150 legacy `||` defaults still
+      //   need per-case review (0 / '' / false semantic distinction).
+      //   Left at warn — too many to safely batch in one PR. Tracked
+      //   as carry-over in #39 / future #31 sweep.
+      // - no-nested-ternary: extraction is stylistic and manual.
+      //   Warn so legacy nests don't fail CI; new ones surface in
+      //   review.
+      '@typescript-eslint/prefer-optional-chain': 'error',
+      '@typescript-eslint/prefer-nullish-coalescing': 'warn',
+      '@typescript-eslint/prefer-readonly': 'error',
+      'no-nested-ternary': 'warn',
+      'no-useless-return': 'error',
     },
   },
 

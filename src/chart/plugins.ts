@@ -122,7 +122,7 @@ export function createSeparatorPlugin({
     id: 'blockSeparator',
     afterDraw(chart: ChartLike): void {
       const xScale = chart.scales.x;
-      if (!xScale || !xScale.ticks) return;
+      if (!xScale?.ticks) return;
       const ticks = xScale.ticks.length;
       const positions = computeBlockSeparatorPositions(stationCount, forecastCount, ticks, mode);
       if (!positions.length) return;
@@ -245,7 +245,7 @@ export function createDailyTickLabelsPlugin({
     id: 'dailyTickLabels',
     afterDraw(chart: ChartLike): void {
       const xScale = chart.scales.x;
-      if (!xScale || !xScale.ticks) return;
+      if (!xScale?.ticks) return;
       const c = chart.ctx;
       const fontSize = parseInt(String(config.forecast.labels_font_size)) || 11;
       const lineH = Math.ceil(fontSize * 1.3);
@@ -434,7 +434,7 @@ export function createPrecipLabelPlugin({
     id: 'precipLabel',
     afterDatasetsDraw(chart: ChartLike): void {
       const meta = chart.getDatasetMeta(2); // tempHigh, tempLow, precip
-      if (!meta || !meta.data) return;
+      if (!meta?.data) return;
       const c = chart.ctx;
       const baseSize = parseInt(String(config.forecast.labels_font_size)) || 11;
       const smallSize = Math.max(6, Math.round(baseSize * 0.5));
@@ -446,7 +446,7 @@ export function createPrecipLabelPlugin({
       // axis baseline, so they sit in a row at the chart bottom regardless
       // of bar height (matches the original datalabels look).
       const precipAxis = chart.scales.PrecipAxis;
-      const baselineY = precipAxis && precipAxis.getPixelForValue
+      const baselineY = precipAxis?.getPixelForValue
         ? precipAxis.getPixelForValue(0)
         : chart.chartArea.bottom;
       c.save();
@@ -480,7 +480,7 @@ export function createPrecipLabelPlugin({
         const boxTop = baselineY - boxH / 2;
 
         c.fillStyle = backgroundColor;
-        c.strokeStyle = bar.options && bar.options.borderColor
+        c.strokeStyle = bar.options?.borderColor
           ? bar.options.borderColor
           : (precipPerBarColor[i] || precipColor);
         c.lineWidth = 1.5;
@@ -544,7 +544,7 @@ export function createSunshineLabelPlugin({
     // labels, which would otherwise clobber our "Xh" labels here.
     afterDraw(chart: ChartLike): void {
       const xScale = chart.scales.x;
-      if (!xScale || !xScale.ticks) return;
+      if (!xScale?.ticks) return;
       const c = chart.ctx;
       const baseSize = parseInt(String(config.forecast.labels_font_size)) || 11;
       const fontFamily = 'Helvetica, Arial, sans-serif';

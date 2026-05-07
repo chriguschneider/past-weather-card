@@ -114,7 +114,7 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
   // signature). Discarding here keeps the destructure shape stable.
   void weather;
   void forecastItems;
-  if (!card.forecasts || !card.forecasts.length) {
+  if (!card.forecasts?.length) {
     return [];
   }
   // All downstream references read `config` — by binding it to the
@@ -123,7 +123,7 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
   // chart code path.
   const { config } = normalizeForecastMode(rawConfig);
 
-  const chartCanvas = card.renderRoot && (card.renderRoot).querySelector('#forecastChart');
+  const chartCanvas = card.renderRoot?.querySelector('#forecastChart');
   if (!chartCanvas) {
     console.error('Canvas element not found:', card.renderRoot);
     return undefined;
@@ -316,7 +316,7 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
       const k = dt ? new Date(dt) : null;
       if (k) k.setHours(0, 0, 0, 0);
       const t = new Date(); t.setHours(0, 0, 0, 0);
-      const isToday = !!(k && k.getTime() === t.getTime());
+      const isToday = k?.getTime() === t.getTime();
       return {
         size: parseInt(String(config.forecast.labels_font_size)) + 1,
         lineHeight: 0.7,

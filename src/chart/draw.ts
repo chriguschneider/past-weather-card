@@ -174,7 +174,7 @@ export function buildChart(ctx: CanvasRenderingContext2D | HTMLCanvasElement, op
             const k = dt ? new Date(dt) : null;
             if (k) k.setHours(0, 0, 0, 0);
             const t = new Date(); t.setHours(0, 0, 0, 0);
-            const isToday = !!(k && k.getTime() === t.getTime());
+            const isToday = k?.getTime() === t.getTime();
             return {
               size: parseInt(String(config.forecast.labels_font_size)) || 11,
               lineHeight: 0.7,
