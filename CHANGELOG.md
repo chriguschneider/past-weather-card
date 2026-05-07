@@ -4,6 +4,82 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] — 2026-05-07
+
+Performance + tech-debt release. The big visible win is the daily ↔ today
+↔ hourly toggle: it used to leave the chart blank for 1–3 seconds while
+the new mode's data fetched; now toggling between modes you've already
+visited is instant. Everything else is internal cleanup that lays the
+groundwork for the v1.6 sunshine-duration row.
+
+### Mode toggle: instant on the second click
+
+- The toggle button (top-left of the chart) now caches both daily and
+  hourly forecast data after the first time you visit each mode.
+  Switching back is a pure UI reflow — typically under 50 ms on
+  Pi-class hardware. The first time you visit a mode is still bound
+  by the WebSocket round-trip to Home Assistant (1–3 s on quiet
+  instances), but every subsequent toggle is perceptually instant.
+- Toggling between **hourly** and **today** now skips the data refetch
+  entirely — both modes feed off the same hourly buckets and only
+  differ in render-time aggregation, so there's no reason to round-trip.
+
+### Documentation
+
+- Every README screenshot now sources from the e2e snapshot pipeline
+  and updates from the GHA visual-baseline run, instead of the
+  hand-curated PNGs that drifted between releases. The "visual editor"
+  hero cell and the styles grid (3 modes × 2 styles) ship fresh from
+  every release-CI baseline regen, matching the pattern the two main
+  chart screenshots already used.
+
+### Reliability
+
+- Fixed a small Promise/void mismatch in the forecast unsubscribe path
+  (`data-source.ts`) — the only Bug-classified finding in the v1.4.2
+  SonarCloud baseline. No user-visible behaviour change; locks the
+  static-analysis baseline at zero bugs going forward.
+- Documented the 7 deliberately-silent catch blocks in the data
+  sources and scroll-ux with explicit fail-mode reasons. Each one is
+  a known fire-and-forget at a documented degraded-environment path
+  (storage quota, idempotent abort, unsupported pointer-capture, …) —
+  the annotations make that intent legible to future contributors.
+
+### Quality
+
+- ESLint surface widened: 3 new rules promoted to error (optional-chain,
+  prefer-readonly, no-useless-return) plus 2 to warn for visibility
+  (prefer-nullish-coalescing, no-nested-ternary). The auto-fixable
+  subset of the 149-finding SonarCloud baseline is cleared in this
+  release; the remaining ~150 nullish-coalescing cases stay as
+  warnings for a per-call-site v1.6 sweep.
+- `scroll-ux.ts` branch coverage goes from 53 % to 80 % — 14 new test
+  cases covering the drag-vs-tap state machine, click handlers, and
+  scroll-rAF coalescing. The v1.4.2 coverage gate no longer relies on
+  global aggregation to mask this single under-threshold module.
+- `TeardownRegistry` is now wired into the card's lifecycle. The
+  eight-block manual cleanup in `disconnectedCallback` collapses to a
+  single `drain()`, and the `no-orphans` dependency-cruiser rule no
+  longer needs the file in its allow-list.
+- SonarCloud's coverage dashboard now matches Vitest's local report
+  (~92 % line coverage instead of the previously-misleading ~78 %) —
+  the configuration was scanning files that lcov doesn't measure.
+
+### Issues closed
+
+- #10 — Mode-toggle latency
+- #30 — README screenshots → e2e snapshots
+- #32 — `scroll-ux.ts` branch-coverage gap
+- #34 — Wire `teardown-registry.ts` into `main.ts`
+- #36 — SonarCloud baseline triage
+- #39 — TypeScript modernization sweep (auto-fixable subset)
+- #40 — Promise/void unsubscribe Bug
+- #41 — Empty catch blocks
+- #42 — SonarCloud line-coverage divergence
+
+`#31` (ESLint warning reduction to <50) deferred to v1.6 — the
+warning-count target needs the manual nullish-coalescing sweep.
+
 ## [1.4.2] — 2026-05-07
 
 Quality-tooling release. Closes the gaps in the build-time quality
