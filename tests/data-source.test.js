@@ -210,6 +210,120 @@ describe('MeasuredDataSource._buildForecast', () => {
   });
 });
 
+describe('MeasuredDataSource._fetchLuxSunshine (#56 + #66)', () => {
+  // Köniz / Bern (lat 46.91°N, lon 7.42°E) — well above the equator,
+  // so clearsky_lux at noon in summer is ≈ 100 000 lx.
+  const LAT = 46.91;
+  const LON = 7.42;
+  const HOUR_MS = 3600 * 1000;
+  function summerNoonUTC() {
+    return new Date('2026-06-21T10:00:00Z').getTime(); // ≈ 12:00 local in CH
+  }
+
+  function makeHass(callWSImpl) {
+    return {
+      config: { latitude: LAT, longitude: LON },
+      callWS: vi.fn(callWSImpl),
+    };
+  }
+
+  it('returns null when no illuminance sensor is configured', async () => {
+    const ds = new MeasuredDataSource(makeHass(async () => ({})), { sensors: {} });
+    const result = await ds._fetchLuxSunshine({}, new Date(0), new Date(1));
+    expect(result).toBeNull();
+  });
+
+  it('returns null when sunshine_duration sensor is configured (Method C wins)', async () => {
+    const sensors = { illuminance: 'sensor.lux', sunshine_duration: 'sensor.sun' };
+    const ds = new MeasuredDataSource(makeHass(async () => ({})), { sensors });
+    const result = await ds._fetchLuxSunshine(sensors, new Date(0), new Date(1));
+    expect(result).toBeNull();
+  });
+
+  it('returns null when latitude / longitude are missing', async () => {
+    const sensors = { illuminance: 'sensor.lux' };
+    const hass = { config: {}, callWS: vi.fn() };
+    const ds = new MeasuredDataSource(hass, { sensors });
+    const result = await ds._fetchLuxSunshine(sensors, new Date(0), new Date(1));
+    expect(result).toBeNull();
+    expect(hass.callWS).not.toHaveBeenCalled();
+  });
+
+  it('returns null when the WS call rejects (recorder unavailable)', async () => {
+    const sensors = { illuminance: 'sensor.lux' };
+    const hass = makeHass(async () => { throw new Error('recorder offline'); });
+    const ds = new MeasuredDataSource(hass, { sensors });
+    const result = await ds._fetchLuxSunshine(sensors, new Date(0), new Date(1));
+    expect(result).toBeNull();
+  });
+
+  it('returns null when fewer than 2 valid samples come back', async () => {
+    const sensors = { illuminance: 'sensor.lux' };
+    const hass = makeHass(async () => ({ 'sensor.lux': [{ s: '50000', lu: summerNoonUTC() / 1000 }] }));
+    const ds = new MeasuredDataSource(hass, { sensors });
+    const result = await ds._fetchLuxSunshine(sensors, new Date(0), new Date(1));
+    expect(result).toBeNull();
+  });
+
+  it('aggregates above-threshold samples into a per-day map', async () => {
+    const sensors = { illuminance: 'sensor.lux' };
+    const t0 = summerNoonUTC();
+    const samples = [];
+    // 30-minute window of 80 000 lx at solar noon — well above the 0.6 ratio.
+    for (let i = 0; i <= 30; i++) {
+      samples.push({ s: '80000', lu: (t0 + i * 60 * 1000) / 1000 });
+    }
+    const hass = makeHass(async () => ({ 'sensor.lux': samples }));
+    const ds = new MeasuredDataSource(hass, { sensors });
+    const result = await ds._fetchLuxSunshine(sensors, new Date(t0 - HOUR_MS), new Date(t0 + HOUR_MS));
+    expect(result).not.toBeNull();
+    expect(result.size).toBeGreaterThanOrEqual(1);
+    const totalHours = Array.from(result.values()).reduce((s, h) => s + h, 0);
+    expect(totalHours).toBeGreaterThan(0);
+  });
+
+  it('honours the configured sunshine_lux_ratio threshold', async () => {
+    const sensors = { illuminance: 'sensor.lux' };
+    const t0 = summerNoonUTC();
+    const samples = [];
+    // 50 000 lx at noon — ratio ~0.5. Below default 0.6, above 0.4.
+    for (let i = 0; i <= 30; i++) {
+      samples.push({ s: '50000', lu: (t0 + i * 60 * 1000) / 1000 });
+    }
+    const hass = makeHass(async () => ({ 'sensor.lux': samples }));
+
+    const dsDefault = new MeasuredDataSource(hass, { sensors });
+    const r1 = await dsDefault._fetchLuxSunshine(sensors, new Date(t0 - HOUR_MS), new Date(t0 + HOUR_MS));
+    // Default threshold 0.6 — 0.5 ratio doesn't qualify; empty per-day map.
+    expect(r1?.size ?? 0).toBe(0);
+
+    const dsLower = new MeasuredDataSource(hass, {
+      sensors,
+      condition_mapping: { sunshine_lux_ratio: 0.4 },
+    });
+    const r2 = await dsLower._fetchLuxSunshine(sensors, new Date(t0 - HOUR_MS), new Date(t0 + HOUR_MS));
+    // Lower threshold 0.4 — qualifies.
+    expect(r2).not.toBeNull();
+    expect(r2.size).toBeGreaterThanOrEqual(1);
+  });
+
+  it('filters out malformed sample rows (non-string state, non-number lu)', async () => {
+    const sensors = { illuminance: 'sensor.lux' };
+    const t0 = summerNoonUTC();
+    const samples = [
+      { s: 'unavailable', lu: t0 / 1000 }, // parseFloat('unavailable') = NaN — filtered
+      { s: '80000', lu: 'not-a-number' }, // typeof !== 'number' — filtered
+      { s: '80000', lu: t0 / 1000 },       // valid
+      { s: '80000', lu: (t0 + 60 * 1000) / 1000 }, // valid
+    ];
+    const hass = makeHass(async () => ({ 'sensor.lux': samples }));
+    const ds = new MeasuredDataSource(hass, { sensors });
+    // Only 2 valid samples — gives one interval, may or may not bucket
+    // a non-zero day depending on timing — but no throw.
+    await expect(ds._fetchLuxSunshine(sensors, new Date(t0 - HOUR_MS), new Date(t0 + HOUR_MS))).resolves.not.toThrow();
+  });
+});
+
 describe('MeasuredDataSource hourly mode', () => {
   // Round to the next full hour, matching what _fetchAggregates does.
   const HOUR_MS = 3600_000;
