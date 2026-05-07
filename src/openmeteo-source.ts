@@ -316,10 +316,10 @@ export class OpenMeteoSunshineSource {
    *  listener handles "data arrived" notifications). */
   async ensureFresh(): Promise<void> {
     if (this._inFlight) return this._inFlight;
-    if (!this.isStale()) return Promise.resolve();
-    if (!this._fetch) return Promise.resolve();
+    if (!this.isStale()) return;
+    if (!this._fetch) return;
     if (!Number.isFinite(this.latitude) || !Number.isFinite(this.longitude)) {
-      return Promise.resolve();
+      return;
     }
 
     this._abort = (typeof AbortController === 'function') ? new AbortController() : null;

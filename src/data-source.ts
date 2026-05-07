@@ -312,7 +312,7 @@ export class MeasuredDataSource {
     if (!luxId || sensors.sunshine_duration) return null;
     const lat = this.hass.config?.latitude;
     const lon = this.hass.config?.longitude;
-    if (!Number.isFinite(lat as number) || !Number.isFinite(lon as number)) return null;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
 
     // history/history_during_period is the modern, compact recorder
     // history WS call (HA 2022+). Returns
