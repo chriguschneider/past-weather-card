@@ -41,6 +41,8 @@ import {
   dropEmptyStationToday,
   aggregateThreeHour,
   nextForecastType,
+  stationFetchKey,
+  forecastFetchKey,
 } from './forecast-utils.js';
 import { overlayFromOpenMeteo, sunshineFractions } from './sunshine-source.js';
 import { OpenMeteoSunshineSource } from './openmeteo-source.js';
@@ -359,6 +361,9 @@ set hass(hass) {
       this._dataUnsubscribe = this._dataSource.subscribe((event) => {
         try {
           this._stationData = event.forecast || [];
+          // Keep the cache fresh while the source is live so a later
+          // toggle-back finds non-stale data (#10 lazy-cache).
+          this._stationCache[stationFetchKey(this.config)] = this._stationData;
           this._stationError = event.error || null;
           this._refreshForecasts();
         } catch (err) {
@@ -379,6 +384,7 @@ set hass(hass) {
       this._forecastUnsubscribe = this._forecastSource.subscribe((event) => {
         try {
           this._forecastData = event.forecast || [];
+          this._forecastCache[forecastFetchKey(this.config)] = this._forecastData;
           this._forecastError = event.error || null;
           this._refreshForecasts();
         } catch (err) {
@@ -412,6 +418,18 @@ set hass(hass) {
     this.resizeObserver = null;
     this.resizeInitialized = false;
     this._teardownRegistry = new TeardownRegistry();
+    // Lazy-cache (#10): when forecast.type changes, save the current
+    // data under the OLD fetch-key and restore the NEW key from cache
+    // for an instant render. Fresh data lands on the resubscribe
+    // callback and overwrites the cached entry.
+    //   _stationCache  → keyed by recorder period: 'day' | 'hour'
+    //   _forecastCache → keyed by subscribe forecast_type: 'daily' | 'hourly'
+    // 'today' shares 'hour' / 'hourly' with the dedicated hourly mode
+    // because both fetch the same buckets — the difference is purely
+    // render-time aggregation. Toggling hourly↔today therefore needs
+    // no teardown at all.
+    this._stationCache = {};
+    this._forecastCache = {};
   }
 
   connectedCallback() {
@@ -823,16 +841,69 @@ async updated(changedProperties) {
 // `set hass` tick rebuilds the source with the new config and emits a fresh
 // merge via _refreshForecasts. Adding a new field that drives a source is
 // a one-line edit to the keys table, not a new branch in updated().
+//
+// Mode-toggle lazy-cache (#10): when only forecast.type changed and the
+// underlying recorder/subscribe fetch-key is the same (e.g. hourly↔today
+// share period='hour' and forecast_type='hourly'), no teardown is needed
+// at all — the displayed data is already correct, only the render-time
+// aggregation differs. When the fetch-key DOES change, the previous data
+// is preserved in `_stationCache` / `_forecastCache` and restored from
+// cache for the new mode if available — so a daily→hourly→daily cycle
+// re-displays the daily data immediately while the new subscribe is
+// in-flight, and again when the user goes back to hourly.
 _invalidateStaleSources(oldConfig) {
   const get = (obj, path) => path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
   const stale = (key) => JSON.stringify(get(this.config, key)) !== JSON.stringify(get(oldConfig, key));
-  // forecast.type now also drives MeasuredDataSource (hourly station
-  // aggregates use period:'hour'), so toggling it must rebuild both
-  // sources, not just ForecastDataSource.
+  // forecast.type also drives MeasuredDataSource (hourly station
+  // aggregates use period:'hour'), so toggling it can rebuild both
+  // sources; lazy-cache below decides whether the rebuild is needed.
   const STATION_KEYS = ['sensors', 'days', 'show_station', 'forecast.type'];
   const FORECAST_KEYS = ['show_forecast', 'weather_entity', 'forecast.type'];
-  if (STATION_KEYS.some(stale)) this._teardownStation();
-  if (FORECAST_KEYS.some(stale)) this._teardownForecast();
+
+  const stationStale = STATION_KEYS.some(stale);
+  const forecastStale = FORECAST_KEYS.some(stale);
+  if (!stationStale && !forecastStale) return;
+
+  const oldStationKey = stationFetchKey(oldConfig);
+  const newStationKey = stationFetchKey(this.config);
+  const oldForecastKey = forecastFetchKey(oldConfig);
+  const newForecastKey = forecastFetchKey(this.config);
+
+  // The only mode-toggle case that doesn't need a refetch: forecast.type
+  // changed but the underlying fetch keys did NOT (hourly ↔ today). In
+  // that case `stale` flagged forecast.type but the data we have is
+  // still correct — just refresh the render.
+  const onlyForecastTypeChanged =
+    stale('forecast.type') &&
+    !STATION_KEYS.filter((k) => k !== 'forecast.type').some(stale) &&
+    !FORECAST_KEYS.filter((k) => k !== 'forecast.type').some(stale);
+  if (onlyForecastTypeChanged && oldStationKey === newStationKey && oldForecastKey === newForecastKey) {
+    return;
+  }
+
+  // Everything else needs at least one teardown. Try to surface cached
+  // data for the new mode immediately so the chart doesn't go blank
+  // while the resubscribe is in flight.
+  if (stationStale) {
+    this._teardownStation();
+    if (oldStationKey !== newStationKey) {
+      const cached = this._stationCache[newStationKey];
+      if (cached?.length) this._stationData = cached.slice();
+    }
+  }
+  if (forecastStale) {
+    this._teardownForecast();
+    if (oldForecastKey !== newForecastKey) {
+      const cached = this._forecastCache[newForecastKey];
+      if (cached?.length) this._forecastData = cached.slice();
+    }
+  }
+
+  // Re-run the data-source-creation path proactively. Without this the
+  // chart waits for HA's next state push (1-3 s on a Pi) before
+  // subscribing — defeating the lazy-cache UX.
+  if (this._hass) this.hass = this._hass;
+  this._refreshForecasts();
 }
 
 _teardownStation() {

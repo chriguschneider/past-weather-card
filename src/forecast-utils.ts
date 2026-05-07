@@ -209,6 +209,24 @@ export function nextForecastType(current: string | undefined | null): 'daily' | 
   return 'today';
 }
 
+/** Lazy-cache key for the MeasuredDataSource's recorder fetch (#10).
+ *  Both 'hourly' and 'today' fetch the same hourly buckets — the
+ *  difference is purely render-time aggregation — so they share a
+ *  cache slot. Toggling between hourly and today therefore needs no
+ *  refetch at all. */
+export function stationFetchKey(cfg: { forecast?: { type?: string } | null } | null | undefined): 'day' | 'hour' {
+  const type = cfg?.forecast?.type;
+  return (type === 'hourly' || type === 'today') ? 'hour' : 'day';
+}
+
+/** Lazy-cache key for the ForecastDataSource's weather/subscribe_forecast
+ *  call. Mirrors the API's `forecast_type` parameter. 'today' shares the
+ *  'hourly' subscription per the same hour-buckets reasoning. */
+export function forecastFetchKey(cfg: { forecast?: { type?: string } | null } | null | undefined): 'daily' | 'hourly' {
+  const type = cfg?.forecast?.type;
+  return (type === 'hourly' || type === 'today') ? 'hourly' : 'daily';
+}
+
 /** Returns the local-midnight start-of-today as ms-since-epoch. Pure
  *  helper used by the midnight-transition guards below — kept as a
  *  function (rather than `Date.now() - Date.now() % DAY_MS`) so each
