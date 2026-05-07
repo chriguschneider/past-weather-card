@@ -43,10 +43,6 @@ module.exports = {
           'rollup\\.config.*\\.(m?js|cjs)$',
           'playwright\\.config\\.(m?js|ts)$',
           '\\.dependency-cruiser\\.(js|cjs|mjs)$',
-          // teardown-registry: covered by unit tests but not yet wired
-          // into main.ts. Kept as a candidate for the v1.5 mode-toggle
-          // perf work (#10) where consistent disposal becomes hot.
-          '^src/teardown-registry\\.ts$',
         ],
       },
       to: {},
