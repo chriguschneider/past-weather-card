@@ -43,6 +43,7 @@ import {
   nextForecastType,
   stationFetchKey,
   forecastFetchKey,
+  forecastsEqual,
 } from './forecast-utils.js';
 import { overlayFromOpenMeteo, sunshineFractions } from './sunshine-source.js';
 import { OpenMeteoSunshineSource } from './openmeteo-source.js';
@@ -360,11 +361,20 @@ set hass(hass) {
       this._dataSource = new MeasuredDataSource(hass, this.config);
       this._dataUnsubscribe = this._dataSource.subscribe((event) => {
         try {
-          this._stationData = event.forecast || [];
-          // Keep the cache fresh while the source is live so a later
-          // toggle-back finds non-stale data (#10 lazy-cache).
+          const newData = event.forecast || [];
+          const newError = event.error || null;
+          // Skip the re-render path when HA's WS layer fan-outs an
+          // identical payload (#55) — common when a sibling card on
+          // the same dashboard resubscribes against the same recorder
+          // bucket and HA broadcasts the cached state to every
+          // subscriber. The error string flips equally rarely so an
+          // identical-data + identical-error event is a true no-op.
+          if (forecastsEqual(this._stationData, newData) && this._stationError === newError) {
+            return;
+          }
+          this._stationData = newData;
           this._stationCache[stationFetchKey(this.config)] = this._stationData;
-          this._stationError = event.error || null;
+          this._stationError = newError;
           this._refreshForecasts();
         } catch (err) {
           console.error('[weather-station-card] station callback failed', err);
@@ -383,9 +393,20 @@ set hass(hass) {
       this._forecastSource = new ForecastDataSource(hass, this.config);
       this._forecastUnsubscribe = this._forecastSource.subscribe((event) => {
         try {
-          this._forecastData = event.forecast || [];
+          const newData = event.forecast || [];
+          const newError = event.error || null;
+          // Same fan-out suppression as the station path above (#55).
+          // weather/subscribe_forecast in HA fan-outs the entity's
+          // current forecast to every active subscriber whenever
+          // any one of them (re)subscribes — without this guard, a
+          // mode-toggle on Card A would visibly redraw Card B's
+          // chart on the same dashboard.
+          if (forecastsEqual(this._forecastData, newData) && this._forecastError === newError) {
+            return;
+          }
+          this._forecastData = newData;
           this._forecastCache[forecastFetchKey(this.config)] = this._forecastData;
-          this._forecastError = event.error || null;
+          this._forecastError = newError;
           this._refreshForecasts();
         } catch (err) {
           console.error('[weather-station-card] forecast callback failed', err);
