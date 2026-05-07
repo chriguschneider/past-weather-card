@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="images/logo.svg" alt="Weather Station Card logo" width="160" />
+  <img src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/images/logo.svg" alt="Weather Station Card logo" width="160" />
 </p>
 
 <h1 align="center">Weather Station Card</h1>
@@ -60,9 +60,9 @@ forecast — driven by sensor data, not a `weather.*` entity.
 <th>Visual editor</th>
 </tr>
 <tr>
-<td><picture><source media="(prefers-color-scheme: dark)" srcset="tests-e2e/snapshots/render-modes.spec.ts/daily-combination-sunshine-dark.png"><img alt="Daily combination with sunshine" src="tests-e2e/snapshots/render-modes.spec.ts/daily-combination-sunshine.png"></picture></td>
-<td><picture><source media="(prefers-color-scheme: dark)" srcset="tests-e2e/snapshots/render-modes.spec.ts/daily-station-sunshine-dark.png"><img alt="Daily station-only chart with sunshine" src="tests-e2e/snapshots/render-modes.spec.ts/daily-station-sunshine.png"></picture></td>
-<td><picture><source media="(prefers-color-scheme: dark)" srcset="tests-e2e/snapshots/editor-visual.spec.ts/editor-dark.png"><img alt="Visual editor" src="tests-e2e/snapshots/editor-visual.spec.ts/editor.png"></picture></td>
+<td><img alt="Daily combination with sunshine" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/daily-combination-sunshine.png"></td>
+<td><img alt="Daily station-only chart with sunshine" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/daily-station-sunshine.png"></td>
+<td><img alt="Visual editor" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/editor-visual.spec.ts/editor.png"></td>
 </tr>
 </table>
 
@@ -124,9 +124,9 @@ is the default style (`style2`, without boxes), bottom row is
 <td><sub>style 2 (default, no boxes)</sub></td>
 </tr>
 <tr>
-<td><img alt="Combination, style 2" src="tests-e2e/snapshots/styles-grid.spec.ts/combination-style2.png" /></td>
-<td><img alt="Station, style 2" src="tests-e2e/snapshots/styles-grid.spec.ts/station-style2.png" /></td>
-<td><img alt="Forecast, style 2" src="tests-e2e/snapshots/styles-grid.spec.ts/forecast-style2.png" /></td>
+<td><img alt="Combination, style 2" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/styles-grid.spec.ts/combination-style2.png" /></td>
+<td><img alt="Station, style 2" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/styles-grid.spec.ts/station-style2.png" /></td>
+<td><img alt="Forecast, style 2" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/styles-grid.spec.ts/forecast-style2.png" /></td>
 </tr>
 <tr>
 <td><sub>style 1 (with boxes)</sub></td>
@@ -134,9 +134,9 @@ is the default style (`style2`, without boxes), bottom row is
 <td><sub>style 1 (with boxes)</sub></td>
 </tr>
 <tr>
-<td><img alt="Combination, style 1" src="tests-e2e/snapshots/styles-grid.spec.ts/combination-style1.png" /></td>
-<td><img alt="Station, style 1" src="tests-e2e/snapshots/styles-grid.spec.ts/station-style1.png" /></td>
-<td><img alt="Forecast, style 1" src="tests-e2e/snapshots/styles-grid.spec.ts/forecast-style1.png" /></td>
+<td><img alt="Combination, style 1" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/styles-grid.spec.ts/combination-style1.png" /></td>
+<td><img alt="Station, style 1" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/styles-grid.spec.ts/station-style1.png" /></td>
+<td><img alt="Forecast, style 1" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/styles-grid.spec.ts/forecast-style1.png" /></td>
 </tr>
 </table>
 
