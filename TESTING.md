@@ -36,6 +36,16 @@ lines drops below **80 %** for the modules listed in
 `vitest.config.js`. Editor + main.ts are out of unit-coverage scope
 (rendering paths are exercised by Playwright instead).
 
+Real coverage as of v1.4.2: 90.7 % statements, 80.9 % branches,
+84.2 % functions, 92.8 % lines. `scroll-ux.ts` is the under-threshold
+module (53 % branch); the global aggregate still passes.
+
+> **History note**: pre-v1.4.2 the `include` array in
+> `vitest.config.js` listed `.js` paths after the v1.2 TypeScript
+> migration. The v8 coverage provider matched zero files and the
+> gate was silently inert (`Statements 0/0 (Unknown%)`). Fixed in
+> v1.4.2 — see issue #19.
+
 ## Unit-test layout
 
 ```

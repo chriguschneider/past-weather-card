@@ -42,15 +42,35 @@ A missing translation never crashes the card; it just falls through.
 
 ```bash
 npm install
-npm run lint         # eslint over src/
+npm run lint         # ESLint 10 (typescript-eslint + lit + sonarjs)
+npm run typecheck    # tsc --noEmit
 npm run test         # vitest run (see TESTING.md)
+npm run coverage     # vitest with v8 coverage provider
+npm run depcheck     # dependency-cruiser architecture rules
 npm run rollup       # one-shot bundle
-npm run build        # lint + test + bundle
+npm run build        # lint + typecheck + test + rollup
 npm start            # rollup --watch + dev server
 ```
 
 Built artefact: `dist/weather-station-card.js`. **Always commit the rebuilt
 bundle alongside source changes** — HACS serves it directly from the tag.
+
+## CI & branch protection
+
+`master` is protected. Direct pushes are blocked — every change goes
+through a pull request. Two CI checks must be green before the merge
+button activates:
+
+- **`build`** (`.github/workflows/build.yml`) — lint, audit, typecheck,
+  unit tests, coverage gate, depcheck, bundle, e2e + visual regression,
+  bundle-budget, and dist-in-sync verification.
+- **`Analyze (javascript-typescript)`** (CodeQL) — security analysis.
+
+SonarCloud and Dependabot run on PRs too but are advisory; CodeQL's
+`Analyze` job is required, the standalone CodeQL helper check is not.
+
+Linear history is enforced (no merge commits) — the maintainer uses
+`gh pr merge --rebase` to land PRs.
 
 ## Tests
 

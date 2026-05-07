@@ -241,24 +241,49 @@ the plugin can't render a single label with two different font sizes
 ## Build pipeline
 
 ```
-npm run lint    →  eslint src        (style)
-npm run test    →  vitest run        (361 tests across 12 modules)
-npm run rollup  →  rollup -c         (single dist/weather-station-card.js)
-npm run build   =  lint + test + rollup
+npm run lint       →  eslint src tests-e2e   (ESLint 10 flat-config)
+npm run typecheck  →  tsc --noEmit
+npm run test       →  vitest run             (385 tests across 12 modules)
+npm run depcheck   →  depcruise src          (architecture rules)
+npm run rollup     →  rollup -c              (single dist/weather-station-card.js)
+npm run build      =  lint + typecheck + test + rollup
 ```
 
-CI (`.github/workflows/build.yml`) runs all three on every push, plus:
+CI (`.github/workflows/build.yml`) runs the same chain on every push,
+extended with these gates (since v1.4.2 — issue #19):
 
-- Coverage gate at ≥ 80 % (statements, branches, functions, lines).
+- **Security audit**: `npm audit --audit-level=high` blocks the build
+  on high/critical advisories. Lower-severity findings come as
+  Dependabot PRs (`.github/dependabot.yml`, weekly).
+- **Lint**: ESLint 10 with `typescript-eslint`, `eslint-plugin-lit`,
+  `eslint-plugin-sonarjs`. Zero errors required; complexity warnings
+  tracked as backlog (see `eslint.config.mjs`).
+- **Coverage gate at ≥ 80 %** (statements, branches, functions, lines).
   Configured in `vitest.config.js`. Failing the gate fails the build.
-- Bundle budget at < 800 KB. Tripping signals a regression in
+  Note: pre-v1.4.2 the include array listed `.js` paths after the
+  v1.2 TS migration and matched zero files — the gate was silently
+  inert. Paths are `.ts` now.
+- **Architecture rules**: `dependency-cruiser` enforces no-circular,
+  no-orphans, and module boundaries (`src/chart/`, `src/editor/`,
+  `src/utils/` may not uplevel-import).
+- **Bundle budget at < 800 KB**. Tripping signals a regression in
   tree-shaking or an accidental large dep.
+- **CodeQL** (`security-extended` queries) on every PR + weekly
+  schedule, covering JS/TS security smells ESLint doesn't catch.
+- **SonarCloud** (`.github/workflows/sonarcloud.yml`) reads the
+  Vitest LCOV output and reports Cognitive Complexity, Code Smells,
+  Security Hotspots, and Coverage trend. Not a required check —
+  advisory only so a Sonar outage doesn't block merges.
 - Verifies `dist/weather-station-card.js` is in sync with source.
 - On tag pushes, verifies `package.json` version matches the tag,
   then uploads the bundle as a release asset.
 
 `permissions: contents: write` is set at job level so the release action
 can attach the bundle.
+
+The `master` branch is protected: PRs only, with `build` and
+`Analyze (javascript-typescript)` required-green before merge,
+linear history enforced, force-push and deletion blocked.
 
 ## Distribution
 
