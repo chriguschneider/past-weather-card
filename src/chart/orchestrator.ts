@@ -143,7 +143,7 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
   const backgroundColor = style.getPropertyValue('--card-background-color');
   const textColor = style.getPropertyValue('--primary-text-color');
   const dividerColor = style.getPropertyValue('--divider-color');
-  const canvas = (card.renderRoot).querySelector('#forecastChart') as HTMLCanvasElement | null;
+  const canvas = card.renderRoot.querySelector<HTMLCanvasElement>('#forecastChart');
   if (!canvas) {
     requestAnimationFrame(() => card.drawChart());
     return undefined;

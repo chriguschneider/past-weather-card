@@ -121,15 +121,20 @@ export default tseslint.config(
       //   keeps it that way.
       // - no-useless-return: trailing useless returns gone; error
       //   prevents reintroduction.
-      // - prefer-nullish-coalescing: ~150 legacy `||` defaults still
-      //   need per-case review (0 / '' / false semantic distinction).
-      //   Left at warn — too many to safely batch in one PR. Tracked
-      //   as carry-over in #39 / future #31 sweep.
+      // - prefer-nullish-coalescing: legacy `||` defaults pruned in
+      //   #31 for v1.6. `ignorePrimitives` keeps the rule pragmatic —
+      //   number / string / boolean / bigint defaults where 0 / '' /
+      //   false are semantically distinct from nullish stay as `||`.
+      //   Severity is `warn` (not `error`) because the ~40 remaining
+      //   non-primitive object / ternary cases need per-site review
+      //   before promotion. New occurrences surface in PR diffs.
       // - no-nested-ternary: extraction is stylistic and manual.
       //   Warn so legacy nests don't fail CI; new ones surface in
       //   review.
       '@typescript-eslint/prefer-optional-chain': 'error',
-      '@typescript-eslint/prefer-nullish-coalescing': 'warn',
+      '@typescript-eslint/prefer-nullish-coalescing': ['warn', {
+        ignorePrimitives: { boolean: true, string: true, number: true, bigint: true },
+      }],
       '@typescript-eslint/prefer-readonly': 'error',
       'no-nested-ternary': 'warn',
       'no-useless-return': 'error',
