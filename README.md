@@ -60,24 +60,9 @@ forecast — driven by sensor data, not a `weather.*` entity.
 <th>Visual editor</th>
 </tr>
 <tr>
-<td>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="tests-e2e/snapshots/render-modes.spec.ts/daily-combination-sunshine-dark.png" />
-    <img alt="Daily combination with sunshine" src="tests-e2e/snapshots/render-modes.spec.ts/daily-combination-sunshine.png" />
-  </picture>
-</td>
-<td>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="tests-e2e/snapshots/render-modes.spec.ts/daily-station-sunshine-dark.png" />
-    <img alt="Daily station-only chart with sunshine" src="tests-e2e/snapshots/render-modes.spec.ts/daily-station-sunshine.png" />
-  </picture>
-</td>
-<td>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="tests-e2e/snapshots/editor-visual.spec.ts/editor-dark.png" />
-    <img alt="Visual editor" src="tests-e2e/snapshots/editor-visual.spec.ts/editor.png" />
-  </picture>
-</td>
+<td><picture><source media="(prefers-color-scheme: dark)" srcset="tests-e2e/snapshots/render-modes.spec.ts/daily-combination-sunshine-dark.png"><img alt="Daily combination with sunshine" src="tests-e2e/snapshots/render-modes.spec.ts/daily-combination-sunshine.png"></picture></td>
+<td><picture><source media="(prefers-color-scheme: dark)" srcset="tests-e2e/snapshots/render-modes.spec.ts/daily-station-sunshine-dark.png"><img alt="Daily station-only chart with sunshine" src="tests-e2e/snapshots/render-modes.spec.ts/daily-station-sunshine.png"></picture></td>
+<td><picture><source media="(prefers-color-scheme: dark)" srcset="tests-e2e/snapshots/editor-visual.spec.ts/editor-dark.png"><img alt="Visual editor" src="tests-e2e/snapshots/editor-visual.spec.ts/editor.png"></picture></td>
 </tr>
 </table>
 
