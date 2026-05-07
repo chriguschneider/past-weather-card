@@ -597,7 +597,11 @@ export class ForecastDataSource {
     try {
       const unsub = await pending;
       if (typeof unsub === 'function') unsub();
-    } catch (_) { /* already gone or never landed */ }
+    } catch (err) {
+      // Pending subscribe rejected or already disposed — either way the
+      // resource is gone, no further teardown to do.
+      void err;
+    }
   }
 
   private _resubscribe(): void {
@@ -605,7 +609,15 @@ export class ForecastDataSource {
       const pending = this._unsubPromise;
       this._unsubPromise = null;
       pending.then(
-        (unsub) => { try { if (typeof unsub === 'function') unsub(); } catch (_) { /* ignore */ } },
+        (unsub) => {
+          try {
+            if (typeof unsub === 'function') unsub();
+          } catch (err) {
+            // Disposing a previous subscription that already errored —
+            // nothing actionable for the caller mid-resubscribe.
+            void err;
+          }
+        },
         () => { /* rejected — nothing to dispose */ },
       );
     }

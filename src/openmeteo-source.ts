@@ -155,7 +155,10 @@ function loadFromStorage(storage: StorageLike | null, lat: number, lon: number):
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return null;
     return parsed as CachedPayload;
-  } catch (_) {
+  } catch (err) {
+    // Storage access blocked or JSON corrupted — fall through to a
+    // fresh fetch instead of letting the read failure propagate.
+    void err;
     return null;
   }
 }
@@ -164,7 +167,11 @@ function saveToStorage(storage: StorageLike | null, lat: number, lon: number, pa
   if (!storage) return;
   try {
     storage.setItem(storageKey(lat, lon), JSON.stringify(payload));
-  } catch (_) { /* quota / private-mode — silent */ }
+  } catch (err) {
+    // Quota exceeded or private-mode storage rejection — the cache
+    // write is best-effort; silent failure is correct here.
+    void err;
+  }
 }
 
 /** Read the cached daily array and count past vs forecast days. Used
@@ -293,7 +300,13 @@ export class OpenMeteoSunshineSource {
   /** Abort any in-flight fetch — call this on `disconnectedCallback`. */
   abort(): void {
     if (this._abort) {
-      try { this._abort.abort(); } catch (_) { /* aborted twice */ }
+      try {
+        this._abort.abort();
+      } catch (err) {
+        // AbortController.abort() is idempotent in modern browsers but
+        // older polyfills may throw on a second call — safe to swallow.
+        void err;
+      }
       this._abort = null;
     }
   }
