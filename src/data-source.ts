@@ -308,17 +308,12 @@ export class MeasuredDataSource {
       return d.getTime();
     };
 
-    // Today's local-midnight, used to identify the "today" entry so we
-    // can skip its partial-running-total sunshine value (issue #16).
-    const todayMs = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })();
-
     const out: ForecastEntry[] = [];
     for (let i = 1; i <= days; i++) {
       const dayStart = new Date(start);
       dayStart.setDate(start.getDate() + i);
       const dayKey = dayMs(dayStart);
       const prevKey = dayKey - DAY_MS;
-      const isToday = dayKey === todayMs;
 
       const at = (eid: string | undefined, field: keyof StatBucket): number | null => {
         if (!eid) return null;
@@ -344,14 +339,19 @@ export class MeasuredDataSource {
         : null;
 
       // Sunshine duration from a HA recorder sensor (e.g. integration
-      // sensor on `sensor.open_meteo_sunshine_today`). Daily-max is the
-      // running total; for completed past days that's the full day's
-      // sunshine in seconds (or hours, normalised by attachSunshine).
-      // For TODAY's bucket the value is partial — at noon it's
-      // "sunshine-so-far", which is meteorologically misleading. We
-      // emit `null` for today's station entry so attachSunshine
-      // overlays the Open-Meteo daily forecast value instead (#16).
-      const sunshineRaw = sensors.sunshine_duration && !isToday
+      // sensor on `sensor.open_meteo_sunshine_today`). Daily-max is
+      // the running total; for completed past days it's the full
+      // day's sunshine in seconds (or hours, normalised by
+      // attachSunshine). For TODAY's bucket the value is partial —
+      // at 10 am it's the morning's "sunshine-so-far". #16 (closed)
+      // briefly substituted Open-Meteo's full-day forecast there to
+      // avoid the morning-feels-tiny problem, but the user feedback
+      // in #37 (which is what reverts that here) was that the
+      // forecast value felt wrong in the afternoon: an overcast
+      // afternoon would still show "11 h" because the morning had
+      // predicted it. Showing the measured running total is the
+      // empirical truth even when small early in the day.
+      const sunshineRaw = sensors.sunshine_duration
         ? at(sensors.sunshine_duration, 'max')
         : null;
 

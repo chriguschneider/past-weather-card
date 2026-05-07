@@ -153,6 +153,29 @@ describe('MeasuredDataSource._buildForecast', () => {
     expect('wind_speed' in entry).toBe(true);
     expect('humidity' in entry).toBe(true);
   });
+
+  it("emits the recorder daily-max for today's sunshine bucket (#37 reverts the #16 substitution)", () => {
+    const sensorsWithSunshine = { ...sensors, sunshine_duration: 'sensor.sun' };
+    const ds = new MeasuredDataSource(fakeHass, { sensors: sensorsWithSunshine, days: 3 });
+    // 3-day window starting at today's midnight: index 0 is "tomorrow" (skipped
+    // by the loop's i=1 start), so out[0]..out[2] cover days+1..days+3.
+    // We're verifying the today-bucket via the per-day loop reaching the
+    // "today" key — which is the entry whose dayKey equals startDay's local
+    // midnight + 1 day == dayMs(1).date in this fixture's timeline.
+    const todayStart = dayMs(1).date;
+    const stats = {
+      'sensor.sun': [
+        // Pretend "today" is the value at offset 1 with a partial value
+        // (e.g. 0.4 h at 10 am — sunshine-so-far).
+        { start: todayStart.toISOString(), max: 1440 }, // 1440 s = 0.4 h
+      ],
+    };
+    const out = ds._buildForecast(stats, sensorsWithSunshine, startDay, 3);
+    // The first emitted day uses the recorder running daily-max for sunshine,
+    // not null (the previous behaviour from #16). #37 reverts that — empirical
+    // truth even when small early in the day.
+    expect(out[0].sunshine).toBe(1440);
+  });
 });
 
 describe('MeasuredDataSource hourly mode', () => {
