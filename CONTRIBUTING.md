@@ -87,6 +87,40 @@ covered (Lit lifecycle, Chart.js drawing, editor DOM). New PRs that touch
 - ES2022 features are fine (`?.`, `??`, top-level await is not used).
 - Inline comments only when the *why* is non-obvious. Don't restate code.
 
+## Release flow
+
+For maintainers cutting a new `vX.Y.Z` release. The build workflow on
+`master` enforces some of these (tag-vs-package.json, CHANGELOG entry
+present, dist in sync); the rest are convention.
+
+1. **Bump version** in `package.json`.
+2. **CHANGELOG entry** — prepend a `## [X.Y.Z] — YYYY-MM-DD` block
+   (format: see [docs/STYLE-GUIDE.md](docs/STYLE-GUIDE.md#changelog-format)).
+   The build workflow extracts this verbatim into the GitHub release
+   body when you push the tag.
+3. **Verify these docs reflect what changed** — a release is a good
+   time to catch doc drift. None of these are mandatory per release,
+   but ask yourself for each:
+   - `README.md` — new user-facing config keys, behaviour, screenshots
+   - `ARCHITECTURE.md` — module boundaries, build pipeline, data flow
+   - `TESTING.md` — test layers, coverage scope
+   - `CONTRIBUTING.md` — dev workflow changes
+   - `MIGRATION.md` — breaking change for users
+4. **`npm run build`** — regenerates `dist/weather-station-card.js`.
+   Commit it together with the source. CI will reject the tag push
+   if `dist/` is out of sync with HEAD.
+5. **Open a PR**, wait for CI green, rebase-merge to `master`.
+   `master` is branch-protected — direct push will fail.
+6. **Tag and push**:
+   ```bash
+   git tag vX.Y.Z master
+   git push origin refs/tags/vX.Y.Z
+   ```
+   The `build` workflow then verifies tag matches `package.json.version`,
+   extracts the `[X.Y.Z]` block from `CHANGELOG.md` as release notes,
+   and uploads `dist/weather-station-card.js` to the GitHub release —
+   HACS picks it up automatically.
+
 ## Issues
 
 Bugs, feature requests, and questions:
