@@ -160,6 +160,7 @@ const locale: Locale = {
       'forecast_type_daily': 'Täglich',
       'forecast_type_today': 'Heute (24h)',
       'forecast_type_hourly': 'Stündlich',
+      'open_documentation': 'Dokumentation öffnen',
       'main_panel_heading': 'Hauptpanel',
       'attributes_heading': 'Attributzeile',
       'chart_rows_heading': 'Diagrammzeilen',
@@ -355,6 +356,7 @@ const locale: Locale = {
       'forecast_type_daily': 'Daily',
       'forecast_type_today': 'Today (24h)',
       'forecast_type_hourly': 'Hourly',
+      'open_documentation': 'Open documentation',
       // Layout sub-headings
       'main_panel_heading': 'Main panel',
       'attributes_heading': 'Attributes row',

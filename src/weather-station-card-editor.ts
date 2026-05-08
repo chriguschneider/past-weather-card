@@ -335,6 +335,18 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
           font-size: 0.85rem;
           color: var(--secondary-text-color);
         }
+        .editor-footer {
+          margin-top: 24px;
+          padding-top: 12px;
+          border-top: 1px solid var(--divider-color);
+          text-align: right;
+        }
+        .editor-footer a {
+          color: var(--primary-color);
+          text-decoration: none;
+          font-size: 0.9rem;
+        }
+        .editor-footer a:hover { text-decoration: underline; }
       </style>
 
       <div>
@@ -346,6 +358,12 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
         ${renderUnitsSection(this, ctx)}
         ${renderTapSection(this, ctx)}
         ${renderAdvancedSection(this, ctx)}
+        <div class="editor-footer">
+          <a href="https://github.com/chriguschneider/weather-station-card/blob/master/docs/CONFIGURATION.md"
+             target="_blank" rel="noopener noreferrer">
+            📖 ${t('open_documentation')}
+          </a>
+        </div>
       </div>
     `;
   }
