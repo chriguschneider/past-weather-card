@@ -34,8 +34,12 @@ export const DEFAULTS = {
   // Layout master toggles — opt-out for headline rows, opt-in for the
   // detail rows. Render code reads these as `true === cfg.x` (opt-in)
   // or `false !== cfg.x` (opt-out); explicit defaults match that intent.
+  // Combination is the most common use-case (station + forecast side-
+  // by-side) and showcases the card's strength. New cards land in
+  // combination mode; users opt into station-only / forecast-only via
+  // the editor radio.
   show_station: true,
-  show_forecast: false,
+  show_forecast: true,
   show_main: false,
   show_temperature: true,
   show_current_condition: false,
