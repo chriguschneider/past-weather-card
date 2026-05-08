@@ -18,7 +18,13 @@ scratch/
 test-results/
 playwright-report/
 .playwright/
-.claude/
+# Most of .claude/ is local-only (scheduled_tasks.lock, settings.local.json),
+# but skills/ and the project-wide settings.json (PreToolUse hook for the
+# commit-guardian skill) are checked in so every contributor — human or AI —
+# gets the same pre-commit ADR check.
+.claude/*
+!.claude/skills/
+!.claude/settings.json
 # Coverage output — generated per-run by `vitest run --coverage`,
 # consumed by SonarCloud (when activated) via coverage/lcov.info.
 coverage/
