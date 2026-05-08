@@ -70,7 +70,7 @@ export function renderAdvancedSection(editor: EditorLike, ctx: EditorContext): T
       <p class="hint">${t('condition_mapping_hint')}</p>
       ${CONDITION_MAPPING_FIELDS.map((field) => html`
         <div class="cmap-row">
-          <span>${field.key}</span>
+          <span title="${field.key}">${t(`cmap.${field.key}`)}</span>
           <ha-textfield
             type="number" step="any"
             .value="${cmap[field.key] != null ? String(cmap[field.key]) : ''}"
