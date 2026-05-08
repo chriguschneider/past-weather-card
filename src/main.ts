@@ -259,6 +259,16 @@ static getStubConfig(hass: HassMain | null, _unusedEntities: string[], allEntiti
 
   return {
     ...DEFAULTS,
+    // Picker preview renders this stub before any recorder data is
+    // available, so the past chart would otherwise come up empty and
+    // HA falls back to a description-only tile. The live now-panel
+    // (driven by hass.states, no recorder dependency) gives the picker
+    // an immediate, honest visual — no synthetic NaN values needed.
+    // New users adding the card via the picker also benefit from a
+    // richer default than just the chart row.
+    show_main: true,
+    show_current_condition: true,
+    show_attributes: true,
     sensors: {
       temperature: findByClass('temperature') || '',
       humidity: findByClass('humidity') || '',
