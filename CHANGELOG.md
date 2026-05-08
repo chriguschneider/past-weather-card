@@ -4,6 +4,143 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] — 2026-05-08
+
+Configuration-UX overhaul. The editor's six technical-clustered sections
+are now eight user-intent-clustered ones with plain-language headings
+("Was zeigt die Karte?", "Wettervorhersage", "Sensoren deiner
+Wetterstation", "Was wird angezeigt?", "Aussehen", "Einheiten", "Was
+passiert beim Tippen?", "Experten-Einstellungen"). Combination is now
+the default mode for newly added cards. The chart picks up theme
+colours automatically. The classifier-override fields finally have
+human-readable labels.
+
+### Combination is the default — and forecast-only finally validates
+
+New cards added via the picker now default to **Combination** mode
+(station + forecast side-by-side) instead of Station-only, showcasing
+the card's strength out of the box. Existing cards are unaffected.
+
+`setConfig` validation became mode-aware:
+
+- `show_station: true` requires `sensors.temperature` (was already
+  enforced, now scoped to the station block).
+- `show_forecast: true` requires a `weather.*` entity in
+  `weather_entity` (newly enforced — before, an empty `weather_entity`
+  in forecast mode silently produced an empty forecast block).
+
+A pure forecast-only card no longer needs station sensors; a pure
+station card no longer needs a weather entity. The error messages
+name which mode triggered the check.
+
+### Editor: 8 sections, plain-language headings, collapsible advanced
+
+The editor was reorganised from six technical-clustered sections
+("Einrichtung", "Aufbau", "Stil & Farben"…) into eight
+user-intent-clustered ones with plain-language headings. The mode
+radio gates section visibility — Station-only hides "Wettervorhersage";
+Forecast-only hides "Sensoren deiner Wetterstation". The advanced
+block (locale + classifier overrides) is now collapsed by default.
+
+A 📖 documentation link sits in the editor footer, pointing at
+`docs/CONFIGURATION.md` on master. `documentationURL` only surfaces
+in the card-picker; once the editor is open, the link used to be
+gone.
+
+### Theme-aware chart colours
+
+The four chart-colour defaults now follow the user's HA theme via CSS
+custom properties:
+
+| Setting | Theme token | Fallback |
+| --- | --- | --- |
+| `forecast.temperature1_color` | `--state-sensor-temperature-color` | rgba(255, 152, 0, 1.0) |
+| `forecast.temperature2_color` | `--info-color` | rgba(68, 115, 158, 1.0) |
+| `forecast.precipitation_color` | `--state-sensor-precipitation-color` | rgba(132, 209, 253, 1.0) |
+| `forecast.sunshine_color` | `--warning-color` | rgba(255, 215, 0, 1.0) |
+
+A light/dark theme switch now shifts the chart hues automatically.
+User-set RGBA / hex / hsl strings still win — pass-through.
+
+The colour input fields in the editor hide the wrapped `var(...)`
+defaults so users see an empty field with a "theme default"
+placeholder instead of a wall of `var(--state-sensor-temperature-color, rgba(...))`.
+
+### Translated classifier override labels
+
+The 13 condition-mapping override fields under "Experten-Einstellungen"
+used to render their snake_case key as the label
+(`rainy_threshold_mm`, `exceptional_gust_ms`…) — meaningless out of
+context. They now show readable labels ("Regen ab" / "Rainy from",
+"Extreme Böen ab" / "Exceptional gust from"). The original key is
+preserved as a `title=` tooltip for technical users.
+
+### Smarter sensor auto-detection
+
+`getStubConfig` no longer picks the first device-class match
+arbitrarily when the user has several candidates
+(`sensor.outdoor_temperature` + `sensor.living_room_temperature` +
+`sensor.fridge_temperature`). The new ranking biases toward outdoor
+/ garden / pool / weather-station naming and away from indoor /
+kitchen / fridge / bedroom names, with last-changed activity as the
+tie-breaker.
+
+### Picker preview now shows a real thumbnail
+
+The HA card-picker renders each card with its `getStubConfig()` to
+generate the thumbnail. The previous stub set `show_main: false` so
+the preview tried to draw the past chart — which depends on
+`recorder/statistics_during_period` data that isn't available
+synchronously inside the picker. Result: an empty render and a
+description-only tile. The stub now overrides `show_main`,
+`show_current_condition`, and `show_attributes` to `true` so the
+live now-panel renders immediately, giving the picker an honest
+visual driven by `hass.states` only.
+
+### Sections-view sizing
+
+`getCardSize()` now reflects the actual height of enabled blocks
+(chart row, optional main panel with/without time, attributes row)
+instead of returning a fixed 4. Masonry layouts reserve space
+proportional to the real card height.
+
+### Internal cleanup
+
+- **Single source of truth for defaults.** The `setConfig` and
+  `getStubConfig` paths used to declare overlapping default sets
+  that had drifted (`forecast.condition_icons` / `disable_animation`
+  / number-vs-string types). A new `src/defaults.ts` exports
+  `DEFAULTS` / `DEFAULTS_FORECAST` / `DEFAULTS_UNITS` consumed by
+  both paths. A new drift-guard test (`tests/defaults.test.js`)
+  asserts the contract so a future PR can't silently re-introduce
+  the divergence.
+- **`assertConfig` lifecycle hook.** When a YAML config is
+  structurally incompatible with the visual editor (e.g.
+  `condition_mapping` is an array, `sensors.foo: light.bar` instead
+  of `sensor.bar`), HA falls back to the YAML editor instead of
+  showing a broken visual editor.
+
+### Issues closed
+
+- #83 — single source of truth for configuration defaults
+- #84 — validate `weather_entity` and add `assertConfig`
+- #85 — conditional `getCardSize`
+- #86 — restructure editor sections + relabel for end users
+- #88 — translate `condition_mapping` field labels
+- #89 — ranked sensor auto-detection in `getStubConfig`
+- #90 — theme-aware default chart colours via CSS custom properties
+- #91 — documentation link in editor footer
+- #93 — schema-drift CI test (partial — schema-coverage assertion
+  deferred to v1.10 with #87)
+
+### Deferred to v1.10
+
+- #87 — schema-driven editor sections (`<ha-form>` migration of the
+  hand-rolled sections). Foundational for cleaner per-section reset
+  buttons (#92) and the schema-coverage half of #93.
+- #92 — per-section reset-to-defaults button. Lands naturally on
+  top of the schema migration.
+
 ## [1.8.0] — 2026-05-07
 
 Quality-stack-finalisation release. No new user-facing features — the
