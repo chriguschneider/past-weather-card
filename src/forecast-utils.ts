@@ -195,7 +195,7 @@ export function normalizeForecastMode<T = unknown>(rawConfig: T): NormalizeResul
     return { config: rawConfig, warnings };
   }
   const raw = rawConfig as { forecast?: { type?: string } } & Record<string, unknown>;
-  const config = { ...raw, forecast: { ...(raw.forecast || {}) } };
+  const config = { ...raw, forecast: { ...(raw.forecast ?? {}) } };
 
   const t = config.forecast.type;
   if (t !== 'daily' && t !== 'hourly' && t !== 'today') {

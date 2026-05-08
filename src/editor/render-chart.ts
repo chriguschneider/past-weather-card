@@ -43,7 +43,7 @@ export function renderChartSection(editor: EditorLike, ctx: EditorContext): Temp
           <ha-textfield
             label="${t('forecast_days')}"
             type="number" min="1" max="14"
-            .value="${cfg.forecast_days != null ? cfg.forecast_days : (cfg.days || 7)}"
+            .value="${cfg.forecast_days ?? (cfg.days || 7)}"
             @change="${(e: Event) => valueChanged(e as ChangeEvt, 'forecast_days')}"
           ></ha-textfield>
         ` : ''}
@@ -51,7 +51,7 @@ export function renderChartSection(editor: EditorLike, ctx: EditorContext): Temp
       <ha-textfield
         label="${t('number_of_forecasts')}"
         type="number" min="0"
-        .value="${fcfg.number_of_forecasts != null ? fcfg.number_of_forecasts : ''}"
+        .value="${fcfg.number_of_forecasts ?? ''}"
         @change="${(e: Event) => valueChanged(e as ChangeEvt, 'forecast.number_of_forecasts')}"
       ></ha-textfield>
       <p class="hint">${t('number_of_forecasts_hint')}</p>

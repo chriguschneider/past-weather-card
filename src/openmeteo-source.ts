@@ -115,8 +115,8 @@ export function buildOpenMeteoUrl(
  *  sunshine-source) does the sec→hours conversion at lookup time. */
 export function parseDailySunshine(response: OpenMeteoResponse | null | undefined): DailySunshineEntry[] {
   if (!response?.daily) return [];
-  const t = response.daily.time || [];
-  const v = response.daily.sunshine_duration || [];
+  const t = response.daily.time ?? [];
+  const v = response.daily.sunshine_duration ?? [];
   const out: DailySunshineEntry[] = [];
   for (let i = 0; i < t.length; i++) {
     if (v[i] != null) out.push({ date: t[i], value: v[i] });
@@ -132,8 +132,8 @@ export function parseDailySunshine(response: OpenMeteoResponse | null | undefine
  *  Values are seconds of sunshine within that hour, capped at 3600. */
 export function parseHourlySunshine(response: OpenMeteoResponse | null | undefined): HourlySunshineEntry[] {
   if (!response?.hourly) return [];
-  const t = response.hourly.time || [];
-  const v = response.hourly.sunshine_duration || [];
+  const t = response.hourly.time ?? [];
+  const v = response.hourly.sunshine_duration ?? [];
   const out: HourlySunshineEntry[] = [];
   for (let i = 0; i < t.length; i++) {
     if (v[i] != null) out.push({ datetime: t[i], value: v[i] });
@@ -256,11 +256,11 @@ export class OpenMeteoSunshineSource {
     // Allow overriding the fetch and storage implementations so the
     // tests can run in a Node environment without polluting globals.
     this._fetch = fetchImpl
-      || (typeof fetch === 'function' ? (fetch as FetchLike).bind(globalThis) : null);
+      ?? (typeof fetch === 'function' ? (fetch as FetchLike).bind(globalThis) : null);
     this._storage = storage !== undefined
       ? storage
       : (typeof window !== 'undefined' && window.localStorage ? window.localStorage : null);
-    this._now = now || (() => Date.now());
+    this._now = now ?? (() => Date.now());
 
     if (Number.isFinite(this.latitude) && Number.isFinite(this.longitude)) {
       const cached = loadFromStorage(this._storage, this.latitude as number, this.longitude as number);

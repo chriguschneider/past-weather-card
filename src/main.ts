@@ -435,7 +435,7 @@ _extractSensorReadings(hass: HassMain): void {
   // precipitation rate, and sunshine_duration have no weather-entity
   // counterpart and stay sensor-only.
   const wxEntity = this.config.weather_entity ? hass.states?.[this.config.weather_entity] : null;
-  const wxAttrs = (wxEntity?.attributes || {}) as Record<string, unknown>;
+  const wxAttrs = (wxEntity?.attributes ?? {}) as Record<string, unknown>;
   const fromWxIfMissing = (sensorValue: string | undefined, key: string): string | undefined => {
     if (sensorValue !== undefined && sensorValue !== '') return sensorValue;
     const v = wxAttrs[key];
@@ -1244,8 +1244,8 @@ computeForecastData({ config, forecastItems } = this) {
   const precip = forecast.map((d) => d.precipitation);
   // Sunshine columns. Each entry has a normalized hours value (or null
   // when no source resolved) and a day_length the bar is scaled against.
-  const sunshine = forecast.map((d) => (d.sunshine != null ? d.sunshine : null));
-  const dayLength = forecast.map((d) => (d.day_length != null ? d.day_length : null));
+  const sunshine = forecast.map((d) => d.sunshine ?? null);
+  const dayLength = forecast.map((d) => d.day_length ?? null);
 
   return {
     forecast,
@@ -1255,7 +1255,7 @@ computeForecastData({ config, forecastItems } = this) {
     // to [] so the dataset builder downstream — which indexes by position —
     // doesn't choke. The single-line decision (hide dataset[1]) lives in
     // chart/orchestrator, gated on `tempLow === null` from hourlyTempSeries.
-    tempLow: tempLow || [],
+    tempLow: tempLow ?? [],
     // Track the high/low intent separately so the chart layer can decide
     // whether to render a second temperature line; null means hourly /
     // single-line, otherwise daily / two-line.
@@ -1375,7 +1375,7 @@ _onModeToggleClick(ev?: Event) {
     // …, 21-23) so the default 8-bar viewport fits the whole day
     // with no scroll.
     const visibleBars = parseInt(config.forecast.number_of_forecasts, 10) || 0;
-    const totalBars = (this.forecasts || []).length;
+    const totalBars = (this.forecasts ?? []).length;
     const scrolling = visibleBars > 0 && totalBars > visibleBars;
     const contentWidthPct = scrolling ? (totalBars / visibleBars) * 100 : 100;
 
@@ -1788,7 +1788,7 @@ renderWind({ config, forecastItems } = this) {
   return html`
     <div class="wind-details">
       ${forecast.map((item) => {
-        const raw = item.wind_gust_speed != null ? item.wind_gust_speed : item.wind_speed;
+        const raw = item.wind_gust_speed ?? item.wind_speed;
         const dWindSpeed = this._convertWindSpeed(raw);
         const hasSpeed = dWindSpeed !== null && dWindSpeed !== undefined;
         const hasBearing = item.wind_bearing != null;
@@ -1839,12 +1839,12 @@ _convertWindSpeed(raw: unknown): number | null {
 
   _fire(type: string, detail: unknown, options?: { bubbles?: boolean; cancelable?: boolean; composed?: boolean }) {
     const node = this.shadowRoot;
-    const opts = options || {};
-    const eventDetail = (detail === null || detail === undefined) ? {} : detail;
+    const opts = options ?? {};
+    const eventDetail = detail ?? {};
     const event = new Event(type, {
-      bubbles: opts.bubbles === undefined ? true : opts.bubbles,
+      bubbles: opts.bubbles ?? true,
       cancelable: Boolean(opts.cancelable),
-      composed: opts.composed === undefined ? true : opts.composed,
+      composed: opts.composed ?? true,
     });
     (event as Event & { detail?: unknown }).detail = eventDetail;
     node?.dispatchEvent(event);
@@ -1973,7 +1973,7 @@ console.info(
   'color: #ff9800; background: white; font-weight: 700; padding: 2px 6px; border: 1px solid #ff9800; border-radius: 0 4px 4px 0;',
 );
 
-window.customCards = window.customCards || [];
+window.customCards = window.customCards ?? [];
 window.customCards.push({
   type: "weather-station-card",
   name: "Weather Station Card",

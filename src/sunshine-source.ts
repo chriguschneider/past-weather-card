@@ -221,10 +221,7 @@ export function findInDateArray(
       : (entry.datetime != null ? String(entry.datetime).slice(0, 10) : null);
     if (!k) continue;
     if (k === dateString) {
-      const v = entry.value != null ? entry.value
-              : entry.sunshine != null ? entry.sunshine
-              : entry.duration != null ? entry.duration
-              : entry.sunshine_duration;
+      const v = entry.value ?? entry.sunshine ?? entry.duration ?? entry.sunshine_duration;
       return normalizeSunshineValue(v);
     }
   }
