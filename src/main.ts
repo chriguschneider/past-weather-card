@@ -218,20 +218,42 @@ static assertConfig(config: any): void {
 }
 
 static getStubConfig(hass: HassMain | null, _unusedEntities: string[], allEntities: string[]) {
-  // Auto-detect station sensors by device_class. Fall back to entity-id
-  // pattern matching for the precipitation case (no standard device_class
-  // for cumulative rain on every integration).
+  // Auto-detect station sensors. Where multiple entities match, rank by
+  // friendly-name signals (outdoor / garden / weather-station beats
+  // indoor / kitchen) and area, with most-recent activity as the
+  // tie-breaker. Falls through to first-match if no candidate scores.
+  const rankCandidate = (eid: string): number => {
+    const st = hass?.states?.[eid];
+    if (!st) return -1;
+    let score = 0;
+    const name = ((st.attributes?.friendly_name as string) || '').toLowerCase();
+    if (/\b(outdoor|outside|garden|weather|draussen|aussen|pool)\b/.test(name)) score += 10;
+    if (/\b(indoor|inside|drinnen|kitchen|living|bedroom|fridge)\b/.test(name)) score -= 5;
+    const areaId = ((st.attributes?.area_id as string) || '').toLowerCase();
+    if (/garden|outdoor|outside/.test(areaId)) score += 5;
+    const lastChanged = (st as { last_changed?: string }).last_changed;
+    if (lastChanged && Date.now() - new Date(lastChanged).getTime() < 3_600_000) score += 1;
+    return score;
+  };
+  const pickRanked = (candidates: string[]): string | undefined => {
+    if (candidates.length === 0) return undefined;
+    if (candidates.length === 1) return candidates[0];
+    return candidates
+      .map((eid) => ({ eid, score: rankCandidate(eid) }))
+      .sort((a, b) => b.score - a.score)[0].eid;
+  };
   const findByClass = (cls: string): string | undefined => {
     const all = allEntities || [];
-    return all.find((eid: string) => {
+    const matches = all.filter((eid: string) => {
       if (!eid.startsWith('sensor.')) return false;
-      const st = hass?.states?.[eid];
-      return st?.attributes?.device_class === cls;
+      return hass?.states?.[eid]?.attributes?.device_class === cls;
     });
+    return pickRanked(matches);
   };
   const findByPattern = (re: RegExp): string | undefined => {
     const all = allEntities || [];
-    return all.find((eid: string) => eid.startsWith('sensor.') && re.test(eid));
+    const matches = all.filter((eid: string) => eid.startsWith('sensor.') && re.test(eid));
+    return pickRanked(matches);
   };
 
   return {
