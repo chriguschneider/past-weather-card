@@ -32,6 +32,7 @@ the same PR. If none apply, tick "no docs need updating".
 - [ ] `CONTRIBUTING.md` — dev workflow, build scripts, release flow
 - [ ] `MIGRATION.md` — breaking change requiring user action
 - [ ] `docs/CONFIGURATION.md` / `docs/SENSORS.md` / `docs/CONDITIONS.md` — reference doc affected
+- [ ] `docs/adr/` — new ADR if this change is hard to reverse, surprising without context, or cross-cutting (see `docs/adr/README.md` for criteria)
 
 ## Issues
 

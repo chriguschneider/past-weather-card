@@ -4,6 +4,159 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Polish round on top of v1.9.0. The editor surface tightens further (now
+seven sections instead of eight), several v1.x icon / sizing / colour
+configuration keys disappear from the editor, and the precipitation cell
+in the live panel switches to showing the configured sensor's raw value.
+Internally, `set hass` is split into three phases, the console banner now
+sources its version from `package.json` at build time, and 28 orphaned
+locale keys are gone.
+
+### Editor: 8 → 7 sections
+
+The "Symbole" / Icons section is removed; the "Experten-Einstellungen"
+section is folded into Advanced topics that live in YAML only. The
+remaining seven sections, in the order they render:
+
+1. **Karte einrichten** / Card setup — mode, chart type, title
+2. **Wettervorhersage** / Weather forecast — `weather_entity` picker
+3. **Sensoren** / Sensors — sensor pickers + past-data window
+4. **Diagramm** / Chart — time range, chart rows, appearance
+5. **Live-Anzeige** / Live panel — main panel + attributes row
+6. **Einheiten** / Units — pressure / wind-speed display units
+7. **Aktionen** / Actions — tap, hold, double-tap
+
+### Removed config keys (no longer parsed)
+
+- `icon_style` — the icon-set switcher is gone; HA's MDI icons are used directly.
+- `animated_icons` — animated SVG path removed.
+- `icons` (custom URL) — custom icon paths are no longer plumbed in.
+
+Old YAML configs that still set these keys are silently ignored. See
+[MIGRATION.md → v1.9](MIGRATION.md#v19) for the full upgrade list.
+
+### Deprecated
+
+- **`forecast.show_wind_forecast`** — legacy master-off shim for the
+  forecast wind row, kept as a hard kill-switch for v1.x configs that
+  set it to `false`. The editor never exposes it. Slated for **removal
+  in v2.0**. New configs should use the independent `forecast.show_wind_arrow`
+  and `forecast.show_wind_speed` toggles (set both to `false` for the
+  same effect).
+
+### Removed editor UI for chart sizes / colours / font sizes
+
+Three sub-sections that were rarely touched have been moved out of the
+editor surface — the keys keep working in YAML:
+
+- Chart sizes: `forecast.labels_font_size`, `forecast.chart_height`, `forecast.precip_bar_size`
+- Live-panel font sizes: `icons_size`, `current_temp_size`, `time_size`, `day_date_size`
+- Colour overrides: `forecast.temperature1_color`, `forecast.temperature2_color`, `forecast.precipitation_color`, `forecast.sunshine_color`, `forecast.chart_text_color`, `forecast.chart_datetime_color`
+
+Colour defaults are also now theme-aware (`var(--token, fallback)` —
+already shipped in v1.9.0; the editor row exposing the literal RGBA
+default went away in this polish round).
+
+### Wind row toggles in the chart are now independent
+
+`forecast.show_wind_arrow` (per-day direction arrow) and
+`forecast.show_wind_speed` (per-day numeric speed) are independent
+toggles in the editor. Either toggle alone surfaces the wind row.
+
+### Live panel: opt-out semantics, attribute-row gating
+
+Headline attribute toggles (`show_humidity`, `show_pressure`,
+`show_uv_index`, `show_wind_direction`, `show_wind_speed`) default to
+"shown when a backing value is present" — opt-out. Detail toggles
+(`show_dew_point`, `show_wind_gust_speed`, `show_illuminance`,
+`show_precipitation`, `show_sunshine_duration`, `show_sun`) stay opt-in.
+
+The editor surfaces sub-toggles only for attributes whose backing value
+is actually available — either a sensor under `sensors.*` or the
+matching attribute on `weather_entity`.
+
+### Forecast-only mode reads weather-entity attributes
+
+When station sensors aren't wired but `weather_entity` is, the card
+now falls back to the configured weather entity's attributes for live
+values: `temperature`, `humidity`, `pressure`, `dew_point`, `uv_index`,
+`wind_speed`, `wind_bearing`, `wind_gust_speed`. The attribute row in
+the live panel surfaces correspondingly. `illuminance`,
+`precipitation`, and `sunshine_duration` stay sensor-only (no
+weather-entity counterpart).
+
+### Precipitation cell shows raw sensor value
+
+The live-panel precipitation attribute shows the configured
+`sensors.precipitation` sensor's raw value with its native unit —
+cumulative `mm` or rate `mm/h`. Card-side auto-derivation of a `mm/h`
+rate from a cumulative counter was attempted and rolled back; the
+canonical solution is HA's built-in **Derivative helper** (see
+[SENSORS.md → Live precipitation rate from a cumulative sensor](docs/SENSORS.md#live-precipitation-rate-from-a-cumulative-sensor)
+and tracking [issue #117](https://github.com/chriguschneider/weather-station-card/issues/117)).
+
+### Internal — `set hass` 3-phase decomposition (ADR-0007)
+
+The 240-line `set hass` setter is split into three private phase
+methods:
+
+1. `_extractSensorReadings(hass)` — sensor entity reads, source-unit detection, weather-entity attribute fallback.
+2. `_classifyLiveCondition(hass)` — minute-memoized classifier + synthesized weather stand-in.
+3. `_syncDataSources(hass)` — subscribe / unsubscribe + missing-sensor scan.
+
+The setter itself is now a 12-line orchestrator. ESLint's
+cognitive-complexity warnings on this region are gone; refactor lays
+the groundwork for future phase-level testing.
+
+### Internal — build-time `__CARD_VERSION__` injection (ADR-0006)
+
+`rollup.config.mjs` now applies a small inline `injectCardVersion`
+plugin that replaces the literal `'__CARD_VERSION__'` in `src/main.ts`
+with the version from `package.json` at build time. The console
+banner on card load is sourced from `package.json` automatically; no
+manual sync at release time.
+
+### Internal — DEFAULTS as single source of truth (ADR-0008)
+
+`src/defaults.ts` exports `DEFAULTS`, `DEFAULTS_FORECAST`,
+`DEFAULTS_UNITS`. Both `setConfig` and `getStubConfig` consume the
+same object — earlier branches had two divergent default sources.
+The schema-drift CI test (issue #93) keeps it that way.
+
+### Internal — Editor partial reorg (ADR-0005)
+
+`src/editor/render-{layout,style,advanced}.ts` removed; replaced by
+new user-intent-clustered partials `render-{mode,chart,live-panel}.ts`.
+`render-icons.ts` deleted entirely (icon configuration removed).
+A shared `editor/types.ts` exports `EditorLike`, `EditorContext`,
+`TFn`, and `ChangeEvt` for the partials to consume.
+
+### Internal — Locale cleanup
+
+28 orphan keys removed from `src/locale.ts` (DE + EN editor blocks):
+`icon_style`, `animated_icons`, `custom_icons_url`, `show_chart_wind`,
+`show_chart_wind_arrow`, `expert_settings_heading`,
+`icons_section_heading`, `chart_sizing_heading`,
+`live_panel_sizing_heading`, `actions_heading`, `sizing_heading`,
+`icons_heading`, `colours_heading`, `forecast_type`,
+`forecast_type_label`, `forecast_type_hint`, `icon_size`,
+`current_temp_size`, `time_size`, `day_date_size`,
+`labels_font_size`, `chart_height`, `precip_bar_size`,
+`temperature1_color`, `temperature2_color`, `precipitation_color`,
+`sunshine_color`, `chart_text_color`, `chart_datetime_color`,
+`color_theme_aware_placeholder` (~63 lines removed from `locale.ts`).
+
+### Tests
+
+- New: `tests/editor-render-chart.test.js` (13 cases) — jsdom + Lit
+  `render()` smoketest for the chart partial.
+- New: `tests/editor-render-live-panel.test.js` (10 cases) — same for
+  the live-panel partial. Covers gating by `hasSensor` /
+  `hasLiveValue` and master toggles.
+- 469 tests across 15 files (was 446 / 13 before this round).
+
 ## [1.9.0] — 2026-05-08
 
 Configuration-UX overhaul. The editor's six technical-clustered sections

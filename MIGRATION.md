@@ -9,6 +9,87 @@ Yet-unknown keys are silently ignored by Home Assistant, so an
 out-of-date YAML keeps loading after an upgrade — but the keys do
 nothing. Removing them keeps your config self-documenting.
 
+## v1.9
+
+### Removed config keys
+
+The following keys are no longer parsed. Old YAML that still sets them
+keeps loading without error, but the keys have no effect. Remove them
+when convenient:
+
+- `icon_style` — the icon-set switcher is gone; HA's MDI icons are
+  used directly.
+- `animated_icons` — animated SVG icon path removed.
+- `icons` (custom URL) — custom icon paths are no longer plumbed in.
+
+```yaml
+# Before
+icon_style: style2
+animated_icons: true
+icons: https://example.com/icons/
+
+# After: just remove the lines.
+```
+
+### Default change — combination is the new default
+
+New cards added via the picker default to **combination mode**
+(`show_station: true` + `show_forecast: true`) instead of station-only.
+**Existing cards are unaffected** — your current `show_station` /
+`show_forecast` values are preserved.
+
+If you want a new card in station-only or forecast-only mode, switch
+in section 1 of the editor or set the corresponding flag to `false`.
+
+### Deprecated — `forecast.show_wind_forecast`
+
+The legacy master-off toggle for the chart's wind row still works as a
+hard kill-switch for v1.x configs that explicitly set it to `false`.
+**Slated for removal in v2.0.** Migrate to the independent toggles:
+
+```yaml
+# Before (still works in v1.9.x, will break in v2.0)
+forecast:
+  show_wind_forecast: false
+
+# After
+forecast:
+  show_wind_arrow: false
+  show_wind_speed: false
+```
+
+If you set `show_wind_forecast: true` (or omit it), nothing changes —
+the deprecation only matters if you used it as a hard off switch.
+
+### Forecast-only mode now uses weather-entity attributes
+
+If you run a forecast-only card (no station sensors wired), the live
+panel's attribute row will now read `humidity`, `pressure`,
+`dew_point`, `uv_index`, `wind_speed`, `wind_bearing`, and
+`wind_gust_speed` from the configured `weather_entity`'s attributes
+when present. **No YAML change is required**; this is informational so
+you know why attributes might appear that previously didn't surface.
+
+### Theme-aware default chart colours
+
+Chart line / bar colour defaults follow the user's HA theme via CSS
+custom properties (e.g.
+`var(--state-sensor-temperature-color, rgba(255, 152, 0, 1.0))`).
+Light/dark theme switches now shift the chart hues automatically.
+**No YAML change required**; user-set RGBA / hex / hsl strings still
+override (pass-through).
+
+### Editor sizing / colours / font-sizes are YAML-only
+
+The editor no longer surfaces individual chart sizes
+(`forecast.labels_font_size`, `forecast.chart_height`,
+`forecast.precip_bar_size`), live-panel font sizes (`icons_size`,
+`current_temp_size`, `time_size`, `day_date_size`), or per-key colour
+overrides. **The keys keep working in YAML** — the visual editor just
+has a smaller surface. Most users never touch these; if you do, see
+[CONFIGURATION.md → Layout & Display](docs/CONFIGURATION.md#layout--display)
+and [CONFIGURATION.md → Chart appearance](docs/CONFIGURATION.md#chart-appearance).
+
 ## v0.x → v1.0
 
 v1.0 is a quality release: speed, tests, docs, accessibility. **No new

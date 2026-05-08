@@ -3,8 +3,25 @@ import serve from 'rollup-plugin-serve';
 import copy from 'rollup-plugin-copy';
 import terser from '@rollup/plugin-terser';
 import typescript from '@rollup/plugin-typescript';
+import { readFileSync } from 'node:fs';
 
+const pkg = JSON.parse(readFileSync('./package.json', 'utf8'));
 const dev = process.env.ROLLUP_WATCH;
+
+// Inline plugin: substitutes the literal '__CARD_VERSION__' in main.ts
+// with the package.json version at build time. Avoids the manual
+// release-time bump dance for the console banner — package.json is the
+// single source of truth. Tests run on the unsubstituted source where
+// the banner reads "v__CARD_VERSION__"; harmless because no test
+// inspects that string.
+const injectCardVersion = {
+  name: 'inject-card-version',
+  transform(code, id) {
+    if (!id.endsWith('main.ts')) return null;
+    const replaced = code.replaceAll("'__CARD_VERSION__'", JSON.stringify(pkg.version));
+    return replaced === code ? null : { code: replaced, map: null };
+  },
+};
 
 const serveopts = {
   contentBase: ['./dist'],
@@ -25,6 +42,10 @@ export default {
     sourcemap: dev ? true : false,
   },
   plugins: [
+    // Version-string substitution runs before TS so the placeholder
+    // disappears before any downstream pass sees it. Idempotent — only
+    // touches main.ts, only matches the exact placeholder literal.
+    injectCardVersion,
     // TypeScript first so it sees raw .ts/.tsx and emits ESM JS for
     // the rest of the pipeline. allowJs=true (in tsconfig) lets us
     // migrate one file at a time during v1.2 — .js files pass through

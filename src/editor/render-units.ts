@@ -1,4 +1,4 @@
-// Editor render partial — Section E: Units.
+// Editor render partial — Section 6: Units.
 // Single ha-form with two ha-select fields (pressure / wind speed).
 // Both schemas + the human-readable label map are local to this file.
 

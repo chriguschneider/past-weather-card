@@ -1,4 +1,4 @@
-// Editor render partial — Section 7: "Was passiert beim Tippen?"
+// Editor render partial — Section 7: "Aktionen" (Actions).
 // Tap / hold / double-tap action selectors. Always visible.
 
 import { html, type TemplateResult } from 'lit';
@@ -7,7 +7,7 @@ import type { EditorLike, EditorContext } from './types.js';
 export function renderTapSection(editor: EditorLike, ctx: EditorContext): TemplateResult {
   const { t, cfg } = ctx;
   return html`
-    <h3 class="section">${t('tap_behavior_heading')}</h3>
+    <h3 class="section">${t('actions_section_heading')}</h3>
     <div class="textfield-container">
       ${[
         ['tap_action', 'tap_action_label'],

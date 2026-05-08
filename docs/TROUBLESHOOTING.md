@@ -46,7 +46,10 @@ framed together by thicker borders to read as one "today" unit. Set
 
 - **Rain icon never appears.** The live classifier ignores cumulative
   precipitation counters (see [CONDITIONS.md → Precipitation in the live condition needs a *rate* unit](CONDITIONS.md#precipitation-in-the-live-condition-needs-a-rate-unit)).
-  Wire a `mm/h` sensor as `sensors.precipitation` if you want live rain.
+  If your weather station only exposes a cumulative `mm` counter,
+  configure an **HA Derivative helper** to expose a `mm/h` rate
+  sensor and wire that into `sensors.precipitation` — see
+  [SENSORS.md → Live precipitation rate from a cumulative sensor](SENSORS.md#live-precipitation-rate-from-a-cumulative-sensor).
 - **`sunny` at noon when it's overcast / `cloudy` at noon when it's clear.**
   The cloud-cover ratio is `lux_max / clearsky_lux`. Indoor or
   partially-shaded illuminance sensors will read low and trigger `cloudy`;
@@ -69,11 +72,26 @@ render tick. If a field doesn't seem to update:
   string `'25'` instead of the number `25`; the card coerces, but if you
   see a chart sized oddly, check the YAML view for stray quotes.
 
+## Removed in v1.9.x
+
+The following config keys no longer exist in the code path. Old YAML
+configs that still set them are silently ignored (no error, no effect):
+
+| Removed key | What replaced it |
+| --- | --- |
+| `icon_style` | The card no longer ships an animated/static icon-set switcher; HA's own MDI icons are used directly. |
+| `animated_icons` | Same — animated icons removed entirely. |
+| `icons` (custom URL) | Same — custom icon paths are no longer plumbed in. |
+
+If you're still maintaining a v1.x YAML, remove these keys at your
+leisure. `forecast.show_wind_forecast` is **deprecated but still
+works** as a hard master-off until v2.0 — see
+[CONFIGURATION.md → Layout & Display](CONFIGURATION.md#layout--display).
+
 ## Known limitations
 
-For the toggles below, the YAML keys are still parsed but the visual
-editor **does not surface them** while their behaviour is broken or
-vestigial. Tracking issues are linked.
+For the entries below, the YAML keys are parsed but the behaviour is
+either upstream-defined or vestigial. Tracking issues are linked.
 
 | Field | Symptom | Tracking |
 | --- | --- | --- |

@@ -76,10 +76,23 @@ Linear history is enforced (no merge commits) — the maintainer uses
 
 Pure-function unit tests live under `tests/` and run via Vitest. See
 [TESTING.md](TESTING.md) for the conventions on what is in scope (data
-layer, classifier, formatting helpers) and what is intentionally not
-covered (Lit lifecycle, Chart.js drawing, editor DOM). New PRs that touch
-`src/condition-classifier.js`, `src/data-source.js`, or
-`src/format-utils.js` should extend the corresponding test file.
+layer, classifier, formatting helpers, editor partial smoketests) and
+what is intentionally not covered (Lit lifecycle, Chart.js drawing,
+full editor DOM). New PRs that touch `src/condition-classifier.ts`,
+`src/data-source.ts`, or `src/format-utils.ts` should extend the
+corresponding test file.
+
+PRs that change an editor render partial (`src/editor/render-*.ts`)
+should extend the matching `tests/editor-render-*.test.js` smoketest:
+add cases for any new toggle, sub-section heading, or
+`hasSensor` / `hasLiveValue` gating. The smoketests render with mock
+`EditorLike` + `EditorContext` so they're cheap to extend — see the
+existing files for the pattern.
+
+PRs that introduce a new architectural pattern, shift a public-API
+contract, or make a hard-to-reverse choice should land an ADR under
+`docs/adr/` alongside the code (see `docs/adr/README.md` for the
+criteria and template).
 
 ## Code style
 

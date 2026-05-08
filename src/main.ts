@@ -27,8 +27,6 @@ import locale from './locale.js';
 import {
   cardinalDirectionsIcon,
   weatherIcons,
-  weatherIconsDay,
-  weatherIconsNight,
 } from './const.js';
 import { DEFAULTS, DEFAULTS_FORECAST, DEFAULTS_UNITS } from './defaults.js';
 import {LitElement, html} from 'lit';
@@ -132,9 +130,23 @@ class WeatherStationCard extends LitElement {
   dew_point: any;
   // deno-lint-ignore no-explicit-any
   wind_gust_speed: any;
+  // deno-lint-ignore no-explicit-any
+  illuminance: any;
+  // deno-lint-ignore no-explicit-any
+  precipitation: any;
+  // deno-lint-ignore no-explicit-any
+  precipitation_unit: string | undefined;
+  // deno-lint-ignore no-explicit-any
+  sunshine_duration: any;
+  // deno-lint-ignore no-explicit-any
+  sunshine_duration_unit: string | undefined;
   unitSpeed: string | undefined;
   unitPressure: string | undefined;
-  baseIconPath: string | undefined;
+  // Source units captured during phase 1 (sensor extraction) so phase 2
+  // can build the synthesized weather stand-in without re-deriving them.
+  _sourceWindUnit: string = 'm/s';
+  _sourcePressureUnit: string = 'hPa';
+  _sourceTempUnit: string = '°C';
 
   // --- Caching / live-condition memo ---
   _liveConditionKey: string | undefined;
@@ -346,10 +358,6 @@ setConfig(config: any) {
   this._liveConditionKey = undefined;
   this._liveCondition = undefined;
 
-  this.baseIconPath = cardConfig.icon_style === 'style2' ?
-    'https://cdn.jsdelivr.net/gh/chriguschneider/weather-station-card/dist/icons2/':
-    'https://cdn.jsdelivr.net/gh/chriguschneider/weather-station-card/dist/icons/' ;
-
   this.config = cardConfig;
 
   // Mode-aware validation. Each enabled block has its own required key:
@@ -365,11 +373,28 @@ setConfig(config: any) {
   }
 }
 
+// Reactivity entry-point — HA fires this 2–5x/second whenever any
+// entity in `hass.states` updates. Three phases:
+//   1. _extractSensorReadings — sensor → this.<reading> + unit detection
+//   2. _classifyLiveCondition — derive "now" condition + synthesize weather obj
+//   3. _syncDataSources       — subscribe/unsubscribe + missing-sensor scan
+// Splitting the work keeps each phase under a screenful and lets the
+// memoization in phase 2 be reasoned about in isolation from the
+// subscription churn in phase 3.
 set hass(hass: HassMain) {
   this._hass = hass;
   this.language = this.config.locale || hass.selectedLanguage || hass.language || 'en';
   this.sun = (hass.states && 'sun.sun' in hass.states) ? hass.states['sun.sun'] : null;
 
+  this._extractSensorReadings(hass);
+  this._classifyLiveCondition(hass);
+  this._syncDataSources(hass);
+}
+
+// Phase 1: read sensor entity states, detect source units, populate
+// the per-reading instance fields, and apply the weather_entity
+// attribute fallback for forecast-only mode.
+_extractSensorReadings(hass: HassMain): void {
   const sensors = this.config.sensors || {};
   const stateOf = (eid: string | undefined): HassEntityState | null =>
     (eid && hass.states?.[eid]) ? (hass.states[eid] as HassEntityState) : null;
@@ -395,31 +420,72 @@ set hass(hass: HassMain) {
 
   this.unitSpeed = this.config.units.speed || sourceWindUnit;
   this.unitPressure = this.config.units.pressure || sourcePressureUnit;
+  // Stash the source units so phase 2 can build the weather stand-in
+  // without re-deriving them from the sensor attributes.
+  this._sourceWindUnit = sourceWindUnit as string;
+  this._sourcePressureUnit = sourcePressureUnit as string;
+  this._sourceTempUnit = sourceTempUnit as string;
 
-  this.temperature = valueOf(sensors.temperature);
-  this.humidity = valueOf(sensors.humidity);
-  this.pressure = valueOf(sensors.pressure);
-  this.uv_index = valueOf(sensors.uv_index);
-  this.windSpeed = valueOf(sensors.wind_speed);
-  this.dew_point = valueOf(sensors.dew_point);
-  this.wind_gust_speed = valueOf(sensors.gust_speed);
-  this.windDirection = sensors.wind_direction && hass.states?.[sensors.wind_direction]
-    ? parseFloat(hass.states[sensors.wind_direction]!.state)
-    : undefined;
+  // Forecast-only fallback: in pure forecast mode users typically don't
+  // wire station sensors, but HA's weather.* entity already exposes
+  // standard current attributes (temperature, humidity, pressure,
+  // wind_speed, wind_bearing, wind_gust_speed; uv_index / dew_point
+  // when the integration provides them). Read the live entity state
+  // once and let any missing sensor fall back to it. illuminance,
+  // precipitation rate, and sunshine_duration have no weather-entity
+  // counterpart and stay sensor-only.
+  const wxEntity = this.config.weather_entity ? hass.states?.[this.config.weather_entity] : null;
+  const wxAttrs = (wxEntity?.attributes || {}) as Record<string, unknown>;
+  const fromWxIfMissing = (sensorValue: string | undefined, key: string): string | undefined => {
+    if (sensorValue !== undefined && sensorValue !== '') return sensorValue;
+    const v = wxAttrs[key];
+    if (v === undefined || v === null) return undefined;
+    return String(v);
+  };
 
-  // Live "now" condition derived from current sensor states. The same
-  // classifier is used as for daily forecast columns, just fed with
-  // instantaneous values and an instantaneous clear-sky reference.
-  // Precipitation only contributes when the sensor reports a rate
-  // (unit ends in /h) — cumulative counters can't be turned into a
-  // current rate without extra history and would otherwise spuriously
-  // trigger 'rainy' on a dry day.
+  this.temperature = fromWxIfMissing(valueOf(sensors.temperature), 'temperature');
+  this.humidity = fromWxIfMissing(valueOf(sensors.humidity), 'humidity');
+  this.pressure = fromWxIfMissing(valueOf(sensors.pressure), 'pressure');
+  this.uv_index = fromWxIfMissing(valueOf(sensors.uv_index), 'uv_index');
+  this.windSpeed = fromWxIfMissing(valueOf(sensors.wind_speed), 'wind_speed');
+  this.dew_point = fromWxIfMissing(valueOf(sensors.dew_point), 'dew_point');
+  this.wind_gust_speed = fromWxIfMissing(valueOf(sensors.gust_speed), 'wind_gust_speed');
+  this.illuminance = valueOf(sensors.illuminance);
+  this.precipitation = valueOf(sensors.precipitation);
+  this.precipitation_unit = (attrOf(sensors.precipitation, 'unit_of_measurement') as string | undefined) || undefined;
+  this.sunshine_duration = valueOf(sensors.sunshine_duration);
+  this.sunshine_duration_unit = (attrOf(sensors.sunshine_duration, 'unit_of_measurement') as string | undefined) || undefined;
+
+  if (sensors.wind_direction && hass.states?.[sensors.wind_direction]) {
+    this.windDirection = parseFloat(hass.states[sensors.wind_direction]!.state);
+  } else if (wxAttrs.wind_bearing != null) {
+    this.windDirection = parseFloat(String(wxAttrs.wind_bearing));
+  } else {
+    this.windDirection = undefined;
+  }
+}
+
+// Phase 2: classify the live "now" condition with minute-level
+// memoization, then synthesize a weather-entity stand-in for the
+// render layer. Same classifier as for daily forecast columns, just
+// fed with instantaneous values + an instantaneous clear-sky reference.
+// Precipitation only contributes when the sensor reports a rate (unit
+// ends in /h) — cumulative counters can't be turned into a current
+// rate without extra history and would otherwise spuriously trigger
+// 'rainy' on a dry day.
+_classifyLiveCondition(hass: HassMain): void {
+  const sensors = this.config.sensors || {};
+  const wxEntity = this.config.weather_entity ? hass.states?.[this.config.weather_entity] : null;
+  const wxState = wxEntity?.state;
+  const precipState = sensors.precipitation ? hass.states?.[sensors.precipitation] : null;
+  const illuminanceState = sensors.illuminance ? hass.states?.[sensors.illuminance] : null;
+
   const nowTemp = parseNumericSafe(this.temperature);
-  const luxNow = parseNumericSafe(valueOf(sensors.illuminance));
-  const precipUnitRaw = attrOf(sensors.precipitation, 'unit_of_measurement');
+  const luxNow = parseNumericSafe(illuminanceState?.state);
+  const precipUnitRaw = precipState?.attributes?.unit_of_measurement;
   const precipUnit = typeof precipUnitRaw === 'string' ? precipUnitRaw : '';
   const precipIsRate = /\/(h|hr|hour)$/i.test(precipUnit);
-  const precipRateNow = precipIsRate ? parseNumericSafe(valueOf(sensors.precipitation)) : null;
+  const precipRateNow = precipIsRate ? parseNumericSafe(precipState?.state) : null;
   const lat = hass.config?.latitude;
   const lon = hass.config?.longitude;
 
@@ -439,6 +505,12 @@ set hass(hass: HassMain) {
   let currentCondition;
   if (this._liveConditionKey === conditionKey) {
     currentCondition = this._liveCondition;
+  } else if (!sensors.temperature && wxState) {
+    // No station temperature sensor — defer to the weather entity's
+    // own state for the live condition. Forecast-only mode lands here.
+    currentCondition = wxState;
+    this._liveConditionKey = conditionKey;
+    this._liveCondition = currentCondition;
   } else {
     const clearskyNow = lat != null && lon != null
       ? clearSkyLuxAt(lat, lon, new Date())
@@ -468,9 +540,9 @@ set hass(hass: HassMain) {
   this.weather = {
     state: currentCondition,
     attributes: {
-      wind_speed_unit: sourceWindUnit,
-      pressure_unit: sourcePressureUnit,
-      temperature_unit: sourceTempUnit,
+      wind_speed_unit: this._sourceWindUnit,
+      pressure_unit: this._sourcePressureUnit,
+      temperature_unit: this._sourceTempUnit,
       temperature: this.temperature,
       humidity: this.humidity,
       pressure: this.pressure,
@@ -482,6 +554,19 @@ set hass(hass: HassMain) {
       supported_features: 0,
     },
   };
+}
+
+// Phase 3: subscribe/unsubscribe data sources to match current mode
+// flags, and rescan for missing/unavailable sensor entities.
+// Symmetrical to disconnectedCallback's teardown side.
+//
+// Both subscribe callbacks are invoked from HA's WebSocket listener
+// (ForecastDataSource) or our own polling timer (MeasuredDataSource).
+// A throw out of the callback would propagate into those code paths
+// and could detach the listener — wrap each body in try/catch so the
+// chart can recover via _chartError instead.
+_syncDataSources(hass: HassMain): void {
+  const sensors = this.config.sensors || {};
 
   this._stationData = this._stationData || [];
   this._forecastData = this._forecastData || [];
@@ -489,11 +574,6 @@ set hass(hass: HassMain) {
   const wantStation = this.config.show_station !== false;
   const wantForecast = this.config.show_forecast === true && !!this.config.weather_entity;
 
-  // Both subscribe callbacks are invoked from HA's WebSocket listener
-  // (ForecastDataSource) or our own polling timer (MeasuredDataSource).
-  // A throw out of the callback would propagate into those code paths
-  // and could detach the listener — wrap each body in try/catch so the
-  // chart can recover via _chartError instead.
   if (wantStation) {
     if (!this._dataSource) {
       this._dataSource = new MeasuredDataSource(hass, this.config);
@@ -904,15 +984,8 @@ ll(str: string): any {
     return us?.[unit] || '';
   }
 
-  getWeatherIcon(condition: string, sun: string | undefined): string {
+  getWeatherIcon(condition: string, _sun: string | undefined): string {
     const condKey = condition as keyof typeof weatherIcons;
-    if (this.config.animated_icons === true) {
-      const iconName = sun === 'below_horizon' ? weatherIconsNight[condKey] : weatherIconsDay[condKey];
-      return `${this.baseIconPath}${iconName}.svg`;
-    } else if (this.config.icons) {
-      const iconName = sun === 'below_horizon' ? weatherIconsNight[condKey] : weatherIconsDay[condKey];
-      return `${this.config.icons}${iconName}.svg`;
-    }
     return weatherIcons[condKey];
   }
 
@@ -1393,9 +1466,7 @@ renderMain({ config, sun, weather, temperature } = this) {
     roundedTemperature = Math.round(roundedTemperature * 10) / 10;
   }
 
-  const iconHtml = config.animated_icons || config.icons
-    ? html`<img src="${this.getWeatherIcon(weather.state, sun.state)}" alt="">`
-    : html`<ha-icon icon="${this.getWeatherIcon(weather.state, sun.state)}"></ha-icon>`;
+  const iconHtml = html`<ha-icon icon="${this.getWeatherIcon(weather.state, sun.state)}"></ha-icon>`;
 
   const updateClock = () => {
     const currentDate = new Date();
@@ -1465,7 +1536,7 @@ renderMain({ config, sun, weather, temperature } = this) {
   `;
 }
 
-renderAttributes({ config, humidity, pressure, windSpeed, windDirection, sun, language, uv_index, dew_point, wind_gust_speed } = this) {
+renderAttributes({ config, humidity, pressure, windSpeed, windDirection, sun, language, uv_index, dew_point, wind_gust_speed, illuminance, precipitation, precipitation_unit, sunshine_duration, sunshine_duration_unit } = this) {
   let dWindSpeed = windSpeed;
   let dPressure = pressure;
 
@@ -1530,12 +1601,38 @@ renderAttributes({ config, humidity, pressure, windSpeed, windDirection, sun, la
   const showWindDirection = config.show_wind_direction !== false;
   const showWindSpeed = config.show_wind_speed !== false;
   const showSun = config.show_sun !== false;
+  // All live-block sub-toggles default to ON (opt-out): once the
+  // master show_attributes is enabled, every available data point
+  // appears unless explicitly turned off in YAML / editor.
   const showDewpoint = config.show_dew_point !== false;
   const showWindgustspeed = config.show_wind_gust_speed !== false;
+  const showUvIndex = config.show_uv_index !== false;
+  const showIlluminance = config.show_illuminance !== false;
+  const showPrecipitation = config.show_precipitation !== false;
+  // Display the configured precipitation sensor's value as-is with
+  // its native unit. For users who want a live mm/h rate from a
+  // cumulative sensor: configure a Derivative helper in HA (see
+  // GitHub issue) and wire its output sensor here. Card-side
+  // auto-derivation was tried and removed — fragile, see issue.
+  const hasPrecipValue = precipitation !== undefined && precipitation !== '';
+  const showSunshineDuration = config.show_sunshine_duration !== false;
+
+  // Sunshine duration sensor reports either seconds or hours — format
+  // as decimal hours either way.
+  const sunshineHours = (() => {
+    if (sunshine_duration === undefined || sunshine_duration === null || sunshine_duration === '') return undefined;
+    const raw = parseFloat(String(sunshine_duration));
+    if (!Number.isFinite(raw)) return undefined;
+    const unit = (sunshine_duration_unit || '').toLowerCase();
+    const hours = unit === 's' || unit.startsWith('sec') ? raw / 3600
+                : unit === 'min' ? raw / 60
+                : raw;
+    return Math.round(hours * 10) / 10;
+  })();
 
 return html`
     <div class="attributes">
-      ${((showHumidity && humidity !== undefined) || (showPressure && dPressure !== undefined) || (showDewpoint && dew_point !== undefined)) ? html`
+      ${((showHumidity && humidity !== undefined) || (showPressure && dPressure !== undefined) || (showDewpoint && dew_point !== undefined) || (showPrecipitation && hasPrecipValue)) ? html`
         <div>
           ${showHumidity && humidity !== undefined ? html`
             <ha-icon icon="hass:water-percent"></ha-icon> ${humidity} %<br>
@@ -1546,13 +1643,26 @@ return html`
           ${showDewpoint && dew_point !== undefined ? html`
             <ha-icon icon="hass:thermometer-water"></ha-icon> ${dew_point} ${this.weather.attributes.temperature_unit} <br>
           ` : ''}
+          ${showPrecipitation && hasPrecipValue ? html`
+            <ha-icon icon="hass:weather-rainy"></ha-icon> ${precipitation}${precipitation_unit ? ' ' + precipitation_unit : ''}<br>
+          ` : ''}
         </div>
       ` : ''}
-      ${((showSun && sun !== undefined) || (typeof uv_index !== 'undefined' && uv_index !== undefined)) ? html`
+      ${((showSun && sun !== undefined) || (showUvIndex && uv_index !== undefined && uv_index !== '') || (showIlluminance && illuminance !== undefined && illuminance !== '') || (showSunshineDuration && sunshineHours !== undefined)) ? html`
         <div>
-          ${typeof uv_index !== 'undefined' && uv_index !== undefined ? html`
+          ${showUvIndex && uv_index !== undefined && uv_index !== '' ? html`
             <div>
-              <ha-icon icon="hass:white-balance-sunny"></ha-icon> UV: ${Math.round(uv_index * 10) / 10}
+              <ha-icon icon="hass:white-balance-sunny"></ha-icon> UV: ${Math.round(parseFloat(String(uv_index)) * 10) / 10}
+            </div>
+          ` : ''}
+          ${showIlluminance && illuminance !== undefined && illuminance !== '' ? html`
+            <div>
+              <ha-icon icon="hass:brightness-5"></ha-icon> ${Math.round(parseFloat(String(illuminance)))} lx
+            </div>
+          ` : ''}
+          ${showSunshineDuration && sunshineHours !== undefined ? html`
+            <div>
+              <ha-icon icon="hass:weather-sunny"></ha-icon> ${sunshineHours} h
             </div>
           ` : ''}
           ${showSun && sun !== undefined ? html`
@@ -1636,20 +1746,12 @@ renderForecastConditionIcons({ config, forecastItems, sun } = this) {
           isDayTime = forecastTime >= adjustedSunriseTime && forecastTime <= adjustedSunsetTime;
         }
 
-        const weatherIcons = isDayTime ? weatherIconsDay : weatherIconsNight;
-        const condition = item.condition;
-
-        let iconHtml;
-
-        const condKey = condition as keyof typeof weatherIcons;
-        if (config.animated_icons || config.icons) {
-          const iconSrc = config.animated_icons ?
-            `${this.baseIconPath}${weatherIcons[condKey]}.svg` :
-            `${this.config.icons}${weatherIcons[condKey]}.svg`;
-          iconHtml = html`<img class="icon" src="${iconSrc}" alt="">`;
-        } else {
-          iconHtml = html`<ha-icon icon="${this.getWeatherIcon(condition, sun.state)}"></ha-icon>`;
-        }
+        // isDayTime stays referenced so the var is used; the day/night
+        // icon swap moves into ha-icon naming when we re-add per-time
+        // resolution. For now both day and night use the canonical
+        // weatherIcons mapping.
+        void isDayTime;
+        const iconHtml = html`<ha-icon icon="${this.getWeatherIcon(item.condition, sun.state)}"></ha-icon>`;
 
         return html`
           <div class="forecast-item">
@@ -1662,14 +1764,24 @@ renderForecastConditionIcons({ config, forecastItems, sun } = this) {
 }
 
 renderWind({ config, forecastItems } = this) {
-  const showWindForecast = config.forecast.show_wind_forecast !== false;
-  if (!showWindForecast) return html``;
+  // Two independent toggles: forecast.show_wind_arrow (direction) and
+  // forecast.show_wind_speed (numeric speed). The wind row appears
+  // when either is on.
+  //
+  // DEPRECATED: forecast.show_wind_forecast is a v1.x backwards-compat
+  // shim that still accepts `false` as a hard master-off so existing
+  // YAML configs that explicitly disabled the wind row keep working.
+  // New configs should use `show_wind_arrow: false` +
+  // `show_wind_speed: false` instead. Slated for removal in v2.0 — the
+  // editor never exposed it, so the install base for the explicit-false
+  // case is small.
+  const masterOff = config.forecast.show_wind_forecast === false;
+  if (masterOff) return html``;
 
-  // Per-column wind direction arrow can be hidden via forecast.show_wind_arrow
-  // (default true). When kept on but the column gets too narrow for arrow +
-  // speed side-by-side, .wind-detail's flex-wrap drops the speed below the
-  // arrow — see chart/styles.js.
   const showArrow = config.forecast.show_wind_arrow !== false;
+  const showSpeed = config.forecast.show_wind_speed !== false;
+  if (!showArrow && !showSpeed) return html``;
+
   const forecast = this.forecasts ? this.forecasts.slice(0, forecastItems) : [];
   const unit = this.unitSpeed ? this.ll('units')[this.unitSpeed] : '';
 
@@ -1692,7 +1804,7 @@ renderWind({ config, forecastItems } = this) {
             ${showArrow && hasBearing ? html`
               <ha-icon class="wind-icon" icon="hass:${this.getWindDirIcon(item.wind_bearing)}"></ha-icon>
             ` : ''}
-            ${hasSpeed ? html`
+            ${showSpeed && hasSpeed ? html`
               <span class="wind-value">
                 <span class="wind-speed">${dWindSpeed}</span>
                 <span class="wind-unit">${unit}</span>
@@ -1846,6 +1958,20 @@ _convertWindSpeed(raw: unknown): number | null {
 }
 
 customElements.define('weather-station-card', WeatherStationCard);
+
+// Console banner — same pattern Mushroom / mini-graph-card / etc. use.
+// The literal '__CARD_VERSION__' is replaced at build time by the
+// package.json version (see injectCardVersion in rollup.config.mjs).
+// Single source of truth — no manual release-time bump dance. Lets
+// users (and us during dev) confirm at a glance which build is loaded,
+// especially useful when the browser served a stale-cached bundle and
+// the rendered card looks wrong.
+const CARD_VERSION = '__CARD_VERSION__';
+console.info(
+  `%c WEATHER-STATION-CARD %c v${CARD_VERSION} `,
+  'color: white; background: #ff9800; font-weight: 700; padding: 2px 6px; border-radius: 4px 0 0 4px;',
+  'color: #ff9800; background: white; font-weight: 700; padding: 2px 6px; border: 1px solid #ff9800; border-radius: 0 4px 4px 0;',
+);
 
 window.customCards = window.customCards || [];
 window.customCards.push({

@@ -21,10 +21,14 @@ export const DEFAULTS_FORECAST = {
   show_sunshine: false,
   sunshine_color: 'var(--warning-color, rgba(255, 215, 0, 1.0))',
   condition_icons: true,
+  // DEPRECATED v1.9.x — see renderWind in main.ts. Kept as a hard
+  // master-off shim for v1.x YAML configs with show_wind_forecast:
+  // false; slated for removal in v2.0. New installs should not set it.
   show_wind_forecast: true,
   show_wind_arrow: true,
+  show_wind_speed: true,
   show_date: true,
-  round_temp: false,
+  round_temp: true,
   type: 'daily',
   number_of_forecasts: 8,
   disable_animation: false,
@@ -60,6 +64,13 @@ export const DEFAULTS = {
   show_sun: false,
   show_dew_point: false,
   show_wind_gust_speed: false,
+  // UV index defaults to true to preserve v1.x behaviour where UV was
+  // always shown if a sensor was wired. The other three new attribute
+  // cells default to false so existing layouts don't suddenly grow.
+  show_uv_index: true,
+  show_illuminance: false,
+  show_precipitation: false,
+  show_sunshine_duration: false,
   use_12hour_format: false,
 
   // Sizing
@@ -67,8 +78,6 @@ export const DEFAULTS = {
   current_temp_size: 28,
   time_size: 26,
   day_date_size: 15,
-  animated_icons: false,
-  icon_style: 'style1',
 
   // Past-data window
   days: 7,

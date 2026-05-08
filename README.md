@@ -241,10 +241,24 @@ classifier inputs.
 
 ## Configuration
 
-The visual editor groups options into six sections — Setup, Sensors,
-Layout, Style & Colours, Units, Advanced. Each key is documented in
-**[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** with type, default,
-and effect.
+New cards default to **combination mode** — past station history on
+the left, forecast on the right — pre-populated with your most likely
+weather sensors via ranked auto-detect. Want station-only or
+forecast-only? Switch the mode in section 1 of the editor.
+
+The visual editor groups options into seven sections, clustered by
+user intent:
+
+1. **Karte einrichten** / Card setup — mode, chart type, title
+2. **Wettervorhersage** / Weather forecast — `weather_entity` picker
+3. **Sensoren** / Sensors — your station's sensors + past-data window
+4. **Diagramm** / Chart — time range, chart rows, appearance
+5. **Live-Anzeige** / Live panel — "now" panel + attributes row
+6. **Einheiten** / Units — pressure / wind-speed display units
+7. **Aktionen** / Actions — tap, hold, and double-tap behaviour
+
+Every YAML key is documented in **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)**
+with type, default, and effect.
 
 <p align="center">
   <img alt="Visual editor" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/editor-visual.spec.ts/editor.png" width="720" />
@@ -252,9 +266,13 @@ and effect.
 
 For the most common adjustments:
 
-- **Switch modes** — set `show_station` and/or `show_forecast`. See [Setup](docs/CONFIGURATION.md#a-setup).
-- **Add a forecast** — set `weather_entity` plus `show_forecast: true`. See [Setup](docs/CONFIGURATION.md#a-setup).
-- **Adjust colours** — see [Style & Colours](docs/CONFIGURATION.md#d-style--colours).
+- **Switch modes** — set `show_station` and/or `show_forecast`. See [General](docs/CONFIGURATION.md#general).
+- **Add a forecast** — set `weather_entity` plus `show_forecast: true`. See [General](docs/CONFIGURATION.md#general).
+- **Forecast-only mode without sensors** — the card automatically
+  reads humidity / pressure / wind / dew-point / UV from the
+  configured `weather.*` entity's attributes when station sensors
+  aren't wired.
+- **Adjust colours** — see [Chart appearance](docs/CONFIGURATION.md#chart-appearance). Defaults are theme-aware (`var(--token, fallback)`); set a literal RGBA / hex string to override.
 - **Tune the condition classifier** — see [`condition_mapping`](docs/CONFIGURATION.md#condition_mapping--override-classifier-thresholds).
 
 
@@ -293,7 +311,7 @@ For doc-writing conventions (length targets, voice, cross-linking), see
 [docs/STYLE-GUIDE.md](docs/STYLE-GUIDE.md).
 
 **Translations** are a well-bounded first contribution. Strings live in
-`src/locale.js`; English and German ship with a complete editor block,
+`src/locale.ts`; English and German ship with a complete editor block,
 other languages fall through to English at runtime. Add yours via a PR —
 see CONTRIBUTING.md.
 
@@ -330,10 +348,11 @@ More for me.)*
 ## Attribution & licence
 
 This project is a fork of [`mlamberts78/weather-chart-card`](https://github.com/mlamberts78/weather-chart-card)
-v1.0.1 (October 2024). The chart UI, icons, and renderer come from the
-upstream — what's new here is the sensor-history data layer
-(`src/data-source.js`), the meteorological condition classifier
-(`src/condition-classifier.js`), the live-condition wiring, and the editor
-adjustments for sensor selection.
+(forked from upstream v1.0.1, October 2024). The chart UI, icons, and
+renderer come from the upstream — what's new here is the sensor-history
+data layer (`src/data-source.ts`), the meteorological condition
+classifier (`src/condition-classifier.ts`), the live-condition wiring,
+and a visual editor reorganised around how users actually think about
+weather cards (mode → forecast → sensors → chart → live panel).
 
 Released under the MIT licence — same as upstream. See [LICENSE.md](LICENSE.md).

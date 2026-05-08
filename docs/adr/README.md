@@ -40,3 +40,7 @@ status line.
 - [0002 — Sunshine duration: tiered data-source policy](./0002-sunshine-duration-tier-policy.md) (Accepted)
 - [0003 — E2E visual-regression baselines pinned to the GHA Ubuntu runner](./0003-e2e-baselines-pinned-to-gha.md) (Accepted)
 - [0004 — TypeScript: strict for leaf modules, `any` allowed at the HA boundary](./0004-typescript-strict-with-boundary-relaxations.md) (Accepted)
+- [0005 — Editor partial reorganisation around user intent](./0005-editor-partial-reorg.md) (Accepted)
+- [0006 — Build-time `__CARD_VERSION__` injection via Rollup](./0006-build-time-version-injection.md) (Accepted)
+- [0007 — `set hass` decomposed into three phase methods](./0007-set-hass-three-phase.md) (Accepted)
+- [0008 — DEFAULTS as the single source of truth (`src/defaults.ts`)](./0008-defaults-single-source-of-truth.md) (Accepted)
