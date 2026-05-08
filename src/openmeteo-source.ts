@@ -187,9 +187,8 @@ export function readCachedAvailability(
   storage?: StorageLike | null,
   now: number = Date.now(),
 ): CachedAvailability | null {
-  const store = storage !== undefined
-    ? storage
-    : (typeof window !== 'undefined' && window.localStorage ? window.localStorage : null);
+  const fallbackStore = typeof window !== 'undefined' && window.localStorage ? window.localStorage : null;
+  const store = storage !== undefined ? storage : fallbackStore;
   if (!store) return null;
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
   const cached = loadFromStorage(store, latitude, longitude);
@@ -257,9 +256,8 @@ export class OpenMeteoSunshineSource {
     // tests can run in a Node environment without polluting globals.
     this._fetch = fetchImpl
       ?? (typeof fetch === 'function' ? (fetch as FetchLike).bind(globalThis) : null);
-    this._storage = storage !== undefined
-      ? storage
-      : (typeof window !== 'undefined' && window.localStorage ? window.localStorage : null);
+    const fallbackStorage = typeof window !== 'undefined' && window.localStorage ? window.localStorage : null;
+    this._storage = storage !== undefined ? storage : fallbackStorage;
     this._now = now ?? (() => Date.now());
 
     if (Number.isFinite(this.latitude) && Number.isFinite(this.longitude)) {
