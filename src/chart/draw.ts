@@ -38,6 +38,9 @@ export interface BuildChartOpts {
   stationCount: number;
   style: CssStyleLike;
   sunshineLabelBand: number;
+  // True when the card is mounted inside the card-config dialog's
+  // live preview. Forces animation off regardless of config.
+  inPreview?: boolean;
 }
 
 export function buildChart(ctx: CanvasRenderingContext2D | HTMLCanvasElement, opts: BuildChartOpts): Chart {
@@ -55,6 +58,7 @@ export function buildChart(ctx: CanvasRenderingContext2D | HTMLCanvasElement, op
     stationCount,
     style,
     sunshineLabelBand,
+    inPreview,
   } = opts;
 
   const chartConfig: ChartConfiguration = {
@@ -70,8 +74,13 @@ export function buildChart(ctx: CanvasRenderingContext2D | HTMLCanvasElement, op
       // post-v0.9 dataset density (precip + sunshine = up to 336 bars
       // animating in hourly mode), 1 s feels laggy. 500 ms still reads
       // as a transition without dragging. Users who want it fully off
-      // continue to set `forecast.disable_animation: true`.
-      animation: (config as { forecast: { disable_animation?: boolean } }).forecast.disable_animation === true
+      // continue to set `forecast.disable_animation: true`. The
+      // editor's live preview also forces 0 ms (inPreview from main.ts'
+      // connectedCallback ancestor walk) so each editor toggle renders
+      // instantly instead of tweening — independent of the user's
+      // config setting, which only governs the dashboard render path.
+      animation: inPreview === true
+        || (config as { forecast: { disable_animation?: boolean } }).forecast.disable_animation === true
         ? { duration: 0 }
         : { duration: 500 },
       layout: { padding: { bottom: 10 } },

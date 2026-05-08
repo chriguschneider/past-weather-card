@@ -165,6 +165,15 @@ class WeatherStationCard extends LitElement {
   // --- Chart / scroll lifecycle ---
   _chartError: unknown = null;
   _chartPhase: string | null = null;
+  // True when this card instance is mounted inside the card-config
+  // dialog's live preview (hui-card-preview / hui-dialog-edit-card /
+  // hui-card-element-editor ancestor). Detected once in
+  // connectedCallback. The chart pipeline forces animation duration to
+  // 0 in that case so every editor click renders instantly instead of
+  // tweening for 500 ms — independent of the user's
+  // forecast.disable_animation setting, which only governs the live
+  // dashboard render path.
+  _isInPreview: boolean = false;
   // deno-lint-ignore no-explicit-any
   resizeObserver: any = null;
   resizeInitialized: boolean = false;
@@ -584,10 +593,32 @@ set hass(hass: HassMain) {
 
   connectedCallback() {
     super.connectedCallback();
+    this._isInPreview = this._detectInPreview();
     if (!this.resizeInitialized) {
       this.delayedAttachResizeObserver();
     }
     this._registerLifecycleTeardowns();
+  }
+
+  // Walk shadow-DOM hosts to find the card-config dialog wrappers HA
+  // mounts the live preview inside. Tag-name detection is fragile to
+  // HA frontend renames; failure mode is benign (animation stays on,
+  // i.e. today's behaviour). Cheap to compute once at connect time.
+  _detectInPreview(): boolean {
+    let host = ((this.getRootNode() as ShadowRoot | undefined)?.host) as Element | undefined;
+    let safetyDepth = 0;
+    while (host && safetyDepth++ < 32) {
+      const tag = host.localName;
+      if (
+        tag === 'hui-card-preview' ||
+        tag === 'hui-dialog-edit-card' ||
+        tag === 'hui-card-element-editor'
+      ) {
+        return true;
+      }
+      host = ((host.getRootNode() as ShadowRoot | undefined)?.host) as Element | undefined;
+    }
+    return false;
   }
 
   // Wire every disconnect-time cleanup site through the single
@@ -1347,9 +1378,12 @@ renderMain({ config, sun, weather, temperature } = this) {
     return html``;
 
   const use12HourFormat = config.use_12hour_format;
-  const showTime = config.show_time;
-  const showDay = config.show_day;
-  const showDate = config.show_date;
+  // Live-block sub-toggles default to ON (opt-out): if the parent
+  // show_main is enabled, every sub-cell appears unless the user has
+  // explicitly turned it off in YAML / editor.
+  const showTime = config.show_time !== false;
+  const showDay = config.show_day !== false;
+  const showDate = config.show_date !== false;
   const showCurrentCondition = config.show_current_condition !== false;
   const showTemperature = config.show_temperature !== false;
   const showSeconds = config.show_time_seconds === true;
@@ -1496,8 +1530,8 @@ renderAttributes({ config, humidity, pressure, windSpeed, windDirection, sun, la
   const showWindDirection = config.show_wind_direction !== false;
   const showWindSpeed = config.show_wind_speed !== false;
   const showSun = config.show_sun !== false;
-  const showDewpoint = config.show_dew_point == true;
-  const showWindgustspeed = config.show_wind_gust_speed == true;
+  const showDewpoint = config.show_dew_point !== false;
+  const showWindgustspeed = config.show_wind_gust_speed !== false;
 
 return html`
     <div class="attributes">

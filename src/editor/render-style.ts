@@ -64,6 +64,7 @@ export function renderStyleSection(editor: EditorLike, ctx: EditorContext): Temp
         ></ha-switch>
         <label class="switch-label">${t('disable_animation')}</label>
       </div>
+      <p class="hint">${t('disable_animation_hint')}</p>
     </div>
 
     <h4 class="subsection">${t('sizing_heading')}</h4>

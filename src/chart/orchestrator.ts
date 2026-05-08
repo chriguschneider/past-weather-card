@@ -83,6 +83,10 @@ export interface CardLike {
   _stationCount?: number;
   _forecastCount?: number;
   _chartPhase: string | null;
+  // True when the card is mounted inside the card-config dialog's
+  // live preview. Forces chart animation duration to 0 regardless of
+  // the user's forecast.disable_animation setting.
+  _isInPreview?: boolean;
   computeForecastData(): ForecastChartData;
   ll(key: string): string | Record<string, string>;
   drawChart(): void;
@@ -413,6 +417,7 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
     stationCount,
     style,
     sunshineLabelBand,
+    inPreview: card._isInPreview === true,
   });
   card._chartPhase = null;
   return undefined;
