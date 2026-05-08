@@ -316,8 +316,10 @@ extended with these gates (since v1.4.2 — issue #19):
 - **Architecture rules**: `dependency-cruiser` enforces no-circular,
   no-orphans, and module boundaries (`src/chart/`, `src/editor/`,
   `src/utils/` may not uplevel-import).
-- **Bundle budget at < 800 KB**. Tripping signals a regression in
-  tree-shaking or an accidental large dep.
+- **Bundle budget at < 800 KB raw / < 250 KB gzipped** (CI-enforced
+  since v1.10, #111). Tripping either signals a regression in
+  tree-shaking or an accidental large dep. Gzip is the bytes-on-the-wire
+  metric HACS download size and HA's frontend cache actually pay for.
 - **CodeQL** (`security-extended` queries) on every PR + weekly
   schedule, covering JS/TS security smells ESLint doesn't catch.
 - **SonarCloud** (`.github/workflows/sonarcloud.yml`) reads the
