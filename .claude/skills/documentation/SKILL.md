@@ -17,13 +17,13 @@ The ADR conventions referenced here live in [`docs/adr/README.md`](../../../docs
 Activate when you observe any of these in a planned or in-progress change:
 
 - A **new chart plugin** under `src/chart/plugins/`, or a new entry registered in `src/chart/plugins.ts`.
-- A **new data source** under `src/data-source/`, or a new tier added to the sunshine-source resolution chain (existing tiers are governed by ADR 0002).
+- A **new data source** under `src/data-source/`, or a new tier added to the sunshine-source resolution chain (existing tiers are governed by an accepted ADR — re-read `docs/adr/` to find which).
 - A **new render mode** or layout (a fourth top-level mode beside Combination / Station / Forecast), or a new `forecast.style` variant beyond style1/style2.
 - A **new top-level card-config option** that the user can set in their YAML — these become public API and are notoriously hard to remove.
 - A **build / quality gate change**: ESLint rule promoted warn→error, vitest coverage threshold moved, dependency-cruiser rule added or relaxed, new CI workflow under `.github/workflows/`, change to the `Required status checks` set on master.
 - A **bundler or major-dependency bump**: Rollup, vitest, lit, chart.js, playwright, eslint majors. The decision to take a major and the migration shape is ADR-worthy; patch/minor bumps are not.
 - A **boundary break**: a new uplevel `import` in `src/chart/`, `src/editor/`, or `src/utils/`. Either it needs to be removed, or the boundary itself needs an ADR change.
-- A **change to the e2e baseline regeneration flow** (the `update-baselines.yml` workflow, the playwright tolerance, the WSL fallback policy — pinning is governed by ADR 0003).
+- A **change to the e2e baseline regeneration flow** (the `update-baselines.yml` workflow, the playwright tolerance, the WSL fallback policy — pinning is governed by an accepted ADR; re-read `docs/adr/` before changing the flow).
 - A **release-flow change** — the steps listed in `CLAUDE.md` for cutting `vX.Y.Z`.
 - A **pattern deviation** from an accepted ADR — code that contradicts an existing decision.
 
@@ -77,10 +77,11 @@ For architecture suggestions in general (per `CLAUDE.md`): list pros/cons, then 
 
 ### Before implementation
 
-1. Read the relevant ADRs in `docs/adr/`.
-2. Verify the planned change does not contradict an accepted ADR. The four currently in force as of this skill's last revision are 0001 (dist committed for HACS), 0002 (sunshine-duration tier policy), 0003 (e2e baselines pinned to GHA), 0004 (TypeScript strict with boundary relaxations) — but **always re-list `docs/adr/`** because new ones land regularly.
-3. If the planned change contradicts an accepted ADR, raise it explicitly:
-   > This approach differs from ADR 000N which decided X. Two options: (a) adjust the implementation to match the ADR, (b) write a superseding ADR. Which one?
+1. **List `docs/adr/` fresh** — never assume a snapshot of the in-force set; new ADRs land regularly and a hardcoded list in this skill would silently drift.
+2. Read each accepted ADR whose title or `Decision` section overlaps the staged paths or the planned change's surface area. Skip `template.md` and `README.md`.
+3. Verify the planned change does not contradict any of them.
+4. If the planned change contradicts an accepted ADR, raise it explicitly:
+   > This approach differs from ADR 000N (`<title>`) which decided X. Two options: (a) adjust the implementation to match the ADR, (b) write a superseding ADR. Which one?
 
 ### After implementation
 
