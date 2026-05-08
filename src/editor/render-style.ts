@@ -9,6 +9,16 @@ import type { EditorLike, EditorContext } from './types.js';
 
 type ChangeEvt = Event & { target: HTMLInputElement };
 
+// Hide the theme-aware var()-wrapped defaults from the colour input —
+// users see an empty field with a "theme default" placeholder instead
+// of a wall of `var(--state-sensor-temperature-color, rgba(...))`.
+// Custom user values (rgb / rgba / hex / named) display as-is.
+function displayColorValue(value: unknown): string {
+  if (typeof value !== 'string' || !value) return '';
+  if (value.startsWith('var(')) return '';
+  return value;
+}
+
 export function renderStyleSection(editor: EditorLike, ctx: EditorContext): TemplateResult {
   const { t, cfg, fcfg } = ctx;
   const valueChanged = (e: ChangeEvt | { target: { value: string } }, key: string): void =>
@@ -144,26 +154,26 @@ export function renderStyleSection(editor: EditorLike, ctx: EditorContext): Temp
       <div class="textfield-container" style="margin-top:12px;">
         <ha-textfield
           label="${t('temperature1_color')}"
-          .value="${fcfg.temperature1_color || ''}"
-          placeholder="rgba(255, 152, 0, 1.0)"
+          .value="${displayColorValue(fcfg.temperature1_color)}"
+          placeholder="${t('color_theme_aware_placeholder') || 'theme default'}"
           @change="${(e: Event) => valueChanged(e as ChangeEvt, 'forecast.temperature1_color')}"
         ></ha-textfield>
         <ha-textfield
           label="${t('temperature2_color')}"
-          .value="${fcfg.temperature2_color || ''}"
-          placeholder="rgba(68, 115, 158, 1.0)"
+          .value="${displayColorValue(fcfg.temperature2_color)}"
+          placeholder="${t('color_theme_aware_placeholder') || 'theme default'}"
           @change="${(e: Event) => valueChanged(e as ChangeEvt, 'forecast.temperature2_color')}"
         ></ha-textfield>
         <ha-textfield
           label="${t('precipitation_color')}"
-          .value="${fcfg.precipitation_color || ''}"
-          placeholder="rgba(132, 209, 253, 1.0)"
+          .value="${displayColorValue(fcfg.precipitation_color)}"
+          placeholder="${t('color_theme_aware_placeholder') || 'theme default'}"
           @change="${(e: Event) => valueChanged(e as ChangeEvt, 'forecast.precipitation_color')}"
         ></ha-textfield>
         <ha-textfield
           label="${t('sunshine_color')}"
-          .value="${fcfg.sunshine_color || ''}"
-          placeholder="rgba(255, 193, 7, 1.0)"
+          .value="${displayColorValue(fcfg.sunshine_color)}"
+          placeholder="${t('color_theme_aware_placeholder') || 'theme default'}"
           @change="${(e: Event) => valueChanged(e as ChangeEvt, 'forecast.sunshine_color')}"
         ></ha-textfield>
         <ha-textfield
