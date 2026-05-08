@@ -30,6 +30,7 @@ import {
   weatherIconsDay,
   weatherIconsNight,
 } from './const.js';
+import { DEFAULTS, DEFAULTS_FORECAST, DEFAULTS_UNITS } from './defaults.js';
 import {LitElement, html} from 'lit';
 import './weather-station-card-editor.js';
 import { MeasuredDataSource, ForecastDataSource, type HassLike } from './data-source.js';
@@ -257,6 +258,7 @@ static getStubConfig(hass: HassMain | null, _unusedEntities: string[], allEntiti
   };
 
   return {
+    ...DEFAULTS,
     sensors: {
       temperature: findByClass('temperature') || '',
       humidity: findByClass('humidity') || '',
@@ -274,51 +276,6 @@ static getStubConfig(hass: HassMain | null, _unusedEntities: string[], allEntiti
       wind_direction: findByPattern(/(direction|bearing|wind.?dir)/) || '',
       uv_index: findByPattern(/uv/) || '',
       dew_point: findByPattern(/dew/) || '',
-    },
-    days: 7,
-    show_station: true,
-    show_forecast: false,
-    weather_entity: '',
-    forecast_days: 7,
-    show_main: false,
-    show_temperature: true,
-    show_current_condition: false,
-    show_attributes: false,
-    show_time: false,
-    show_time_seconds: false,
-    show_day: false,
-    show_date: false,
-    show_humidity: false,
-    show_pressure: false,
-    show_wind_direction: true,
-    show_wind_speed: true,
-    show_sun: false,
-    show_dew_point: false,
-    show_wind_gust_speed: false,
-    use_12hour_format: false,
-    icons_size: 25,
-    animated_icons: false,
-    icon_style: 'style1',
-    forecast: {
-      labels_font_size: '11',
-      precip_bar_size: '100',
-      // Default chart style: temperature labels rendered as plain text
-      // beside the lines (no boxes around each value). 'style1' was the
-      // legacy default with bordered boxes — kept as an opt-in.
-      style: 'style2',
-      show_wind_forecast: true,
-      show_wind_arrow: true,
-      condition_icons: true,
-      show_date: true,
-      round_temp: false,
-      type: 'daily',
-      number_of_forecasts: 8,
-      disable_animation: false,
-      // v0.9 sunshine duration. Off by default. When enabled, the card
-      // fetches daily sunshine_duration from Open-Meteo directly using
-      // hass.config.latitude / longitude — no extra sensor setup.
-      show_sunshine: false,
-      sunshine_color: 'rgba(255, 215, 0, 1.0)',
     },
   };
 }
@@ -346,54 +303,20 @@ static getStubConfig(hass: HassMain | null, _unusedEntities: string[], allEntiti
 // `any` and let `cardConfig` apply defaults and structural normalisation.
 // deno-lint-ignore no-explicit-any
 setConfig(config: any) {
-  // tap/hold/double_tap default to 'none' — the card is read-only by
-  // default and the user opts into actions via the editor.
   const cardConfig = {
-    icons_size: 25,
-    animated_icons: false,
-    icon_style: 'style1',
-    current_temp_size: 28,
-    time_size: 26,
-    day_date_size: 15,
-    show_main: false,
-    show_dew_point: false,
-    show_wind_gust_speed: false,
-    days: 7,
-    sensors: {},
-    tap_action: { action: 'none' },
-    hold_action: { action: 'none' },
-    double_tap_action: { action: 'none' },
+    ...DEFAULTS,
     ...config,
     forecast: {
-      labels_font_size: 11,
-      chart_height: 180,
-      precip_bar_size: 100,
-      style: 'style2',
-      temperature1_color: 'rgba(255, 152, 0, 1.0)',
-      temperature2_color: 'rgba(68, 115, 158, 1.0)',
-      precipitation_color: 'rgba(132, 209, 253, 1.0)',
-      // v0.9 sunshine. Off by default to keep the chart unchanged for
-      // users who upgrade without configuring a sunshine sensor.
-      show_sunshine: false,
-      sunshine_color: 'rgba(255, 215, 0, 1.0)',
-      condition_icons: true,
-      show_wind_forecast: true,
-      show_wind_arrow: true,
-      show_date: true,
-      round_temp: false,
-      type: 'daily',
-      // Default viewport size in bars. With days=7 daily this is just
-      // under "fit-all" (no scroll); at 7×24 = 168 hours hourly the
-      // viewport caps at 8 hours visible and the user scrolls. Same
-      // value across modes keeps the UI handle predictable.
-      number_of_forecasts: 8,
-      '12hourformat': false,
-      ...config.forecast,
+      ...DEFAULTS_FORECAST,
+      ...(config.forecast || {}),
     },
     units: {
-      pressure: 'hPa',
-      ...config.units,
-    }
+      ...DEFAULTS_UNITS,
+      ...(config.units || {}),
+    },
+    sensors: {
+      ...(config.sensors || {}),
+    },
   };
 
   cardConfig.units.speed = config.speed ? config.speed : cardConfig.units.speed;
