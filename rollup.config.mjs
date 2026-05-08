@@ -67,7 +67,6 @@ export default {
     copy({
       targets: [
         { src: 'src/icons/*', dest: 'dist/icons' },
-        { src: 'src/icons2/*', dest: 'dist/icons2' }
       ]
     }),
     // Production minification (skipped in dev/watch so source maps stay

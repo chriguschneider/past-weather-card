@@ -4,6 +4,30 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — v1.10.0
+
+Quality-and-modernisation release. The editor migrates to schema-driven
+sections built on HA's `<ha-form>` (closes #87), every section gets a
+reset-to-defaults button (closes #92), the abandoned icon-set assets are
+finally pulled out of the bundle, and a bulk SonarCloud cleanup
+(`prefer-nullish-coalescing`, nested-ternary flattening, dead stores)
+removes ~80 ESLint warnings.
+
+### Removed assets — `dist/icons2/` is gone
+
+The `icon_style` / `animated_icons` / `icons` config keys lost their
+code path in v1.9.x; the asset directory they served is now removed
+too. Old HACS installs may still contain a stale `dist/icons2/` until a
+fresh download — nothing references it.
+
+### Internal — quality lock-in
+
+- 7 zero-violation lint rules promoted from warn → error:
+  `max-depth`, `lit/no-useless-template-literals`, `lit/attribute-value-entities`,
+  `sonarjs/no-identical-functions`, `sonarjs/no-collapsible-if`,
+  `sonarjs/prefer-single-boolean-return`, `sonarjs/no-redundant-jump`.
+- ESLint warnings: 168 → 91 (target for v1.11: < 50).
+
 ## [1.9.1] — 2026-05-09
 
 Polish round on top of v1.9.0. The editor surface tightens further (now
