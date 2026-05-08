@@ -229,10 +229,15 @@ static getStubConfig(hass: HassMain | null, _unusedEntities: string[], allEntiti
     show_forecast: false,
     weather_entity: '',
     forecast_days: 7,
-    show_main: false,
+    // Picker preview renders the card with this stub before any
+    // recorder data is available, so the past chart would otherwise
+    // come up empty and HA falls back to a description-only tile.
+    // Showing the live now-panel (driven by hass.states, no recorder
+    // dependency) gives the picker an immediate visual.
+    show_main: true,
     show_temperature: true,
-    show_current_condition: false,
-    show_attributes: false,
+    show_current_condition: true,
+    show_attributes: true,
     show_time: false,
     show_time_seconds: false,
     show_day: false,
