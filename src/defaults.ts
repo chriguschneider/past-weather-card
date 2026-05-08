@@ -10,11 +10,16 @@ export const DEFAULTS_FORECAST = {
   // beside the lines (no boxes around each value). 'style1' was the
   // legacy default with bordered boxes — kept as an opt-in.
   style: 'style2',
-  temperature1_color: 'rgba(255, 152, 0, 1.0)',
-  temperature2_color: 'rgba(68, 115, 158, 1.0)',
-  precipitation_color: 'rgba(132, 209, 253, 1.0)',
+  // Theme-aware colour defaults: each falls back to its v1.x literal
+  // when the user's HA theme doesn't define the token. Chart.js
+  // doesn't resolve var() natively in our pinned version, so the
+  // chart pipeline expands these via resolveCssVar at draw time.
+  // User-set RGBA / hex strings still win — pass-through.
+  temperature1_color: 'var(--state-sensor-temperature-color, rgba(255, 152, 0, 1.0))',
+  temperature2_color: 'var(--info-color, rgba(68, 115, 158, 1.0))',
+  precipitation_color: 'var(--state-sensor-precipitation-color, rgba(132, 209, 253, 1.0))',
   show_sunshine: false,
-  sunshine_color: 'rgba(255, 215, 0, 1.0)',
+  sunshine_color: 'var(--warning-color, rgba(255, 215, 0, 1.0))',
   condition_icons: true,
   show_wind_forecast: true,
   show_wind_arrow: true,
