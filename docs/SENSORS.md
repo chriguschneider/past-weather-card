@@ -21,6 +21,36 @@ icon falls through to cloud/wind/fog. See
 [CONDITIONS.md → Precipitation in the live condition needs a *rate* unit](CONDITIONS.md#precipitation-in-the-live-condition-needs-a-rate-unit)
 for the mechanic.
 
+### Live precipitation rate from a cumulative sensor
+
+If your weather station only exposes a cumulative `mm` counter and you
+want a live `mm/h` rate (for the attribute-row precipitation cell or
+to drive the live rain icon), the recommended path is HA's built-in
+**Derivative helper**:
+
+1. Settings → Devices & services → Helpers → **Create helper** → **Derivative sensor**
+2. **Source**: your `*_rain_total` (or equivalent) sensor
+3. **Unit Time**: `h` (so the result is in `mm/h`)
+4. **Time Window**: `00:05:00` (5-minute smoothing — less noise without
+   much latency)
+5. Wire the resulting `sensor.*_rain_rate` (or whatever name you give
+   it) into this card's `sensors.precipitation` field.
+
+The Derivative integration handles `total_increasing` resets cleanly
+and gives the card a true rate sensor — no card-side history bookkeeping
+needed.
+
+> Card-side auto-derivation from a cumulative sensor was attempted and
+> rolled back; tracked in
+> [issue #117](https://github.com/chriguschneider/weather-station-card/issues/117)
+> for any future reconsideration. The Derivative helper is the canonical
+> path today.
+
+The attribute-row **precipitation cell** (`show_precipitation: true`)
+shows the configured sensor's raw value with its native unit — that's
+`mm/h` after wiring the Derivative helper, or the cumulative `mm` value
+if you point it at the raw counter.
+
 ## Sunshine duration
 
 Set `forecast.show_sunshine: true` and you're done. The card adds a

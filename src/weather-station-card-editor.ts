@@ -3,13 +3,12 @@ import type { HomeAssistant } from './editor/types.js';
 import locale from './locale.js';
 import { readCachedAvailability } from './openmeteo-source.js';
 import { renderModeSection } from './editor/render-mode.js';
-import { renderForecastSection } from './editor/render-forecast.js';
 import { renderSensorsSection } from './editor/render-sensors.js';
-import { renderLayoutSection } from './editor/render-layout.js';
-import { renderStyleSection } from './editor/render-style.js';
+import { renderForecastSection } from './editor/render-forecast.js';
+import { renderChartSection } from './editor/render-chart.js';
+import { renderLivePanelSection } from './editor/render-live-panel.js';
 import { renderUnitsSection } from './editor/render-units.js';
 import { renderTapSection } from './editor/render-tap.js';
-import { renderAdvancedSection } from './editor/render-advanced.js';
 import type { EditorContext, EditorLike, TFn } from './editor/types.js';
 
 type EditorMode = 'station' | 'forecast' | 'combination';
@@ -179,7 +178,7 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
       .replace('{future}', String(av.forecastDays));
 
     return html`
-      <div class="hint" style="margin-top:4px; ${overshoots ? 'color: var(--warning-color);' : ''}">
+      <div class="hint" style="margin-top:4px;">
         ${baseLine}
         ${overshoots ? html`<br/>${(t('sunshine_availability_warning') || 'Configured forecast_days ({req}) exceeds available — last {gap} columns will have empty sunshine bars.')
           .replace('{req}', String(requested))
@@ -246,12 +245,39 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
     const showsForecast = isForecast || isCombo;
     const showsStation = isStation || isCombo;
     const hasSensor = (key: string): boolean => !!sensorsConfig[key];
+
+    // Forecast-only mode typically has no station sensors, but the
+    // configured weather.* entity already exposes standard current
+    // attributes (humidity, pressure, wind_*, sometimes uv_index /
+    // dew_point). The runtime falls back to those — the editor needs
+    // to mirror that so the corresponding toggle stays visible.
+    const SENSOR_TO_WEATHER_ATTR: Record<string, string> = {
+      humidity: 'humidity',
+      pressure: 'pressure',
+      dew_point: 'dew_point',
+      uv_index: 'uv_index',
+      wind_direction: 'wind_bearing',
+      wind_speed: 'wind_speed',
+      gust_speed: 'wind_gust_speed',
+    };
+    const wxEntityId = typeof cfg.weather_entity === 'string' ? cfg.weather_entity : '';
+    const wxStateRaw = wxEntityId
+      ? (this.hass?.states as Record<string, { attributes?: Record<string, unknown> } | undefined> | undefined)?.[wxEntityId]
+      : undefined;
+    const wxAttrs = wxStateRaw?.attributes || {};
+    const hasLiveValue = (key: string): boolean => {
+      if (sensorsConfig[key]) return true;
+      const wxKey = SENSOR_TO_WEATHER_ATTR[key];
+      if (!wxKey) return false;
+      const v = (wxAttrs as Record<string, unknown>)[wxKey];
+      return v !== undefined && v !== null;
+    };
     const cmap = (cfg.condition_mapping || {});
 
     const ctx: EditorContext = {
       t, cfg, fcfg, sensorsConfig, unitsConfig, cmap,
       mode, showsStation, showsForecast,
-      hasSensor,
+      hasSensor, hasLiveValue,
     };
 
     return html`
@@ -353,11 +379,10 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
         ${renderModeSection(this, ctx)}
         ${showsForecast ? renderForecastSection(this, ctx) : ''}
         ${showsStation ? renderSensorsSection(this, ctx) : ''}
-        ${renderLayoutSection(this, ctx)}
-        ${renderStyleSection(this, ctx)}
+        ${renderChartSection(this, ctx)}
+        ${renderLivePanelSection(this, ctx)}
         ${renderUnitsSection(this, ctx)}
         ${renderTapSection(this, ctx)}
-        ${renderAdvancedSection(this, ctx)}
         <div class="editor-footer">
           <a href="https://github.com/chriguschneider/weather-station-card/blob/master/docs/CONFIGURATION.md"
              target="_blank" rel="noopener noreferrer">

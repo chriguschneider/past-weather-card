@@ -43,7 +43,7 @@ total correctly. To get a true live rain icon, expose a `mm/h` rate sensor
 ## How conditions are determined
 
 Every day's icon — and the live "now" icon — is derived from the relevant
-sensor values by a deterministic classifier (`src/condition-classifier.js`).
+sensor values by a deterministic classifier (`src/condition-classifier.ts`).
 It evaluates rules in priority order (worst-of-day): once a rule matches,
 no later rules are checked. Conditions `lightning`, `lightning-rainy`, and
 `hail` are **never emitted** — reliable detection requires dedicated

@@ -1,4 +1,4 @@
-// Editor render partial — Section B: Sensors.
+// Editor render partial — Section 3: "Sensoren deiner Wetterstation".
 //
 // Per-metric sensor field list. Most filter by `device_class`; wind
 // direction has no canonical class but a stable unit (degrees) so it
@@ -7,10 +7,13 @@
 // YAML key under `sensors:` and doubles as the i18n key (see locale.js
 // `editor` blocks).
 //
-// We use a single ha-form with the schema below rather than explicit
-// ha-entity-pickers — going through ha-form ensures ha-entity-picker
-// is registered through the selector pipeline (direct use renders
-// blank in some HA builds).
+// Renders via <ha-form> with one `entity` selector per field — same
+// pattern as the unit dropdowns (render-units.ts) and the weather-
+// entity picker (render-forecast.ts), so all data-source fields share
+// one declarative shape. ha-form delegates to <ha-entity-picker>
+// internally, which is hardcoded to render its label as an external
+// header above the box (use-top-label) — that's an HA-frontend design
+// choice we can't override without fighting the framework.
 
 import { html, type TemplateResult } from 'lit';
 import type { EditorLike, EditorContext, HomeAssistant } from './types.js';
@@ -27,6 +30,8 @@ interface SensorState {
 interface HassWithStates extends HomeAssistant {
   states?: Record<string, SensorState | undefined>;
 }
+
+const REQUIRED_KEYS = new Set(['temperature']);
 
 function buildSensorFields(hass: HassWithStates | null): Array<{ key: string; candidates: string[] }> {
   const all: Array<[string, SensorState]> = hass?.states
@@ -68,9 +73,10 @@ function buildSensorFields(hass: HassWithStates | null): Array<{ key: string; ca
   ];
 }
 
-export function buildSensorsSchema(hass: HassWithStates | null): Array<{ name: string; selector: object }> {
+export function buildSensorsSchema(hass: HassWithStates | null): Array<{ name: string; required?: boolean; selector: object }> {
   return buildSensorFields(hass).map((f) => ({
     name: f.key,
+    required: REQUIRED_KEYS.has(f.key),
     selector: {
       entity: f.candidates.length > 0
         ? { include_entities: f.candidates }
@@ -80,21 +86,25 @@ export function buildSensorsSchema(hass: HassWithStates | null): Array<{ name: s
 }
 
 export function renderSensorsSection(editor: EditorLike, ctx: EditorContext): TemplateResult {
-  const { t, cfg, sensorsConfig } = ctx;
+  const { t, sensorsConfig } = ctx;
+
+  // Append "(required)" to required-field labels. ha-form also draws a
+  // Material asterisk via the schema's `required: true` flag; the
+  // text marker just makes the convention explicit for users who don't
+  // pattern-match on Material asterisks.
+  const computeLabel = (schema: { name: string; required?: boolean }): string => {
+    const base = t(schema.name);
+    return schema.required ? `${base} (${t('required_marker')})` : base;
+  };
+
   return html`
     <h3 class="section">${t('station_sensors_heading')}</h3>
     <div class="textfield-container">
-      <ha-textfield
-        label="${t('days')}"
-        type="number" min="1" max="14"
-        .value="${cfg.days || 7}"
-        @change="${(e: Event) => editor._valueChanged(e as unknown as { target: { value: string } }, 'days')}"
-      ></ha-textfield>
       <ha-form
         .data=${sensorsConfig}
         .schema=${buildSensorsSchema(editor.hass)}
         .hass=${editor.hass}
-        .computeLabel=${(s: { name: string }) => t(s.name)}
+        .computeLabel=${computeLabel}
         @value-changed=${editor._sensorsChanged}
       ></ha-form>
     </div>

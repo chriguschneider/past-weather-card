@@ -22,6 +22,13 @@ export interface HomeAssistant {
  *  the key itself) when no localization is configured. */
 export type TFn = (key: string) => string;
 
+/** Event shape for `<ha-switch>` / `<ha-textfield>` change handlers
+ *  that bind directly to `_valueChanged`. Shared by the partials that
+ *  use raw `<ha-switch>` rows (render-chart, render-live-panel); the
+ *  ha-form / ha-selector based partials see CustomEvents with a
+ *  different shape and don't need this. */
+export type ChangeEvt = Event & { target: HTMLInputElement };
+
 /** Anything `_valueChanged` accepts on `event.target` — covers both
  *  `<ha-textfield>` (value) and `<ha-switch>` / `<ha-checkbox>`
  *  (checked). */
@@ -71,4 +78,5 @@ export interface EditorContext {
   showsStation: boolean;
   showsForecast: boolean;
   hasSensor: (key: string) => boolean;
+  hasLiveValue: (key: string) => boolean;
 }

@@ -1,26 +1,59 @@
 # Configuration reference
 
-This document describes every YAML key supported by the card. Sections mirror the visual editor's six tabs.
+This document describes every YAML key supported by the card.
 
 → Back to [README](../README.md)
 
-The visual editor groups options into six sections — [A. Setup](#a-setup),
-[B. Sensors](#b-sensors), [C. Layout](#c-layout),
-[D. Style & Colours](#d-style--colours), [E. Units](#e-units),
-[F. Advanced](#f-advanced). The reference below mirrors that order.
+## Editor-section mapping
 
-## A. Setup
+Since v1.9.x the visual editor groups options into seven user-intent
+clusters. The reference below stays organised by config-key category
+(easier when you're searching for a specific YAML key); this table
+maps each editor section to where its keys live in the reference.
+
+| Editor section | Where the keys are documented |
+| --- | --- |
+| 1. Karte einrichten / Card setup | [General](#general) — `show_station`, `show_forecast`, `forecast.type`, `title` |
+| 2. Wettervorhersage / Weather forecast | [General](#general) — `weather_entity` |
+| 3. Sensoren / Sensors | [Sensors](#sensors) — `sensors.*`, `days` |
+| 4. Diagramm / Chart | [Layout & Display](#layout--display) (chart rows) and [Chart appearance](#chart-appearance) |
+| 5. Live-Anzeige / Live panel | [Layout & Display](#layout--display) (main panel + attributes row) |
+| 6. Einheiten / Units | [Units](#units) |
+| 7. Aktionen / Actions | [Actions](#actions) |
+
+Some keys (chart sizes, individual colour overrides, font sizes) are
+no longer surfaced in the editor in v1.9.x but remain working YAML
+keys — see the relevant tables below for "YAML-only" markers.
+
+## General
 
 The mode selector decides which blocks render. The YAML keeps two
 separate booleans (`show_station`, `show_forecast`) for backwards
 compatibility — the editor projects them onto a single radio.
+
+**New cards default to combination** (both flags `true`) — past
+station data on the left, forecast on the right. Set one to `false`
+for a single-block card.
+
+**Forecast-only mode without station sensors** is supported: the card
+falls back to the configured `weather_entity`'s attributes for live
+values (`humidity`, `pressure`, `dew_point`, `uv_index`, `wind_speed`,
+`wind_bearing`, `wind_gust_speed`). The attributes row in the live
+panel only surfaces toggles for keys that have a backing value — a
+sensor under `sensors.*` or an attribute on the weather entity.
+
+**Invalid YAML safety net (since v1.9.0)**: structural errors in the
+config (wrong types, malformed `condition_mapping`, non-`sensor.*`
+entity IDs under `sensors.*`, non-`weather.*` under `weather_entity`)
+make HA fall back to the YAML editor instead of trying to render the
+visual editor against a config that can't be edited safely.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `type` | string | — | Always `custom:weather-station-card`. |
 | `title` | string | _none_ | Card header. Omit for a header-less card. |
 | `show_station` | bool | `true` | Render the past station-history block on the left. (Editor: Mode.) |
-| `show_forecast` | bool | `false` | Render the forecast block on the right. (Editor: Mode.) Requires `weather_entity`. |
+| `show_forecast` | bool | `true` | Render the forecast block on the right. (Editor: Mode.) Requires `weather_entity`. |
 | `weather_entity` | string | _none_ | `weather.*` entity used for the forecast block. Required when `show_forecast: true`. |
 | `days` | integer | `7` | Number of past days (station block). 1–14. |
 | `forecast_days` | integer | `days` | Number of forecast columns; defaults to the same span as `days`. |
@@ -55,7 +88,7 @@ For `more-info` and `toggle`, if no `entity` is set the action falls back to
 `sensors.temperature`. The cursor only switches to a hand when at least one
 action is non-`none`, so the default read-only card looks read-only.
 
-## B. Sensors
+## Sensors
 
 All keys are sensor `entity_id`s. Values populate the chart, the live "now"
 classifier, and (where relevant) the attribute readouts. Only
@@ -75,7 +108,7 @@ classifier, and (where relevant) the attribute readouts. Only
 | `sensors.dew_point` | Fog detection (combined with humidity) |
 | `sensors.sunshine_duration` | Today's live sunshine value (scalar, seconds or hours auto-detected at the `≥ 30` threshold). Past columns fall back to the recorder's daily-max for this same sensor. Only used when `forecast.show_sunshine: true`. *(since v0.9; fully wired in daily fetch since v1.4.)* |
 
-## C. Layout
+## Layout & Display
 
 Three master toggles (`show_main`, `show_attributes`, plus the chart-row
 toggles). In the editor each master expands its sub-fields only when
@@ -87,47 +120,64 @@ ON; in YAML the sub-keys are evaluated regardless.
 | --- | --- | --- | --- |
 | `show_main` | bool | `false` | Show the live "now" panel (icon + temperature + condition). |
 | `show_temperature` | bool | `true` | Show current temperature. |
-| `show_current_condition` | bool | `true` | Show condition text under temperature. |
+| `show_current_condition` | bool | `false` | Show condition text under temperature. |
 | `show_time` | bool | `false` | Live clock. |
 | `show_time_seconds` | bool | `false` | Include seconds in the clock. |
 | `use_12hour_format` | bool | `false` | Use 12-hour clock. |
 | `show_day` | bool | `false` | Day-of-week label. |
 | `show_date` | bool | `false` | Date label. |
 
-**Attributes row** (gated by `show_attributes: true`; each entry also requires the corresponding sensor)
+**Attributes row** (gated by `show_attributes: true`; each entry
+requires a backing value — either a sensor under `sensors.*` or the
+matching attribute on `weather_entity`)
+
+> **Opt-out semantics for the headline attributes**: humidity,
+> pressure, UV, wind-direction, and wind-speed default to *visible*
+> when their backing value is present. The `false` defaults in the
+> table mean "absent unless the renderer sees a value"; the runtime
+> check is `cfg.show_x !== false`, so omitting the key keeps the
+> attribute visible. Set `show_x: false` explicitly to hide.
+> `show_dew_point`, `show_wind_gust_speed`, `show_illuminance`,
+> `show_precipitation`, `show_sunshine_duration`, and `show_sun` are
+> opt-in (require an explicit `true`).
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `show_attributes` | bool | `false` | Show humidity / pressure / dew point / sun / wind row. |
-| `show_humidity` | bool | `true` | Humidity attribute. |
-| `show_pressure` | bool | `true` | Pressure attribute. |
-| `show_dew_point` | bool | `false` | Dew-point attribute. |
-| `show_wind_direction` | bool | `true` | Wind-direction arrow. |
-| `show_wind_speed` | bool | `true` | Wind-speed value. |
-| `show_wind_gust_speed` | bool | `false` | Gust speed (requires `sensors.gust_speed`). |
-| `show_sun` | bool | `false` | Sunrise / sunset row. |
+| `show_humidity` | bool | opt-out (`true` when value present) | Humidity attribute. |
+| `show_pressure` | bool | opt-out (`true` when value present) | Pressure attribute. |
+| `show_dew_point` | bool | `false` | Dew-point attribute (opt-in). |
+| `show_uv_index` | bool | opt-out (`true` when value present) | UV index attribute. |
+| `show_illuminance` | bool | `false` | Illuminance attribute (opt-in, requires `sensors.illuminance`). |
+| `show_precipitation` | bool | `false` | Precipitation attribute (opt-in, requires `sensors.precipitation`). Shows the sensor's raw value with its native unit (cumulative `mm` or rate `mm/h`); see [SENSORS.md → Setting up a precipitation sensor](SENSORS.md#setting-up-a-precipitation-sensor) for live-rate guidance. |
+| `show_sunshine_duration` | bool | `false` | Sunshine-duration attribute (opt-in, requires `sensors.sunshine_duration`). |
+| `show_wind_direction` | bool | opt-out (`true` when value present) | Wind-direction arrow. |
+| `show_wind_speed` | bool | opt-out (`true` when value present) | Wind-speed value. |
+| `show_wind_gust_speed` | bool | `false` | Gust speed (opt-in, requires `sensors.gust_speed` or weather-entity attribute). |
+| `show_sun` | bool | `false` | Sunrise / sunset row (opt-in). |
 
 **Chart rows**
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `forecast.condition_icons` | bool | `true` | Condition icons row above the chart. |
-| `forecast.show_wind_forecast` | bool | `true` | Wind row below the chart. |
-| `forecast.show_wind_arrow` | bool | `true` | Show the per-day wind-direction arrow inside the wind row. When the arrow is on and a column is too narrow to fit the arrow + speed side-by-side, the speed wraps onto a second line below the arrow. |
+| `forecast.show_wind_arrow` | bool | `true` | Per-day wind-direction arrow. Independent of `show_wind_speed` since v1.9.x — either toggle alone surfaces the wind row. When both are on and a column is too narrow to fit the arrow + speed side-by-side, the speed wraps onto a second line below the arrow. |
+| `forecast.show_wind_speed` | bool | `true` | Per-day wind-speed value. Independent of `show_wind_arrow` since v1.9.x. |
+| `forecast.show_wind_forecast` | bool | `true` | ⚠️ **Deprecated in v1.9.x, removal v2.0.** Legacy master toggle that hides the entire wind row when set to `false`. The editor doesn't expose it. New configs should use the independent `show_wind_arrow` and `show_wind_speed` toggles instead — set both to `false` for the same effect. |
 | `forecast.show_date` | bool | `true` | `dd/mm` date row in the X-axis. When off, only the weekday is rendered. |
 | `forecast.show_sunshine` | bool | `false` | Sunshine-duration column inside the chart — half-bar in yellow on the right of every column (precipitation keeps the left half), with the day's hours rendered as a small "Xh" label at the top of the column. Off by default; turning it on without configuring at least one of the sunshine sensors below renders empty bars and labels (no warning, no banner). See [SENSORS.md → Sunshine duration](SENSORS.md#sunshine-duration) for setup. |
 
-## D. Style & Colours
+## Chart appearance
 
 **Chart appearance**
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `forecast.style` | `'style2' \| 'style1'` | `'style2'` | Temperature-label rendering. `style2` (default) shows plain text beside the lines; `style1` boxes each value with the line-coloured border. |
-| `forecast.round_temp` | bool | `false` | Round temperature labels to integers. |
+| `forecast.round_temp` | bool | `true` | Round temperature labels to integers. |
 | `forecast.disable_animation` | bool | `false` | Disable chart redraw animation. |
 
-**Sizing**
+**Sizing** (YAML-only since v1.9.x — most users never adjust these)
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -139,33 +189,30 @@ ON; in YAML the sub-keys are evaluated regardless.
 | `forecast.chart_height` | number (px) | `180` | Chart canvas height. |
 | `forecast.precip_bar_size` | number (%) | `100` | Width of precipitation bars (0–100 %). |
 
-**Icons**
+**Colours** (YAML-only since v1.9.x — defaults are theme-aware)
+
+Each default is a `var(--ha-token, rgba-fallback)` string: HA themes
+that define the token win, otherwise the v1.x literal RGBA is used.
+Setting a literal RGBA / hex / named-colour string in your YAML
+overrides both — pass-through to Chart.js.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `icon_style` | `'style1' \| 'style2'` | `'style1'` | Bundled icon set. |
-| `animated_icons` | bool | `false` | Use animated SVGs. |
-| `icons` | string (URL) | _none_ | Override icon base path (custom set). |
-
-**Colours**
-
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `forecast.temperature1_color` | CSS colour | `rgba(255, 152, 0, 1.0)` | High-temperature curve. |
-| `forecast.temperature2_color` | CSS colour | `rgba(68, 115, 158, 1.0)` | Low-temperature curve. |
-| `forecast.precipitation_color` | CSS colour | `rgba(132, 209, 253, 1.0)` | Precipitation bars. Forecast bars (combination mode) render at ~45 % of this colour's alpha. |
-| `forecast.sunshine_color` | CSS colour | `rgba(255, 193, 7, 1.0)` | Sunshine bars. Same forecast-side alpha treatment as precipitation. |
+| `forecast.temperature1_color` | CSS colour | `var(--state-sensor-temperature-color, rgba(255, 152, 0, 1.0))` | High-temperature curve. |
+| `forecast.temperature2_color` | CSS colour | `var(--info-color, rgba(68, 115, 158, 1.0))` | Low-temperature curve. |
+| `forecast.precipitation_color` | CSS colour | `var(--state-sensor-precipitation-color, rgba(132, 209, 253, 1.0))` | Precipitation bars. Forecast bars (combination mode) render at ~45 % of this colour's alpha. |
+| `forecast.sunshine_color` | CSS colour | `var(--warning-color, rgba(255, 215, 0, 1.0))` | Sunshine bars. Same forecast-side alpha treatment as precipitation. |
 | `forecast.chart_datetime_color` | CSS colour or `'auto'` | _none_ | X-axis weekday / date colour. |
 | `forecast.chart_text_color` | CSS colour or `'auto'` | _none_ | All other chart text colour. |
 
-## E. Units
+## Units
 
 | Key | Values | Description |
 | --- | --- | --- |
 | `units.pressure` | `'hPa' \| 'mmHg' \| 'inHg'` | Display unit; auto-converts from the sensor's native unit. |
 | `units.speed` | `'m/s' \| 'km/h' \| 'mph' \| 'Bft'` | Display unit; auto-converts. |
 
-## F. Advanced
+## Advanced
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |

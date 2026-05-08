@@ -4,8 +4,8 @@ Two test layers run on every commit:
 
 | Layer | Tool | Scope |
 |---|---|---|
-| **Unit** (`tests/`) | Vitest | Pure modules — classifier, data sources, chart plugins, format/forecast utils, sunshine helpers. 12 spec files, ~360 tests. |
-| **E2E + visual regression** (`tests-e2e/`) | Playwright | The bundled card boots in a static-served harness with a fake-hass mock. Covers render modes (visual baselines), pointer interactions, mode toggle, jump-to-now, editor mutators. 17 specs, 7 screenshot baselines. |
+| **Unit** (`tests/`) | Vitest | Pure modules — classifier, data sources, chart plugins, format/forecast utils, sunshine helpers, editor partial smoketests. 15 spec files, 469 tests. |
+| **E2E + visual regression** (`tests-e2e/`) | Playwright | The bundled card boots in a static-served harness with a fake-hass mock. Covers render modes (visual baselines), pointer interactions, mode toggle, jump-to-now, editor mutators, editor visual regression. 6 specs across `tests-e2e/snapshots/` directories. |
 
 Both layers run in CI before bundle verification. A failure in either
 blocks the release pipeline.
@@ -36,9 +36,10 @@ lines drops below **80 %** for the modules listed in
 `vitest.config.js`. Editor + main.ts are out of unit-coverage scope
 (rendering paths are exercised by Playwright instead).
 
-Real coverage as of v1.4.2: 90.7 % statements, 80.9 % branches,
-84.2 % functions, 92.8 % lines. `scroll-ux.ts` is the under-threshold
-module (53 % branch); the global aggregate still passes.
+Real coverage as of v1.9.x: 93.3 % statements, 83.9 % branches,
+91.1 % functions, 95.7 % lines (run `npm run coverage` for the live
+numbers). `scroll-ux.ts` and `data-source.ts` are the lowest-coverage
+modules; the global aggregate sits comfortably above the 80 % gate.
 
 > **History note**: pre-v1.4.2 the `include` array in
 > `vitest.config.js` listed `.js` paths after the v1.2 TypeScript
@@ -50,18 +51,34 @@ module (53 % branch); the global aggregate still passes.
 
 ```
 tests/
-  condition-classifier.test.ts
-  data-source.test.ts
-  format-utils.test.ts
-  forecast-utils.test.ts
-  sunshine-source.test.ts
-  openmeteo-source.test.ts
-  plugins.test.ts
-  ...
+  action-handler.test.js
+  condition-classifier.test.js
+  data-source.test.js
+  defaults.test.js
+  editor.test.js
+  editor-render-chart.test.js          ← v1.9.x partial smoketest
+  editor-render-live-panel.test.js     ← v1.9.x partial smoketest
+  forecast-utils.test.js
+  format-utils.test.js
+  openmeteo-source.test.js
+  plugins.test.js
+  scroll-ux.test.js
+  sunshine-source.test.js
+  teardown-registry.test.js
+  utils.test.js
 ```
 
-No fixtures directory yet — small test data is inlined. Promote to
-`tests/fixtures/*.ts` if a payload grows past ~50 lines.
+Tests are `.test.js` (vitest's `include` pattern) but import from `.ts`
+sources via the standard TS-resolved import. No fixtures directory yet
+— small test data is inlined. Promote to `tests/fixtures/*.ts` if a
+payload grows past ~50 lines.
+
+The two `editor-render-*.test.js` files are jsdom-environment Lit-render
+smoketests (since v1.9.x): instantiate a mock `EditorLike` +
+`EditorContext`, render the partial via Lit's `render(template,
+container)`, then assert section headings, sub-section structure, and
+gating by `hasSensor` / `hasLiveValue` / master toggles. Editor *full-
+page* render and live-preview interactions are still Playwright's job.
 
 ## E2E layout
 
@@ -78,12 +95,19 @@ tests-e2e/
       daily-station.png
       daily-forecast.png
       ...
+    editor-visual.spec.ts/
+      editor.png
+      editor-dark.png
+    styles-grid.spec.ts/
+      ...
   hass-mock.types.ts    type definitions for the mock contract
   _helpers.ts           openHarness, mount, settle, unmountAll
-  render-modes.spec.ts          visual baselines for 6 render modes + sunshine
+  render-modes.spec.ts          visual baselines across the render modes
   scroll-and-actions.spec.ts    drag, indicator chevrons, tap suppression
   mode-toggle-jump-to-now.spec.ts  daily↔hourly toggle, jump-to-now
   editor.spec.ts                editor mutator contracts
+  editor-visual.spec.ts         editor light + dark visual baselines
+  styles-grid.spec.ts           per-mode styles matrix grid
   tsconfig.json         extends ../tsconfig.json with rootDir = ..
 ```
 
@@ -150,7 +174,11 @@ whether the diff is intended.
 - New pointer interaction (e.g. double-tap zooms) → cover the
   on-drag suppression path in `scroll-and-actions.spec.ts`.
 - New editor mutator → assert that calling it dispatches a
-  `config-changed` event with the expected delta in `editor.spec.ts`.
+  `config-changed` event with the expected delta in `editor.test.js`
+  (Vitest, jsdom mutator-shape coverage).
+- New editor partial / sub-section → extend the smoketest in
+  `tests/editor-render-<partial>.test.js`: assert section heading,
+  sub-section headings, and gating around any new toggle.
 
 ## What is intentionally not tested
 
