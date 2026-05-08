@@ -85,6 +85,28 @@ declare global {
   }
 }
 
+// Wind / pressure unit conversions. Keyed by `targetUnit->sourceUnit`.
+// Beaufort is handled separately (delegates to calculateBeaufortScale).
+// Same-unit cases are short-circuited in the converters and never index
+// into these tables.
+const WIND_CONVERSION: Record<string, number> = {
+  'm/s->km/h': 1000 / 3600,
+  'm/s->mph': 0.44704,
+  'km/h->m/s': 3.6,
+  'km/h->mph': 1.60934,
+  'mph->m/s': 1 / 0.44704,
+  'mph->km/h': 1 / 1.60934,
+};
+
+const PRESSURE_CONVERSION: Record<string, number> = {
+  'mmHg->hPa': 0.75006,
+  'mmHg->inHg': 25.4,
+  'hPa->mmHg': 1 / 0.75006,
+  'hPa->inHg': 33.8639,
+  'inHg->mmHg': 1 / 25.4,
+  'inHg->hPa': 1 / 33.8639,
+};
+
 // Field-declaration block for the WeatherStationCard class. HA-shaped
 // fields are typed as `any` (or HassMain where threaded) — the full
 // HomeAssistant type pulls in HA frontend deps we don't otherwise
@@ -1535,160 +1557,166 @@ renderMain({ config, sun, weather, temperature } = this) {
   `;
 }
 
+// Convert windSpeed from the source unit (`weather.attributes.wind_speed_unit`)
+// to the configured display unit (`this.unitSpeed`). Beaufort delegates to the
+// classifier; identical units round to integer; cross-unit converts then rounds.
+// deno-lint-ignore no-explicit-any
+_convertDisplayWindSpeed(windSpeed: any): any {
+  const sourceUnit = this.weather.attributes.wind_speed_unit;
+  if (this.unitSpeed === sourceUnit) return Math.round(windSpeed);
+  if (this.unitSpeed === 'Bft') return this.calculateBeaufortScale(windSpeed);
+  // Conversion factors keyed by 'targetUnit->sourceUnit'.
+  const factor = WIND_CONVERSION[`${this.unitSpeed}->${sourceUnit}`];
+  return factor !== undefined ? Math.round(windSpeed * factor) : windSpeed;
+}
+
+// Convert pressure between mmHg / hPa / inHg. Identical units round (except
+// inHg which keeps 2 decimals). Cross-unit converts then rounds (or .toFixed
+// for inHg).
+// deno-lint-ignore no-explicit-any
+_convertDisplayPressure(pressure: any): any {
+  const sourceUnit = this.weather.attributes.pressure_unit;
+  if (this.unitPressure === sourceUnit) {
+    return (this.unitPressure === 'hPa' || this.unitPressure === 'mmHg')
+      ? Math.round(pressure) : pressure;
+  }
+  const factor = PRESSURE_CONVERSION[`${this.unitPressure}->${sourceUnit}`];
+  if (factor === undefined) return pressure;
+  const converted = pressure * factor;
+  return this.unitPressure === 'inHg' ? converted.toFixed(2) : Math.round(converted);
+}
+
+// Sunshine duration sensor reports either seconds or hours — format
+// as decimal hours either way.
+// deno-lint-ignore no-explicit-any
+_formatSunshineHours(sunshine_duration: any, sunshine_duration_unit: any): number | undefined {
+  if (sunshine_duration === undefined || sunshine_duration === null || sunshine_duration === '') return undefined;
+  const raw = parseFloat(String(sunshine_duration));
+  if (!Number.isFinite(raw)) return undefined;
+  const unit = (sunshine_duration_unit || '').toLowerCase();
+  let divisor = 1;
+  if (unit === 's' || unit.startsWith('sec')) divisor = 3600;
+  else if (unit === 'min') divisor = 60;
+  return Math.round((raw / divisor) * 10) / 10;
+}
+
+// Climate group: humidity / pressure / dew-point / precipitation. Returns
+// nothing-html when every row's toggle is off or backing value is empty.
+// deno-lint-ignore no-explicit-any
+_renderClimateGroup({ showHumidity, humidity, showPressure, dPressure, showDewpoint, dew_point, showPrecipitation, precipitation, precipitation_unit, hasPrecipValue }: any) {
+  const anyVisible = (showHumidity && humidity !== undefined) || (showPressure && dPressure !== undefined) || (showDewpoint && dew_point !== undefined) || (showPrecipitation && hasPrecipValue);
+  if (!anyVisible) return html``;
+  return html`
+    <div>
+      ${showHumidity && humidity !== undefined ? html`
+        <ha-icon icon="hass:water-percent"></ha-icon> ${humidity} %<br>
+      ` : ''}
+      ${showPressure && dPressure !== undefined ? html`
+        <ha-icon icon="hass:gauge"></ha-icon> ${dPressure} ${this.unitPressure ? this.ll('units')[this.unitPressure] : ''} <br>
+      ` : ''}
+      ${showDewpoint && dew_point !== undefined ? html`
+        <ha-icon icon="hass:thermometer-water"></ha-icon> ${dew_point} ${this.weather.attributes.temperature_unit} <br>
+      ` : ''}
+      ${showPrecipitation && hasPrecipValue ? html`
+        <ha-icon icon="hass:weather-rainy"></ha-icon> ${precipitation}${precipitation_unit ? ' ' + precipitation_unit : ''}<br>
+      ` : ''}
+    </div>
+  `;
+}
+
+// Sun / UV / illuminance / sunshine-duration group.
+// deno-lint-ignore no-explicit-any
+_renderSunGroup({ showSun, sun, showUvIndex, uv_index, showIlluminance, illuminance, showSunshineDuration, sunshineHours, language }: any) {
+  const anyVisible = (showSun && sun !== undefined) || (showUvIndex && uv_index !== undefined && uv_index !== '') || (showIlluminance && illuminance !== undefined && illuminance !== '') || (showSunshineDuration && sunshineHours !== undefined);
+  if (!anyVisible) return html``;
+  return html`
+    <div>
+      ${showUvIndex && uv_index !== undefined && uv_index !== '' ? html`
+        <div>
+          <ha-icon icon="hass:white-balance-sunny"></ha-icon> UV: ${Math.round(parseFloat(String(uv_index)) * 10) / 10}
+        </div>
+      ` : ''}
+      ${showIlluminance && illuminance !== undefined && illuminance !== '' ? html`
+        <div>
+          <ha-icon icon="hass:brightness-5"></ha-icon> ${Math.round(parseFloat(String(illuminance)))} lx
+        </div>
+      ` : ''}
+      ${showSunshineDuration && sunshineHours !== undefined ? html`
+        <div>
+          <ha-icon icon="hass:weather-sunny"></ha-icon> ${sunshineHours} h
+        </div>
+      ` : ''}
+      ${showSun && sun !== undefined ? html`
+        <div>
+          ${this.renderSun({ sun, language } as unknown as this)}
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+// Wind group: direction / speed / gust speed.
+// deno-lint-ignore no-explicit-any
+_renderWindGroup({ showWindDirection, windDirection, showWindSpeed, dWindSpeed, showWindgustspeed, wind_gust_speed }: any) {
+  const anyVisible = (showWindDirection && windDirection !== undefined) || (showWindSpeed && dWindSpeed !== undefined);
+  if (!anyVisible) return html``;
+  return html`
+    <div>
+      ${showWindDirection && windDirection !== undefined ? html`
+        <ha-icon icon="hass:${this.getWindDirIcon(windDirection)}"></ha-icon> ${this.getWindDir(windDirection)} <br>
+      ` : ''}
+      ${showWindSpeed && dWindSpeed !== undefined ? html`
+        <ha-icon icon="hass:weather-windy"></ha-icon>
+        ${dWindSpeed} ${this.unitSpeed ? this.ll('units')[this.unitSpeed] : ''} <br>
+      ` : ''}
+      ${showWindgustspeed && wind_gust_speed !== undefined ? html`
+        <ha-icon icon="hass:weather-windy-variant"></ha-icon>
+        ${this._convertWindSpeed(parseFloat(wind_gust_speed))} ${this.unitSpeed ? this.ll('units')[this.unitSpeed] : ''}
+      ` : ''}
+    </div>
+  `;
+}
+
 renderAttributes({ config, humidity, pressure, windSpeed, windDirection, sun, language, uv_index, dew_point, wind_gust_speed, illuminance, precipitation, precipitation_unit, sunshine_duration, sunshine_duration_unit } = this) {
-  let dWindSpeed = windSpeed;
-  let dPressure = pressure;
+  const dWindSpeed = this._convertDisplayWindSpeed(windSpeed);
+  const dPressure = this._convertDisplayPressure(pressure);
 
-  if (this.unitSpeed !== this.weather.attributes.wind_speed_unit) {
-    if (this.unitSpeed === 'm/s') {
-      if (this.weather.attributes.wind_speed_unit === 'km/h') {
-        dWindSpeed = Math.round(windSpeed * 1000 / 3600);
-      } else if (this.weather.attributes.wind_speed_unit === 'mph') {
-        dWindSpeed = Math.round(windSpeed * 0.44704);
-      }
-    } else if (this.unitSpeed === 'km/h') {
-      if (this.weather.attributes.wind_speed_unit === 'm/s') {
-        dWindSpeed = Math.round(windSpeed * 3.6);
-      } else if (this.weather.attributes.wind_speed_unit === 'mph') {
-        dWindSpeed = Math.round(windSpeed * 1.60934);
-      }
-    } else if (this.unitSpeed === 'mph') {
-      if (this.weather.attributes.wind_speed_unit === 'm/s') {
-        dWindSpeed = Math.round(windSpeed / 0.44704);
-      } else if (this.weather.attributes.wind_speed_unit === 'km/h') {
-        dWindSpeed = Math.round(windSpeed / 1.60934);
-      }
-    } else if (this.unitSpeed === 'Bft') {
-      dWindSpeed = this.calculateBeaufortScale(windSpeed);
-    }
-  } else {
-    dWindSpeed = Math.round(dWindSpeed);
-  }
+  if (config.show_attributes === false) return html``;
 
-  if (this.unitPressure !== this.weather.attributes.pressure_unit) {
-    if (this.unitPressure === 'mmHg') {
-      if (this.weather.attributes.pressure_unit === 'hPa') {
-        dPressure = Math.round(pressure * 0.75006);
-      } else if (this.weather.attributes.pressure_unit === 'inHg') {
-        dPressure = Math.round(pressure * 25.4);
-      }
-    } else if (this.unitPressure === 'hPa') {
-      if (this.weather.attributes.pressure_unit === 'mmHg') {
-        dPressure = Math.round(pressure / 0.75006);
-      } else if (this.weather.attributes.pressure_unit === 'inHg') {
-        dPressure = Math.round(pressure * 33.8639);
-      }
-    } else if (this.unitPressure === 'inHg') {
-      if (this.weather.attributes.pressure_unit === 'mmHg') {
-        dPressure = pressure / 25.4;
-      } else if (this.weather.attributes.pressure_unit === 'hPa') {
-        dPressure = pressure / 33.8639;
-      }
-      dPressure = dPressure.toFixed(2);
-    }
-  } else {
-    if (this.unitPressure === 'hPa' || this.unitPressure === 'mmHg') {
-      dPressure = Math.round(dPressure);
-    }
-  }
-
-  if (config.show_attributes === false)
-    return html``;
-
-  const showHumidity = config.show_humidity !== false;
-  const showPressure = config.show_pressure !== false;
-  const showWindDirection = config.show_wind_direction !== false;
-  const showWindSpeed = config.show_wind_speed !== false;
-  const showSun = config.show_sun !== false;
   // All live-block sub-toggles default to ON (opt-out): once the
   // master show_attributes is enabled, every available data point
   // appears unless explicitly turned off in YAML / editor.
-  const showDewpoint = config.show_dew_point !== false;
-  const showWindgustspeed = config.show_wind_gust_speed !== false;
-  const showUvIndex = config.show_uv_index !== false;
-  const showIlluminance = config.show_illuminance !== false;
-  const showPrecipitation = config.show_precipitation !== false;
   // Display the configured precipitation sensor's value as-is with
   // its native unit. For users who want a live mm/h rate from a
   // cumulative sensor: configure a Derivative helper in HA (see
   // GitHub issue) and wire its output sensor here. Card-side
   // auto-derivation was tried and removed — fragile, see issue.
-  const hasPrecipValue = precipitation !== undefined && precipitation !== '';
-  const showSunshineDuration = config.show_sunshine_duration !== false;
+  const ctx = {
+    showHumidity: config.show_humidity !== false,
+    showPressure: config.show_pressure !== false,
+    showWindDirection: config.show_wind_direction !== false,
+    showWindSpeed: config.show_wind_speed !== false,
+    showSun: config.show_sun !== false,
+    showDewpoint: config.show_dew_point !== false,
+    showWindgustspeed: config.show_wind_gust_speed !== false,
+    showUvIndex: config.show_uv_index !== false,
+    showIlluminance: config.show_illuminance !== false,
+    showPrecipitation: config.show_precipitation !== false,
+    showSunshineDuration: config.show_sunshine_duration !== false,
+    hasPrecipValue: precipitation !== undefined && precipitation !== '',
+    sunshineHours: this._formatSunshineHours(sunshine_duration, sunshine_duration_unit),
+    humidity, dPressure, dew_point, precipitation, precipitation_unit,
+    sun, uv_index, illuminance, language,
+    windDirection, dWindSpeed, wind_gust_speed,
+  };
 
-  // Sunshine duration sensor reports either seconds or hours — format
-  // as decimal hours either way.
-  const sunshineHours = (() => {
-    if (sunshine_duration === undefined || sunshine_duration === null || sunshine_duration === '') return undefined;
-    const raw = parseFloat(String(sunshine_duration));
-    if (!Number.isFinite(raw)) return undefined;
-    const unit = (sunshine_duration_unit || '').toLowerCase();
-    let divisor = 1;
-    if (unit === 's' || unit.startsWith('sec')) divisor = 3600;
-    else if (unit === 'min') divisor = 60;
-    const hours = raw / divisor;
-    return Math.round(hours * 10) / 10;
-  })();
-
-return html`
+  return html`
     <div class="attributes">
-      ${((showHumidity && humidity !== undefined) || (showPressure && dPressure !== undefined) || (showDewpoint && dew_point !== undefined) || (showPrecipitation && hasPrecipValue)) ? html`
-        <div>
-          ${showHumidity && humidity !== undefined ? html`
-            <ha-icon icon="hass:water-percent"></ha-icon> ${humidity} %<br>
-          ` : ''}
-          ${showPressure && dPressure !== undefined ? html`
-            <ha-icon icon="hass:gauge"></ha-icon> ${dPressure} ${this.unitPressure ? this.ll('units')[this.unitPressure] : ''} <br>
-          ` : ''}
-          ${showDewpoint && dew_point !== undefined ? html`
-            <ha-icon icon="hass:thermometer-water"></ha-icon> ${dew_point} ${this.weather.attributes.temperature_unit} <br>
-          ` : ''}
-          ${showPrecipitation && hasPrecipValue ? html`
-            <ha-icon icon="hass:weather-rainy"></ha-icon> ${precipitation}${precipitation_unit ? ' ' + precipitation_unit : ''}<br>
-          ` : ''}
-        </div>
-      ` : ''}
-      ${((showSun && sun !== undefined) || (showUvIndex && uv_index !== undefined && uv_index !== '') || (showIlluminance && illuminance !== undefined && illuminance !== '') || (showSunshineDuration && sunshineHours !== undefined)) ? html`
-        <div>
-          ${showUvIndex && uv_index !== undefined && uv_index !== '' ? html`
-            <div>
-              <ha-icon icon="hass:white-balance-sunny"></ha-icon> UV: ${Math.round(parseFloat(String(uv_index)) * 10) / 10}
-            </div>
-          ` : ''}
-          ${showIlluminance && illuminance !== undefined && illuminance !== '' ? html`
-            <div>
-              <ha-icon icon="hass:brightness-5"></ha-icon> ${Math.round(parseFloat(String(illuminance)))} lx
-            </div>
-          ` : ''}
-          ${showSunshineDuration && sunshineHours !== undefined ? html`
-            <div>
-              <ha-icon icon="hass:weather-sunny"></ha-icon> ${sunshineHours} h
-            </div>
-          ` : ''}
-          ${showSun && sun !== undefined ? html`
-            <div>
-              ${this.renderSun({ sun, language } as unknown as this)}
-            </div>
-          ` : ''}
-        </div>
-      ` : ''}
-      ${((showWindDirection && windDirection !== undefined) || (showWindSpeed && dWindSpeed !== undefined)) ? html`
-        <div>
-          ${showWindDirection && windDirection !== undefined ? html`
-            <ha-icon icon="hass:${this.getWindDirIcon(windDirection)}"></ha-icon> ${this.getWindDir(windDirection)} <br>
-          ` : ''}
-          ${showWindSpeed && dWindSpeed !== undefined ? html`
-            <ha-icon icon="hass:weather-windy"></ha-icon>
-            ${dWindSpeed} ${this.unitSpeed ? this.ll('units')[this.unitSpeed] : ''} <br>
-          ` : ''}
-          ${showWindgustspeed && wind_gust_speed !== undefined ? html`
-            <ha-icon icon="hass:weather-windy-variant"></ha-icon>
-            ${this._convertWindSpeed(parseFloat(wind_gust_speed))} ${this.unitSpeed ? this.ll('units')[this.unitSpeed] : ''}
-          ` : ''}
-        </div>
-      ` : ''}
+      ${this._renderClimateGroup(ctx)}
+      ${this._renderSunGroup(ctx)}
+      ${this._renderWindGroup(ctx)}
     </div>
-`;
+  `;
 }
 
 renderSun({ sun, language } = this) {
