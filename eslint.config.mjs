@@ -47,7 +47,9 @@ export default tseslint.config(
       // Promote to error once src/main.ts and src/scroll-ux.ts are
       // refactored.
       complexity: ['warn', { max: 15 }],
-      'max-depth': ['warn', 4],
+      // max-depth promoted to error in v1.10 — zero current violations,
+      // locks in flat control-flow style.
+      'max-depth': ['error', 4],
       'max-lines-per-function': ['warn', { max: 100, skipComments: true, skipBlankLines: true }],
       'sonarjs/cognitive-complexity': ['warn', 15],
 
@@ -55,8 +57,9 @@ export default tseslint.config(
       'lit/no-invalid-html': 'error',
       'lit/no-legacy-template-syntax': 'error',
       'lit/no-template-bind': 'error',
-      'lit/no-useless-template-literals': 'warn',
-      'lit/attribute-value-entities': 'warn',
+      // Promoted to error in v1.10 — zero current violations.
+      'lit/no-useless-template-literals': 'error',
+      'lit/attribute-value-entities': 'error',
 
       // Pragmatic relaxations for this codebase.
       // main.ts has @ts-nocheck (HA integration boundary); type-checked
@@ -100,9 +103,11 @@ export default tseslint.config(
       'sonarjs/no-nested-template-literals': 'off',
       'sonarjs/prefer-immediate-return': 'off',
       'sonarjs/no-small-switch': 'off',
-      'sonarjs/no-identical-functions': 'warn',
-      'sonarjs/no-collapsible-if': 'warn',
-      'sonarjs/prefer-single-boolean-return': 'warn',
+      // Promoted to error in v1.10 — zero current violations.
+      'sonarjs/no-identical-functions': 'error',
+      'sonarjs/no-collapsible-if': 'error',
+      'sonarjs/prefer-single-boolean-return': 'error',
+      'sonarjs/no-redundant-jump': 'error',
       'sonarjs/no-nested-conditional': 'warn',
       'sonarjs/no-ignored-exceptions': 'warn',
       'sonarjs/function-return-type': 'warn',
@@ -110,7 +115,6 @@ export default tseslint.config(
       'sonarjs/no-redundant-boolean': 'warn',
       'sonarjs/no-redundant-assignments': 'warn',
       'sonarjs/no-dead-store': 'warn',
-      'sonarjs/no-redundant-jump': 'warn',
       'sonarjs/regex-complexity': 'warn',
       'no-useless-assignment': 'warn',
 
