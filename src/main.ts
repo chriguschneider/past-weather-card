@@ -863,8 +863,16 @@ ll(str: string): any {
   return localeAny[selectedLocale][str];
 }
 
+  // HA masonry-view layout uses getCardSize() to reserve space.
+  // Each unit ≈ 50 px. The chart row is the dominant block; the
+  // optional main panel adds 1–2 (with/without time); the attributes
+  // row adds 1. Floor at 1 to keep the picker preview from collapsing.
   getCardSize() {
-    return 4;
+    let size = 0;
+    if (this.config?.show_main) size += this.config.show_time ? 2 : 1;
+    if (this.config?.show_attributes) size += 1;
+    if (this.config?.show_station || this.config?.show_forecast) size += 3;
+    return Math.max(size, 1);
   }
 
   getUnit(unit: string): string {
