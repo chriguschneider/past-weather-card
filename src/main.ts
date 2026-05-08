@@ -332,8 +332,17 @@ setConfig(config: any) {
     'https://cdn.jsdelivr.net/gh/chriguschneider/weather-station-card/dist/icons/' ;
 
   this.config = cardConfig;
-  if (!cardConfig.sensors?.temperature) {
-    throw new Error('Please define at least sensors.temperature in the card config');
+
+  // Mode-aware validation. Each enabled block has its own required key:
+  //   show_station    → needs sensors.temperature (the past-data chart)
+  //   show_forecast   → needs weather_entity      (the future-data chart)
+  // A pure forecast-only card needs no station sensors; a pure station
+  // card needs no weather entity. Combination needs both.
+  if (cardConfig.show_station && !cardConfig.sensors?.temperature) {
+    throw new Error('Station mode needs at least sensors.temperature in the card config');
+  }
+  if (cardConfig.show_forecast && !cardConfig.weather_entity) {
+    throw new Error('Forecast mode needs a weather.* entity in weather_entity');
   }
 }
 
