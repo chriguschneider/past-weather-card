@@ -4,29 +4,95 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — v1.10.0
+## [1.10.0] — 2026-05-09
 
-Quality-and-modernisation release. The editor migrates to schema-driven
-sections built on HA's `<ha-form>` (closes #87), every section gets a
-reset-to-defaults button (closes #92), the abandoned icon-set assets are
-finally pulled out of the bundle, and a bulk SonarCloud cleanup
-(`prefer-nullish-coalescing`, nested-ternary flattening, dead stores)
-removes ~80 ESLint warnings.
+Quality-and-modernisation release. Zero user-facing behaviour change —
+this is an internal sweep that targets SonarCloud / ESLint backlog,
+splits the worst complexity hot-spots, removes the abandoned icon-set
+assets, and tightens the CI bundle budget. The schema-driven editor
+work (#87, #92) that was originally planned for this release is
+deferred to v1.11 — it depends on undocumented HA `<ha-form>` API
+behaviour and needs HA-side verification on each section migration.
 
 ### Removed assets — `dist/icons2/` is gone
 
 The `icon_style` / `animated_icons` / `icons` config keys lost their
 code path in v1.9.x; the asset directory they served is now removed
-too. Old HACS installs may still contain a stale `dist/icons2/` until a
-fresh download — nothing references it.
+too (~132 KB of dead SVGs no longer copied into the build). Old HACS
+installs may still contain a stale `dist/icons2/` until a fresh
+download — nothing in the bundle references it.
+
+### Internal — complexity hot-spot extraction
+
+- `main.ts renderAttributes` (CC=99, the worst hot-spot in the
+  codebase) split into six helpers: `_convertDisplayWindSpeed` and
+  `_convertDisplayPressure` (driven by lookup tables for mph / m/s /
+  km/h / mmHg / hPa / inHg conversions), `_formatSunshineHours`, plus
+  three `_renderClimateGroup` / `_renderSunGroup` / `_renderWindGroup`
+  composers. `renderAttributes` itself is now ~25 lines.
+- `sunshine-source.ts findInDateArray` (CC=42 → under 15): per-item
+  match logic extracted into `matchDailyEntry`, so the array loop
+  becomes a 2-line `result !== undefined ? return : continue`.
+- `chart/orchestrator.ts drawChartUnsafe`: `pickPerBarColor` extracted,
+  clearing four nested-ternary warnings on the precip + sunshine
+  per-bar colour maps. Full phase split (datasets, plugins,
+  style2-datalabels) remains for a future pass.
 
 ### Internal — quality lock-in
 
 - 7 zero-violation lint rules promoted from warn → error:
-  `max-depth`, `lit/no-useless-template-literals`, `lit/attribute-value-entities`,
-  `sonarjs/no-identical-functions`, `sonarjs/no-collapsible-if`,
-  `sonarjs/prefer-single-boolean-return`, `sonarjs/no-redundant-jump`.
-- ESLint warnings: 168 → 91 (target for v1.11: < 50).
+  `max-depth`, `lit/no-useless-template-literals`,
+  `lit/attribute-value-entities`, `sonarjs/no-identical-functions`,
+  `sonarjs/no-collapsible-if`, `sonarjs/prefer-single-boolean-return`,
+  `sonarjs/no-redundant-jump`. Prevents regression on each.
+- Mechanical SonarCloud / ESLint sweep:
+  - 47 `prefer-nullish-coalescing` warnings cleared (`||` → `??`
+    where the LHS is non-primitive). Includes a few `?? ?? ??` chain
+    collapses where 4-deep `!= null ? a : b` ternaries reduced to a
+    single line, plus `tempMax ??= tempMean` / `tempMin ??= tempMean`
+    in data-source.ts.
+  - 8 standalone nested-ternary smells flattened (data-source.ts,
+    main.ts limit / sunshine-divisor, openmeteo-source.ts storage
+    fallback, sunshine-source.ts date-key resolution).
+  - 5 unnecessary type assertions dropped from main.ts +
+    weather-station-card-editor.ts (the documented intentional
+    `this as unknown as ...` double-casts are preserved).
+  - 4 small fixes: dead-store `let i = 9` / `default: i = 9` collapse
+    in `getWindDirIcon`, ignored-exception binding `(_)` →
+    bare `catch`, and two `== true` / `== false` config checks
+    converted to `===`.
+- ESLint warnings: 168 → 76 (-55%). Remaining backlog (target for
+  v1.11: < 50) is primarily complexity ceilings on
+  `_classifyLiveCondition`, `_refreshForecasts`, `_ensureSunshineSource`,
+  and `getWindDirIcon`, plus defensive runtime null/undefined checks
+  at the HA boundary that the eslint config explicitly allows.
+
+### CI
+
+- Bundle budget gate gains a gzipped-size cap (250 KB) alongside the
+  existing raw 800 KB cap. Bytes-on-the-wire is what HACS download
+  size and HA's frontend cache pay for; raw size only matters once
+  the file lands. Current bundle: ~355 KB raw / ~114 KB gzipped.
+  Closes #111 (the autonomously-actionable subset; render-time
+  gating remains an open research item).
+
+### Deferred to v1.11
+
+- **#87** — Schema-driven editor sections via `<ha-form>`. The
+  ADR-0008 DEFAULTS-as-single-source-of-truth foundation is in place;
+  the migration itself needs HA-side verification on each section.
+- **#92** — Per-section reset-to-defaults buttons (depends on #87).
+- **#93** — Schema-coverage assertion (depends on #87).
+- Per-file branch-coverage uplift in `data-source.ts` (70.19%),
+  `openmeteo-source.ts` (77.77%), `scroll-ux.ts` (79.81%). Global
+  coverage gate stays green at 84%+ branches.
+
+### Issues closed
+
+- #57 — SonarCloud code-smell backlog (mechanical subset; complexity
+  refactors continue in v1.11)
+- #111 — CI bundle-size gate (gzipped-size variant)
+- #112 — `dist/icons2/` asset removal
 
 ## [1.9.1] — 2026-05-09
 
