@@ -216,9 +216,8 @@ export function findInDateArray(
     if (typeof item !== 'object') continue;
 
     const entry = item as DailySunshineEntry;
-    const k = entry.date != null
-      ? String(entry.date).slice(0, 10)
-      : (entry.datetime != null ? String(entry.datetime).slice(0, 10) : null);
+    const dateRaw = entry.date ?? entry.datetime;
+    const k = dateRaw != null ? String(dateRaw).slice(0, 10) : null;
     if (!k) continue;
     if (k === dateString) {
       const v = entry.value ?? entry.sunshine ?? entry.duration ?? entry.sunshine_duration;

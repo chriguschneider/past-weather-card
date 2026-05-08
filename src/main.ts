@@ -784,7 +784,8 @@ _syncDataSources(hass: HassMain): void {
       // (no station block) the forecast expands to the full 24 hours
       // forward so the user still sees a one-day view.
       const isForecastOnly = isToday && effectiveCfg.show_station === false;
-      const limit = isToday ? (isForecastOnly ? 24 : 12) : dayLimit * slotsPerUnit;
+      const todayLimit = isForecastOnly ? 24 : 12;
+      const limit = isToday ? todayLimit : dayLimit * slotsPerUnit;
       forecast = filterMidnightStaleForecast(this._forecastData || [], todayStartMs)
         .slice(0, limit);
     }
@@ -1624,9 +1625,10 @@ renderAttributes({ config, humidity, pressure, windSpeed, windDirection, sun, la
     const raw = parseFloat(String(sunshine_duration));
     if (!Number.isFinite(raw)) return undefined;
     const unit = (sunshine_duration_unit || '').toLowerCase();
-    const hours = unit === 's' || unit.startsWith('sec') ? raw / 3600
-                : unit === 'min' ? raw / 60
-                : raw;
+    let divisor = 1;
+    if (unit === 's' || unit.startsWith('sec')) divisor = 3600;
+    else if (unit === 'min') divisor = 60;
+    const hours = raw / divisor;
     return Math.round(hours * 10) / 10;
   })();
 

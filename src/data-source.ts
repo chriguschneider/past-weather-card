@@ -252,7 +252,8 @@ export class MeasuredDataSource {
       end.setMinutes(0, 0, 0);
       end.setHours(end.getHours() + 1);
       const isStationOnly = isToday && this.config.show_forecast !== true;
-      const hours = isToday ? (isStationOnly ? 24 : 12) : days * 24;
+      const todayHours = isStationOnly ? 24 : 12;
+      const hours = isToday ? todayHours : days * 24;
       const start = new Date(end.getTime() - (hours + 1) * HOUR_MS);
 
       const stats = await this.hass.callWS<StatsResponse>({
