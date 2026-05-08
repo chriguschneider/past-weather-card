@@ -112,6 +112,22 @@ interface DataLabelsCtx {
   dataIndex: number;
 }
 
+/** Picks the lightened bar colour for forecast columns (or for forecast-only
+ *  mode where every column is a forecast). The two ternary arms used to be
+ *  inlined per dataset; extracting kills the nested-ternary smell and shares
+ *  the rule between precip and sunshine. */
+function pickPerBarColor(
+  i: number,
+  hasBothBlocks: boolean,
+  stationCountForGap: number,
+  normal: string,
+  light: string,
+): string {
+  if (hasBothBlocks && i >= stationCountForGap) return light;
+  if (!hasBothBlocks && stationCountForGap === 0) return light;
+  return normal;
+}
+
 export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unknown[] | undefined {
   const { config: rawConfig, language, weather, forecastItems } = args ?? (card as unknown as DrawChartArgs);
   // Silence "unused" lint — `weather` is part of the destructure-from-`card`
@@ -226,9 +242,7 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
   const precipColor = resolveCssVar(config.forecast.precipitation_color, 'rgba(132, 209, 253, 1.0)');
   const precipColorLight = lightenColor(precipColor) as string;
   const precipPerBarColor: string[] = (data.precip || []).map(
-    (_v, i) => (hasBothBlocks && i >= stationCountForGap) ? precipColorLight
-            : (!hasBothBlocks && stationCountForGap === 0) ? precipColorLight
-            : precipColor,
+    (_v, i) => pickPerBarColor(i, hasBothBlocks, stationCountForGap, precipColor, precipColorLight),
   );
 
   // Sunshine row toggle. Works in both daily and hourly modes — the
@@ -247,9 +261,7 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
   const sunshineColor = resolveCssVar(config.forecast.sunshine_color, 'rgba(255, 215, 0, 1.0)');
   const sunshineColorLight = lightenColor(sunshineColor) as string;
   const sunshinePerBarColor: string[] = (data.sunshine ?? []).map(
-    (_v, i) => (hasBothBlocks && i >= stationCountForGap) ? sunshineColorLight
-            : (!hasBothBlocks && stationCountForGap === 0) ? sunshineColorLight
-            : sunshineColor,
+    (_v, i) => pickPerBarColor(i, hasBothBlocks, stationCountForGap, sunshineColor, sunshineColorLight),
   );
   // Convert raw hours into 0..1 fractions of day length. Null values
   // pass through so the bar slot stays empty for missing data.
