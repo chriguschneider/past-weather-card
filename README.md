@@ -58,12 +58,10 @@ forecast — driven by sensor data, not a `weather.*` entity.
 <tr>
 <th>Main panel + chart</th>
 <th>Standalone chart</th>
-<th>Visual editor</th>
 </tr>
 <tr>
 <td><img alt="Daily combination with sunshine" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/daily-combination-sunshine.png"></td>
 <td><img alt="Daily station-only chart with sunshine" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/daily-station-sunshine.png"></td>
-<td><img alt="Visual editor" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/editor-visual.spec.ts/editor.png"></td>
 </tr>
 </table>
 
@@ -247,6 +245,10 @@ The visual editor groups options into six sections — Setup, Sensors,
 Layout, Style & Colours, Units, Advanced. Each key is documented in
 **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** with type, default,
 and effect.
+
+<p align="center">
+  <img alt="Visual editor" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/editor-visual.spec.ts/editor.png" width="720" />
+</p>
 
 For the most common adjustments:
 
