@@ -1,0 +1,82 @@
+// Single source of truth for the card's configuration defaults.
+// Both `setConfig` (user YAML merge) and `getStubConfig` (visual editor
+// "first add" path) consume this object, so the two cannot drift.
+
+export const DEFAULTS_FORECAST = {
+  labels_font_size: 11,
+  chart_height: 180,
+  precip_bar_size: 100,
+  // Default chart style: temperature labels rendered as plain text
+  // beside the lines (no boxes around each value). 'style1' was the
+  // legacy default with bordered boxes — kept as an opt-in.
+  style: 'style2',
+  temperature1_color: 'rgba(255, 152, 0, 1.0)',
+  temperature2_color: 'rgba(68, 115, 158, 1.0)',
+  precipitation_color: 'rgba(132, 209, 253, 1.0)',
+  show_sunshine: false,
+  sunshine_color: 'rgba(255, 215, 0, 1.0)',
+  condition_icons: true,
+  show_wind_forecast: true,
+  show_wind_arrow: true,
+  show_date: true,
+  round_temp: false,
+  type: 'daily',
+  number_of_forecasts: 8,
+  disable_animation: false,
+  '12hourformat': false,
+} as const;
+
+export const DEFAULTS_UNITS = {
+  pressure: 'hPa',
+} as const;
+
+export const DEFAULTS = {
+  // Layout master toggles — opt-out for headline rows, opt-in for the
+  // detail rows. Render code reads these as `true === cfg.x` (opt-in)
+  // or `false !== cfg.x` (opt-out); explicit defaults match that intent.
+  show_station: true,
+  show_forecast: false,
+  show_main: false,
+  show_temperature: true,
+  show_current_condition: false,
+  show_attributes: false,
+  show_time: false,
+  show_time_seconds: false,
+  show_day: false,
+  show_date: false,
+  show_humidity: false,
+  show_pressure: false,
+  show_wind_direction: true,
+  show_wind_speed: true,
+  show_sun: false,
+  show_dew_point: false,
+  show_wind_gust_speed: false,
+  use_12hour_format: false,
+
+  // Sizing
+  icons_size: 25,
+  current_temp_size: 28,
+  time_size: 26,
+  day_date_size: 15,
+  animated_icons: false,
+  icon_style: 'style1',
+
+  // Past-data window
+  days: 7,
+
+  // Forecast
+  weather_entity: '',
+  forecast_days: 7,
+  forecast: DEFAULTS_FORECAST,
+
+  // Units
+  units: DEFAULTS_UNITS,
+
+  // Sensors — populated by getStubConfig auto-detection or by user YAML
+  sensors: {},
+
+  // Tap actions — opt-in
+  tap_action: { action: 'none' },
+  hold_action: { action: 'none' },
+  double_tap_action: { action: 'none' },
+} as const;
