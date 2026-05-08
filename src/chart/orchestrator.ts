@@ -29,6 +29,7 @@
 import { Chart } from 'chart.js';
 import { normalizeForecastMode } from '../forecast-utils.js';
 import { lightenColor } from '../format-utils.js';
+import { resolveCssVar } from '../utils/resolve-css-var.js';
 import { sunshineFractions } from '../sunshine-source.js';
 import { buildChart } from './draw.js';
 import {
@@ -214,7 +215,11 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
   };
   const tempSegmentOpts = { borderColor: segmentSkip, borderDash: segmentDash };
 
-  const precipColor = config.forecast.precipitation_color as string;
+  // Resolve any CSS-var-wrapped colour defaults against the live theme
+  // tokens; pass-through for plain rgb/hex/hsl strings users set in YAML.
+  const temp1Color = resolveCssVar(config.forecast.temperature1_color, 'rgba(255, 152, 0, 1.0)');
+  const temp2Color = resolveCssVar(config.forecast.temperature2_color, 'rgba(68, 115, 158, 1.0)');
+  const precipColor = resolveCssVar(config.forecast.precipitation_color, 'rgba(132, 209, 253, 1.0)');
   const precipColorLight = lightenColor(precipColor) as string;
   const precipPerBarColor: string[] = (data.precip || []).map(
     (_v, i) => (hasBothBlocks && i >= stationCountForGap) ? precipColorLight
@@ -235,7 +240,7 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
   // columns over a 7-day window would crowd labels (the bar height
   // alone encodes the value at that density).
   const showSunshineLabels = showSunshine && config.forecast.type !== 'hourly';
-  const sunshineColor = config.forecast.sunshine_color || 'rgba(255, 215, 0, 1.0)';
+  const sunshineColor = resolveCssVar(config.forecast.sunshine_color, 'rgba(255, 215, 0, 1.0)');
   const sunshineColorLight = lightenColor(sunshineColor) as string;
   const sunshinePerBarColor: string[] = (data.sunshine || []).map(
     (_v, i) => (hasBothBlocks && i >= stationCountForGap) ? sunshineColorLight
@@ -258,8 +263,8 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
       type: 'line',
       data: data.tempHigh,
       yAxisID: 'TempAxis',
-      borderColor: config.forecast.temperature1_color,
-      backgroundColor: config.forecast.temperature1_color,
+      borderColor: temp1Color,
+      backgroundColor: temp1Color,
       segment: tempSegmentOpts,
     },
     {
@@ -267,8 +272,8 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
       type: 'line',
       data: data.tempLow,
       yAxisID: 'TempAxis',
-      borderColor: config.forecast.temperature2_color,
-      backgroundColor: config.forecast.temperature2_color,
+      borderColor: temp2Color,
+      backgroundColor: temp2Color,
       segment: tempSegmentOpts,
       hidden: !data.tempLowAvailable,
     },
@@ -331,7 +336,7 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
       anchor: 'center',
       backgroundColor: 'transparent',
       borderColor: 'transparent',
-      color: chart_text_color || config.forecast.temperature1_color,
+      color: chart_text_color || temp1Color,
       font: todayBoldFont,
     };
 
@@ -342,7 +347,7 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
       anchor: 'center',
       backgroundColor: 'transparent',
       borderColor: 'transparent',
-      color: chart_text_color || config.forecast.temperature2_color,
+      color: chart_text_color || temp2Color,
       font: todayBoldFont,
     };
   }
