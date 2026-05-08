@@ -267,7 +267,7 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
       if (sensorsConfig[key]) return true;
       const wxKey = SENSOR_TO_WEATHER_ATTR[key];
       if (!wxKey) return false;
-      const v = (wxAttrs as Record<string, unknown>)[wxKey];
+      const v = wxAttrs[wxKey];
       return v !== undefined && v !== null;
     };
     const cmap = (cfg.condition_mapping ?? {});

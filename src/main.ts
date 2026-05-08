@@ -397,7 +397,7 @@ set hass(hass: HassMain) {
 _extractSensorReadings(hass: HassMain): void {
   const sensors = this.config.sensors || {};
   const stateOf = (eid: string | undefined): HassEntityState | null =>
-    (eid && hass.states?.[eid]) ? (hass.states[eid] as HassEntityState) : null;
+    (eid && hass.states?.[eid]) ? hass.states[eid] : null;
   const valueOf = (eid: string | undefined): string | undefined => {
     const s = stateOf(eid);
     return s ? s.state : undefined;
@@ -435,7 +435,7 @@ _extractSensorReadings(hass: HassMain): void {
   // precipitation rate, and sunshine_duration have no weather-entity
   // counterpart and stay sensor-only.
   const wxEntity = this.config.weather_entity ? hass.states?.[this.config.weather_entity] : null;
-  const wxAttrs = (wxEntity?.attributes ?? {}) as Record<string, unknown>;
+  const wxAttrs = wxEntity?.attributes ?? {};
   const fromWxIfMissing = (sensorValue: string | undefined, key: string): string | undefined => {
     if (sensorValue !== undefined && sensorValue !== '') return sensorValue;
     const v = wxAttrs[key];
@@ -685,7 +685,7 @@ _syncDataSources(hass: HassMain): void {
   // HA frontend renames; failure mode is benign (animation stays on,
   // i.e. today's behaviour). Cheap to compute once at connect time.
   _detectInPreview(): boolean {
-    let host = ((this.getRootNode() as ShadowRoot | undefined)?.host) as Element | undefined;
+    let host = (this.getRootNode() as ShadowRoot | undefined)?.host;
     let safetyDepth = 0;
     while (host && safetyDepth++ < 32) {
       const tag = host.localName;
@@ -696,7 +696,7 @@ _syncDataSources(hass: HassMain): void {
       ) {
         return true;
       }
-      host = ((host.getRootNode() as ShadowRoot | undefined)?.host) as Element | undefined;
+      host = (host.getRootNode() as ShadowRoot | undefined)?.host;
     }
     return false;
   }
