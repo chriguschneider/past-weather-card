@@ -204,27 +204,36 @@ export function findInDateArray(
   if (!Array.isArray(arr)) return null;
 
   for (const item of arr) {
-    if (!item) continue;
-
-    // Case 4: tuple [date, value].
-    if (Array.isArray(item) && item.length >= 2) {
-      const k = String(item[0] || '').slice(0, 10);
-      if (k === dateString) return normalizeSunshineValue(item[1]);
-      continue;
-    }
-
-    if (typeof item !== 'object') continue;
-
-    const entry = item as DailySunshineEntry;
-    const dateRaw = entry.date ?? entry.datetime;
-    const k = dateRaw != null ? String(dateRaw).slice(0, 10) : null;
-    if (!k) continue;
-    if (k === dateString) {
-      const v = entry.value ?? entry.sunshine ?? entry.duration ?? entry.sunshine_duration;
-      return normalizeSunshineValue(v);
-    }
+    const result = matchDailyEntry(item, dateString);
+    if (result !== undefined) return result;
   }
   return null;
+}
+
+/** Per-item matcher used by findInDateArray's array loop.
+ *  Returns:
+ *    - undefined when the item doesn't address the requested date
+ *      (caller should `continue`),
+ *    - a normalized number when the item matches and carries a value,
+ *    - null when the item matches but the value is missing/invalid. */
+function matchDailyEntry(item: unknown, dateString: string): number | null | undefined {
+  if (!item) return undefined;
+
+  // Tuple [date, value].
+  if (Array.isArray(item)) {
+    if (item.length < 2) return undefined;
+    const k = String(item[0] || '').slice(0, 10);
+    return k === dateString ? normalizeSunshineValue(item[1]) : undefined;
+  }
+
+  if (typeof item !== 'object') return undefined;
+
+  const entry = item as DailySunshineEntry;
+  const dateRaw = entry.date ?? entry.datetime;
+  const k = dateRaw != null ? String(dateRaw).slice(0, 10) : null;
+  if (k !== dateString) return undefined;
+  const v = entry.value ?? entry.sunshine ?? entry.duration ?? entry.sunshine_duration;
+  return normalizeSunshineValue(v);
 }
 
 /** Compose the sunshine field on each forecast entry. Non-destructive
