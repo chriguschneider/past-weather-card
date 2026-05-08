@@ -132,9 +132,7 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
     if (!this._config) return;
 
     const newConfig: Record<string, unknown> = { ...this._config };
-    const newValue = event.target.checked !== undefined
-      ? event.target.checked
-      : event.target.value;
+    const newValue = event.target.checked ?? event.target.value;
 
     if (key.includes('.')) {
       const parts = key.split('.');
@@ -171,7 +169,7 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
       </div>`;
     }
 
-    const requested = parseInt(String(cfg.forecast_days != null ? cfg.forecast_days : (cfg.days || 7)), 10);
+    const requested = parseInt(String(cfg.forecast_days ?? (cfg.days || 7)), 10);
     const overshoots = Number.isFinite(requested) && av.forecastDays > 0 && requested > av.forecastDays;
     const baseLine = (t('sunshine_availability') || 'Sunshine: {past} past, {future} forecast days available')
       .replace('{past}', String(av.pastDays))
@@ -234,10 +232,10 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
   // rules across files.
   render(): TemplateResult {
     const t: TFn = (k) => tEditor(this.hass, k);
-    const cfg = (this._config || {}) as EditorContext['cfg'];
-    const fcfg = (cfg.forecast || {});
-    const sensorsConfig = (cfg.sensors || {});
-    const unitsConfig = (cfg.units || {});
+    const cfg = (this._config ?? {}) as EditorContext['cfg'];
+    const fcfg = (cfg.forecast ?? {});
+    const sensorsConfig = (cfg.sensors ?? {});
+    const unitsConfig = (cfg.units ?? {});
     const mode = this._mode;
     const isStation = mode === 'station';
     const isForecast = mode === 'forecast';
@@ -264,7 +262,7 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
     const wxStateRaw = wxEntityId
       ? (this.hass?.states as Record<string, { attributes?: Record<string, unknown> } | undefined> | undefined)?.[wxEntityId]
       : undefined;
-    const wxAttrs = wxStateRaw?.attributes || {};
+    const wxAttrs = wxStateRaw?.attributes ?? {};
     const hasLiveValue = (key: string): boolean => {
       if (sensorsConfig[key]) return true;
       const wxKey = SENSOR_TO_WEATHER_ATTR[key];
@@ -272,7 +270,7 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
       const v = (wxAttrs as Record<string, unknown>)[wxKey];
       return v !== undefined && v !== null;
     };
-    const cmap = (cfg.condition_mapping || {});
+    const cmap = (cfg.condition_mapping ?? {});
 
     const ctx: EditorContext = {
       t, cfg, fcfg, sensorsConfig, unitsConfig, cmap,

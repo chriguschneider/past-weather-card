@@ -90,7 +90,7 @@ export function setupActionHandler(card: ActionHandlerCard): void {
   // Cursor reflects "is anything wired" — refresh on every call so
   // toggling tap_action in the editor flips the hand cursor on/off
   // immediately, not only on first render.
-  const cfg0 = card.config || ({});
+  const cfg0 = card.config ?? ({});
   const isLive = (a: ActionConfig | undefined): boolean => !!(a?.action && a.action !== 'none');
   haCard.style.cursor = (isLive(cfg0.tap_action) || isLive(cfg0.hold_action) || isLive(cfg0.double_tap_action))
     ? 'pointer' : '';
@@ -104,7 +104,7 @@ export function setupActionHandler(card: ActionHandlerCard): void {
   let pendingTap: ReturnType<typeof setTimeout> | null = null;
 
   const fire = (kind: 'tap' | 'hold' | 'double_tap'): void => {
-    const cfg = card.config || ({});
+    const cfg = card.config ?? ({});
     const map: Record<typeof kind, ActionConfig | undefined> = {
       tap: cfg.tap_action,
       hold: cfg.hold_action,
@@ -227,7 +227,7 @@ export function runAction(card: ActionHandlerCard, actionConfig: ActionConfig | 
     if (dot < 0) return;
     const domain = svc.slice(0, dot);
     const service = svc.slice(dot + 1);
-    const data = actionConfig.data || actionConfig.service_data || {};
+    const data = actionConfig.data ?? actionConfig.service_data ?? {};
     const target = actionConfig.target;
     hass.callService(domain, service, data, target);
     return;

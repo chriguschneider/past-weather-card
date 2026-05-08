@@ -305,7 +305,7 @@ export function updateScrollDateStamps(
   const rightEl = block.querySelector<HTMLElement>('.scroll-date-right');
   if (!leftEl || !rightEl) return;
 
-  const total = (card.forecasts || []).length;
+  const total = (card.forecasts ?? []).length;
   if (!total || wrapper.scrollWidth <= 0) {
     leftEl.setAttribute('hidden', '');
     rightEl.setAttribute('hidden', '');

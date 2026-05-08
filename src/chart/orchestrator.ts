@@ -113,7 +113,7 @@ interface DataLabelsCtx {
 }
 
 export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unknown[] | undefined {
-  const { config: rawConfig, language, weather, forecastItems } = args || (card as unknown as DrawChartArgs);
+  const { config: rawConfig, language, weather, forecastItems } = args ?? (card as unknown as DrawChartArgs);
   // Silence "unused" lint — `weather` is part of the destructure-from-`card`
   // contract and may be needed by future callers (and was in the prior
   // signature). Discarding here keeps the destructure shape stable.
@@ -246,7 +246,7 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
   const showSunshineLabels = showSunshine && config.forecast.type !== 'hourly';
   const sunshineColor = resolveCssVar(config.forecast.sunshine_color, 'rgba(255, 215, 0, 1.0)');
   const sunshineColorLight = lightenColor(sunshineColor) as string;
-  const sunshinePerBarColor: string[] = (data.sunshine || []).map(
+  const sunshinePerBarColor: string[] = (data.sunshine ?? []).map(
     (_v, i) => (hasBothBlocks && i >= stationCountForGap) ? sunshineColorLight
             : (!hasBothBlocks && stationCountForGap === 0) ? sunshineColorLight
             : sunshineColor,

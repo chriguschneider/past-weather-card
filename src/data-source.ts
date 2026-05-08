@@ -232,7 +232,7 @@ export class MeasuredDataSource {
     // the data window aligned with 'hourly' avoids edge cases in
     // recorder-fetch + forecast-slice that misalign at runtime.
     const days = isToday ? 1 : cfgDays;
-    const sensors: SensorMap = this.config.sensors || {};
+    const sensors: SensorMap = this.config.sensors ?? {};
 
     const entityIds = Object.values(sensors).filter(Boolean) as string[];
     if (entityIds.length === 0) return [];
@@ -346,7 +346,7 @@ export class MeasuredDataSource {
     }
     if (samples.length < 2) return null;
 
-    const cm = this.config.condition_mapping || {};
+    const cm = this.config.condition_mapping ?? {};
     const threshold = (cm.sunshine_lux_ratio != null && Number.isFinite(cm.sunshine_lux_ratio))
       ? Number(cm.sunshine_lux_ratio)
       : 0.6;
@@ -369,7 +369,7 @@ export class MeasuredDataSource {
     const byDate: Record<string, BucketMap> = {};
     for (const [eid, series] of Object.entries(stats || {})) {
       const m: BucketMap = new Map();
-      for (const entry of series || []) {
+      for (const entry of series ?? []) {
         const d = new Date(entry.start);
         d.setHours(0, 0, 0, 0);
         m.set(d.getTime(), entry);
@@ -475,7 +475,7 @@ export class MeasuredDataSource {
     const clearsky_lux = lat != null
       ? clearSkyNoonLux(lat, dayOfYear)
       : 110000; // sea-level perpendicular-sun fallback (IES)
-    return classifyDay({ ...day, clearsky_lux }, this.config.condition_mapping || {});
+    return classifyDay({ ...day, clearsky_lux }, this.config.condition_mapping ?? {});
   }
 
   /** Hourly counterpart to _buildForecast. Emits one entry per hour
@@ -501,7 +501,7 @@ export class MeasuredDataSource {
     const byHour: Record<string, BucketMap> = {};
     for (const [eid, series] of Object.entries(stats || {})) {
       const m: BucketMap = new Map();
-      for (const entry of series || []) {
+      for (const entry of series ?? []) {
         const d = new Date(entry.start);
         d.setMinutes(0, 0, 0);
         m.set(d.getTime(), entry);
@@ -575,8 +575,8 @@ export class MeasuredDataSource {
       // to work with (otherwise temp_max/min stay null and several
       // classifier branches go through the no-data fallback).
       if (isLastHour) {
-        if (tempMax == null) tempMax = tempMean;
-        if (tempMin == null) tempMin = tempMean;
+        tempMax ??= tempMean;
+        tempMin ??= tempMean;
       }
 
       let precipitation = sensors.precipitation
@@ -640,7 +640,7 @@ export class MeasuredDataSource {
     const { hourStart: _ignored, clearsky_lux: _ignoredLux, ...inputs } = hour;
     void _ignored;
     void _ignoredLux;
-    return classifyDay({ ...inputs, clearsky_lux }, this.config.condition_mapping || {}, 'hour');
+    return classifyDay({ ...inputs, clearsky_lux }, this.config.condition_mapping ?? {}, 'hour');
   }
 }
 

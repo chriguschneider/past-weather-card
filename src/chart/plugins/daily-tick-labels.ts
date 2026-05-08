@@ -95,7 +95,7 @@ function drawHourlyTimeLabels(chart: ChartLike, ctx: RenderContext): void {
   // scroll, so the leftmost visible == i === 0.
   let leftmostVisibleIdx = 0;
   if (ctx.config.forecast.type === 'hourly') {
-    const canvas = (chart as { canvas?: HTMLElement | null }).canvas || null;
+    const canvas = (chart as { canvas?: HTMLElement | null }).canvas ?? null;
     const wrapper = canvas ? canvas.closest('.forecast-scroll.scrolling') : null;
     const scrollLeft = wrapper ? wrapper.scrollLeft : 0;
     leftmostVisibleIdx = findLeftmostVisibleTick(chart, scrollLeft);
