@@ -76,17 +76,29 @@ jobs:
         run: npm run rollup
 
       - name: Bundle budget
-        # Hard cap at 800 KB (current ~355 KB minified). Tripping this
-        # signals a regression in tree-shaking or an accidental large
-        # dep — investigate before merging.
+        # Hard cap at 800 KB raw / 250 KB gzipped (current ~355 KB raw /
+        # ~114 KB gzip). Tripping either signals a regression in
+        # tree-shaking or an accidental large dep — investigate before
+        # merging. Gzip cap added in v1.10 (#111): bytes-on-the-wire is
+        # what HA's frontend cache pays for, raw size only matters once
+        # the file lands.
         run: |
-          size=$(wc -c < dist/weather-station-card.js)
-          limit=$((800 * 1024))
-          echo "dist/weather-station-card.js: $size bytes (limit: $limit)"
-          if [ "$size" -gt "$limit" ]; then
-            echo "::error::Bundle exceeds 800 KB budget."
-            exit 1
+          raw=$(wc -c < dist/weather-station-card.js)
+          gzip=$(gzip -c dist/weather-station-card.js | wc -c)
+          raw_limit=$((800 * 1024))
+          gzip_limit=$((250 * 1024))
+          echo "dist/weather-station-card.js: $raw bytes raw (limit: $raw_limit)"
+          echo "                             $gzip bytes gzipped (limit: $gzip_limit)"
+          fail=0
+          if [ "$raw" -gt "$raw_limit" ]; then
+            echo "::error::Bundle exceeds 800 KB raw budget."
+            fail=1
           fi
+          if [ "$gzip" -gt "$gzip_limit" ]; then
+            echo "::error::Bundle exceeds 250 KB gzipped budget."
+            fail=1
+          fi
+          [ "$fail" = "0" ]
 
       - name: E2E + visual regression
         # Playwright spec suite under tests-e2e/. Boots the bundle
