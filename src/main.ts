@@ -188,6 +188,35 @@ static getConfigElement() {
   return document.createElement("weather-station-card-editor");
 }
 
+// HA calls assertConfig before showing the visual editor. Throwing here
+// makes HA fall back to the YAML editor instead of trying to render an
+// editor that can't represent the current config — better escape hatch
+// than letting setConfig throw and breaking the whole card.
+// Surface only structural problems the editor can't represent; the
+// runtime mode-aware checks live in setConfig.
+// deno-lint-ignore no-explicit-any
+static assertConfig(config: any): void {
+  if (!config || typeof config !== 'object') {
+    throw new Error('Config must be an object.');
+  }
+  if (config.condition_mapping !== undefined &&
+      (typeof config.condition_mapping !== 'object' || Array.isArray(config.condition_mapping))) {
+    throw new Error('`condition_mapping` must be an object of threshold overrides.');
+  }
+  if (config.sensors && typeof config.sensors === 'object') {
+    for (const [key, eid] of Object.entries(config.sensors)) {
+      if (typeof eid === 'string' && eid && !eid.startsWith('sensor.')) {
+        throw new Error(`sensors.${key} must be a sensor.* entity (got ${eid}).`);
+      }
+    }
+  }
+  if (config.weather_entity &&
+      typeof config.weather_entity === 'string' &&
+      !config.weather_entity.startsWith('weather.')) {
+    throw new Error('`weather_entity` must be a weather.* entity.');
+  }
+}
+
 static getStubConfig(hass: HassMain | null, _unusedEntities: string[], allEntities: string[]) {
   // Auto-detect station sensors by device_class. Fall back to entity-id
   // pattern matching for the precipitation case (no standard device_class
