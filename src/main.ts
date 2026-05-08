@@ -1030,9 +1030,7 @@ getWindDirIcon(deg: number | string): string {
       case "WNW":
         i = 8;
         break;
-      default:
-        i = 9;
-        break;
+      // No default — initial value of `i` (9) is the unknown-direction fallback.
     }
     return cardinalDirectionsIcon[i];
   }
@@ -1224,7 +1222,7 @@ drawChart(args?: any): unknown[] | undefined {
     const phase = this._chartPhase || 'draw';
     console.error(`[weather-station-card] chart ${phase} failed`, e);
     if (this.forecastChart) {
-      try { this.forecastChart.destroy(); } catch (_) { /* already gone */ }
+      try { this.forecastChart.destroy(); } catch { /* already gone */ }
       this.forecastChart = null;
     }
     const err = e as { message?: string } | null;
@@ -1240,7 +1238,7 @@ computeForecastData({ config, forecastItems } = this) {
   const forecast = this.forecasts ? this.forecasts.slice(0, forecastItems) : [];
   const dateTime = forecast.map((d) => d.datetime);
   const { tempHigh, tempLow } = hourlyTempSeries(forecast, {
-    roundTemp: config.forecast.round_temp == true,
+    roundTemp: config.forecast.round_temp === true,
   });
   const precip = forecast.map((d) => d.precipitation);
   // Sunshine columns. Each entry has a normalized hours value (or null
@@ -1594,7 +1592,7 @@ renderAttributes({ config, humidity, pressure, windSpeed, windDirection, sun, la
     }
   }
 
-  if (config.show_attributes == false)
+  if (config.show_attributes === false)
     return html``;
 
   const showHumidity = config.show_humidity !== false;
