@@ -25,8 +25,7 @@ export function renderStyleSection(editor: EditorLike, ctx: EditorContext): Temp
     editor._valueChanged(e, key);
 
   return html`
-    <!-- ─── D. Style & Colours ──────────────────────────────────── -->
-    <h3 class="section">${t('style_heading')}</h3>
+    <h3 class="section">${t('appearance_heading')}</h3>
 
     <h4 class="subsection">${t('chart_appearance_heading')}</h4>
     <div class="textfield-container">

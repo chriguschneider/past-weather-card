@@ -2,11 +2,13 @@ import { LitElement, html, type TemplateResult } from 'lit';
 import type { HomeAssistant } from './editor/types.js';
 import locale from './locale.js';
 import { readCachedAvailability } from './openmeteo-source.js';
-import { renderSetupSection } from './editor/render-setup.js';
+import { renderModeSection } from './editor/render-mode.js';
+import { renderForecastSection } from './editor/render-forecast.js';
 import { renderSensorsSection } from './editor/render-sensors.js';
 import { renderLayoutSection } from './editor/render-layout.js';
 import { renderStyleSection } from './editor/render-style.js';
 import { renderUnitsSection } from './editor/render-units.js';
+import { renderTapSection } from './editor/render-tap.js';
 import { renderAdvancedSection } from './editor/render-advanced.js';
 import type { EditorContext, EditorLike, TFn } from './editor/types.js';
 
@@ -283,6 +285,26 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
         details.advanced[open] > summary {
           margin-bottom: 12px;
         }
+        details.expert-section { margin-top: 24px; }
+        details.expert-section > summary {
+          cursor: pointer;
+          list-style: none;
+        }
+        details.expert-section > summary::-webkit-details-marker { display: none; }
+        details.expert-section > summary > h3.section-summary {
+          display: inline-block;
+          margin: 0;
+          padding-bottom: 4px;
+        }
+        details.expert-section > summary::before {
+          content: '▶';
+          display: inline-block;
+          width: 1em;
+          font-size: 0.85em;
+          transition: transform 0.15s;
+        }
+        details.expert-section[open] > summary::before { transform: rotate(90deg); }
+        details.expert-section[open] > summary { margin-bottom: 12px; }
         .switch-label { padding-left: 14px; }
         .switch-container { margin-bottom: 12px; display: flex; align-items: center; }
         .textfield-container {
@@ -316,11 +338,13 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
       </style>
 
       <div>
-        ${renderSetupSection(this, ctx)}
-        ${renderSensorsSection(this, ctx)}
+        ${renderModeSection(this, ctx)}
+        ${showsForecast ? renderForecastSection(this, ctx) : ''}
+        ${showsStation ? renderSensorsSection(this, ctx) : ''}
         ${renderLayoutSection(this, ctx)}
         ${renderStyleSection(this, ctx)}
         ${renderUnitsSection(this, ctx)}
+        ${renderTapSection(this, ctx)}
         ${renderAdvancedSection(this, ctx)}
       </div>
     `;

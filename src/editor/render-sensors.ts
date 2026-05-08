@@ -80,13 +80,16 @@ export function buildSensorsSchema(hass: HassWithStates | null): Array<{ name: s
 }
 
 export function renderSensorsSection(editor: EditorLike, ctx: EditorContext): TemplateResult {
-  const { t, sensorsConfig } = ctx;
+  const { t, cfg, sensorsConfig } = ctx;
   return html`
-    <!-- ─── B. Sensors ──────────────────────────────────────────── -->
-    <!-- No heading: ha-form renders each picker with its label as a
-         Material floating label inside the field, so the section is
-         self-explanatory. -->
-    <div class="textfield-container" style="margin-top:24px;">
+    <h3 class="section">${t('station_sensors_heading')}</h3>
+    <div class="textfield-container">
+      <ha-textfield
+        label="${t('days')}"
+        type="number" min="1" max="14"
+        .value="${cfg.days || 7}"
+        @change="${(e: Event) => editor._valueChanged(e as unknown as { target: { value: string } }, 'days')}"
+      ></ha-textfield>
       <ha-form
         .data=${sensorsConfig}
         .schema=${buildSensorsSchema(editor.hass)}

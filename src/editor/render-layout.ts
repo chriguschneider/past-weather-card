@@ -14,8 +14,7 @@ export function renderLayoutSection(editor: EditorLike, ctx: EditorContext): Tem
     editor._valueChanged(e, key);
 
   return html`
-    <!-- ─── C. Layout ───────────────────────────────────────────── -->
-    <h3 class="section">${t('layout_heading')}</h3>
+    <h3 class="section">${t('display_question_heading')}</h3>
 
     <h4 class="subsection">${t('main_panel_heading')}</h4>
     <div class="switch-container">

@@ -45,41 +45,38 @@ const CONDITION_MAPPING_FIELDS: ReadonlyArray<ConditionMappingField> = [
 export function renderAdvancedSection(editor: EditorLike, ctx: EditorContext): TemplateResult {
   const { t, cfg, cmap } = ctx;
   return html`
-    <!-- ─── F. Advanced ─────────────────────────────────────────── -->
-    <!--
-      forecast.type and forecast.number_of_forecasts are wired as of
-      v0.8 — both sit in the Setup block above next to weather_entity.
-    -->
-    <h3 class="section">${t('advanced_heading')}</h3>
-    <div class="textfield-container">
-      <ha-select
-        naturalMenuWidth fixedMenuPosition
-        label="${t('locale')}"
-        .value=${cfg.locale || ''}
-        @change=${(e: Event) => editor._valueChanged(e as unknown as { target: { value: string } }, 'locale')}
-        @closed=${(ev: Event) => ev.stopPropagation()}
-      >
-        ${LOCALE_OPTIONS.map(([value, label]) => html`
-          <ha-list-item .value=${value}>${label}</ha-list-item>
-        `)}
-      </ha-select>
-    </div>
+    <details class="expert-section">
+      <summary><h3 class="section section-summary">${t('expert_settings_heading')}</h3></summary>
+      <div class="textfield-container">
+        <ha-select
+          naturalMenuWidth fixedMenuPosition
+          label="${t('locale')}"
+          .value=${cfg.locale || ''}
+          @change=${(e: Event) => editor._valueChanged(e as unknown as { target: { value: string } }, 'locale')}
+          @closed=${(ev: Event) => ev.stopPropagation()}
+        >
+          ${LOCALE_OPTIONS.map(([value, label]) => html`
+            <ha-list-item .value=${value}>${label}</ha-list-item>
+          `)}
+        </ha-select>
+      </div>
 
-    <details class="advanced">
-      <summary>${t('condition_mapping_heading')}</summary>
-      <p class="hint">${t('condition_mapping_hint')}</p>
-      ${CONDITION_MAPPING_FIELDS.map((field) => html`
-        <div class="cmap-row">
-          <span title="${field.key}">${t(`cmap.${field.key}`)}</span>
-          <ha-textfield
-            type="number" step="any"
-            .value="${cmap[field.key] != null ? String(cmap[field.key]) : ''}"
-            placeholder="${field.defaultValue}"
-            @change="${(e: Event) => editor._conditionMappingChanged(e as unknown as { target: { value: string } }, field.key)}"
-          ></ha-textfield>
-          <span class="cmap-unit">${field.unit}</span>
-        </div>
-      `)}
+      <details class="advanced">
+        <summary>${t('condition_mapping_heading')}</summary>
+        <p class="hint">${t('condition_mapping_hint')}</p>
+        ${CONDITION_MAPPING_FIELDS.map((field) => html`
+          <div class="cmap-row">
+            <span title="${field.key}">${t(`cmap.${field.key}`)}</span>
+            <ha-textfield
+              type="number" step="any"
+              .value="${cmap[field.key] != null ? String(cmap[field.key]) : ''}"
+              placeholder="${field.defaultValue}"
+              @change="${(e: Event) => editor._conditionMappingChanged(e as unknown as { target: { value: string } }, field.key)}"
+            ></ha-textfield>
+            <span class="cmap-unit">${field.unit}</span>
+          </div>
+        `)}
+      </details>
     </details>
   `;
 }
