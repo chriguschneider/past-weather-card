@@ -28,3 +28,6 @@ playwright-report/
 # Coverage output — generated per-run by `vitest run --coverage`,
 # consumed by SonarCloud (when activated) via coverage/lcov.info.
 coverage/
+# Throwaway helper scripts used during a single editing session
+# (e.g. ESLint violation extractors during a sweep). Never shipped.
+.tmp-*
