@@ -716,3 +716,80 @@ describe('ForecastDataSource', () => {
     expect(unsub).toHaveBeenCalled();
   });
 });
+
+// ── MeasuredDataSource lifecycle / failure handling (v1.10.1 coverage uplift) ──
+
+describe('MeasuredDataSource lifecycle', () => {
+  const sensors = { temperature: 'sensor.temp' };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function makeHass(callWS) {
+    return { config: { latitude: 47.4 }, callWS };
+  }
+
+  it('subscribe → unsubscribe clears the polling timer', () => {
+    const callWS = vi.fn().mockResolvedValue({});
+    const ds = new MeasuredDataSource(makeHass(callWS), { sensors, days: 3 });
+    const unsub = ds.subscribe(() => {});
+    expect(callWS).toHaveBeenCalledTimes(1); // initial poll
+    unsub();
+    // Advance past one poll interval — no further calls because timer was cleared.
+    vi.advanceTimersByTime(60 * 1000);
+    expect(callWS).toHaveBeenCalledTimes(1);
+  });
+
+  it('unsubscribe is idempotent (second call is a no-op)', () => {
+    const ds = new MeasuredDataSource(makeHass(vi.fn().mockResolvedValue({})), { sensors, days: 3 });
+    const unsub = ds.subscribe(() => {});
+    unsub();
+    expect(() => unsub()).not.toThrow();
+  });
+
+  it('surfaces an error event after 3 consecutive fetch failures', async () => {
+    const callWS = vi.fn().mockRejectedValue(new Error('recorder down'));
+    const ds = new MeasuredDataSource(makeHass(callWS), { sensors, days: 3 });
+    const events = [];
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const unsub = ds.subscribe((e) => events.push(e));
+    // Wait for the initial fire-and-forget poll's promise to settle.
+    await vi.advanceTimersByTimeAsync(0);
+    // Two more polls via the interval (POLL_INTERVAL_MS = 1 hour).
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+    unsub(); // stop the interval before assertions
+    errSpy.mockRestore();
+    const errorEvents = events.filter((e) => e.error);
+    expect(errorEvents.length).toBeGreaterThanOrEqual(1);
+    expect(errorEvents[0].error).toMatch(/recorder down/);
+    expect(callWS).toHaveBeenCalledTimes(3);
+  });
+
+  it('resets the failure counter after a successful poll', async () => {
+    let calls = 0;
+    const callWS = vi.fn().mockImplementation(() => {
+      calls += 1;
+      // Fail on the first 2 calls, succeed thereafter.
+      if (calls <= 2) return Promise.reject(new Error('hiccup'));
+      return Promise.resolve({});
+    });
+    const ds = new MeasuredDataSource(makeHass(callWS), { sensors, days: 3 });
+    const events = [];
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const unsub = ds.subscribe((e) => events.push(e));
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+    unsub();
+    errSpy.mockRestore();
+    // Failure threshold is 3 consecutive — third call succeeded so the
+    // counter reset and no error event was emitted.
+    const errorEvents = events.filter((e) => e.error);
+    expect(errorEvents.length).toBe(0);
+  });
+});

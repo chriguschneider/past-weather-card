@@ -490,3 +490,120 @@ describe('readCachedAvailability', () => {
     expect(result.forecastDays).toBe(0);
   });
 });
+
+// ── ensureFresh error / no-op paths (v1.10.1 coverage uplift) ─────────
+
+describe('OpenMeteoSunshineSource.ensureFresh edge cases', () => {
+  const lat = 46.91;
+  const lon = 7.42;
+  const future = Date.now() + 1000 * 60 * 60 * 24 * 365; // far future
+
+  function makeStorage(initial = {}) {
+    const store = { ...initial };
+    return {
+      getItem: (k) => (k in store ? store[k] : null),
+      setItem: (k, v) => { store[k] = v; },
+      removeItem: (k) => { delete store[k]; },
+    };
+  }
+
+  it('returns early when no fetch implementation is available', async () => {
+    const src = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon,
+      fetchImpl: null, // explicit no-fetch
+      storage: makeStorage(),
+      now: () => 0,
+    });
+    // staleness check forces the path to ensureFresh's early-return for !_fetch
+    const result = await src.ensureFresh();
+    expect(result).toBeUndefined();
+  });
+
+  it('returns early when latitude / longitude are non-finite', async () => {
+    const fetchImpl = vi.fn();
+    const src = new OpenMeteoSunshineSource({
+      latitude: NaN, longitude: lon,
+      fetchImpl,
+      storage: makeStorage(),
+      now: () => 0,
+    });
+    await src.ensureFresh();
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('notifies the listener with ok:false when fetch returns a non-ok response', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: vi.fn(),
+    });
+    const listener = vi.fn();
+    const src = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon,
+      fetchImpl,
+      storage: makeStorage(),
+      now: () => 0,
+    });
+    src.setListener(listener);
+    // Silence the expected console.warn from the failure path.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await src.ensureFresh();
+    warnSpy.mockRestore();
+    expect(fetchImpl).toHaveBeenCalled();
+    const calls = listener.mock.calls.map((c) => c[0]);
+    expect(calls.some((c) => c?.ok === false)).toBe(true);
+  });
+
+  it('does NOT notify the listener when fetch is aborted (AbortError)', async () => {
+    const abortError = Object.assign(new Error('aborted'), { name: 'AbortError' });
+    const fetchImpl = vi.fn().mockRejectedValue(abortError);
+    const listener = vi.fn();
+    const src = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon,
+      fetchImpl,
+      storage: makeStorage(),
+      now: () => 0,
+    });
+    src.setListener(listener);
+    listener.mockClear();
+    await src.ensureFresh();
+    const errorCalls = listener.mock.calls.filter((c) => c[0]?.ok === false);
+    expect(errorCalls.length).toBe(0);
+  });
+
+  it('notifies the listener with ok:true on a successful fetch', async () => {
+    const json = vi.fn().mockResolvedValue({
+      daily: { time: ['2026-05-09'], sunshine_duration: [36000] },
+    });
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json });
+    const listener = vi.fn();
+    const src = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon,
+      fetchImpl,
+      storage: makeStorage(),
+      now: () => 1_000_000,
+    });
+    src.setListener(listener);
+    listener.mockClear();
+    await src.ensureFresh();
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith({ ok: true });
+  });
+
+  it('coalesces concurrent ensureFresh calls (one fetch for two waiters)', async () => {
+    let resolveFetch;
+    const fetchImpl = vi.fn().mockReturnValue(new Promise((r) => { resolveFetch = r; }));
+    const src = new OpenMeteoSunshineSource({
+      latitude: lat, longitude: lon,
+      fetchImpl,
+      storage: makeStorage(),
+      now: () => 0,
+    });
+    const p1 = src.ensureFresh();
+    const p2 = src.ensureFresh();
+    resolveFetch({ ok: true, json: () => Promise.resolve({ daily: { time: [], sunshine_duration: [] } }) });
+    await Promise.all([p1, p2]);
+    // Both calls collapsed into a single fetch.
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+});
