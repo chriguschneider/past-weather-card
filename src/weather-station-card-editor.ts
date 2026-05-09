@@ -168,6 +168,27 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
     this.requestUpdate();
   };
 
+  // Live-panel ha-form handler (v1.10.2 #87 migration). Both forms
+  // (main panel toggles + attributes toggles) feed top-level cfg.show_*
+  // keys, so a single handler can merge whichever bag arrives. Same
+  // diff/delete pattern as _chartTopChanged.
+  _livePanelChanged = (event: Event): void => {
+    if (!this._config) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.tagName.toLowerCase() !== 'ha-form') return;
+    const detail = (event as CustomEvent<{ value: Record<string, unknown> }>).detail;
+    const newConfig: Record<string, unknown> = { ...this._config };
+    for (const [key, value] of Object.entries(detail.value)) {
+      if (value === undefined || value === '') {
+        delete newConfig[key];
+      } else {
+        newConfig[key] = value;
+      }
+    }
+    this.configChanged(newConfig);
+    this.requestUpdate();
+  };
+
   _valueChanged = (event: { target: ValueChangedTarget }, key: string): void => {
     if (!this._config) return;
 

@@ -9,189 +9,154 @@
 //
 // Always visible — show_main is the gate for the panel itself; users
 // can keep it off in pure forecast mode if they prefer the chart alone.
+//
+// Schema-driven via <ha-form> (#87, v1.10.2). Two ha-form blocks split
+// the section visually:
+//   - Main panel: show_main + 6 sub-toggles (time-related toggles
+//     conditionally appear)
+//   - Attributes: show_attributes + 10 sub-toggles (each conditional
+//     on hasLiveValue / hasSensor for the matching metric)
 
 import { html, type TemplateResult } from 'lit';
-import type { EditorLike, EditorContext, ChangeEvt } from './types.js';
+import type { EditorLike, EditorContext } from './types.js';
+
+interface SchemaField {
+  name: string;
+  selector: object;
+}
+
+// Gate for the whole panel. Sub-toggles only appear when show_main is on.
+// `show_time` further gates two sub-toggles for seconds / 12-hour format.
+function buildMainPanelSchema(showMain: boolean, showTime: boolean): SchemaField[] {
+  const schema: SchemaField[] = [
+    { name: 'show_main', selector: { boolean: {} } },
+  ];
+  if (!showMain) return schema;
+  schema.push(
+    { name: 'show_temperature', selector: { boolean: {} } },
+    { name: 'show_current_condition', selector: { boolean: {} } },
+    { name: 'show_time', selector: { boolean: {} } },
+  );
+  if (showTime) {
+    schema.push(
+      { name: 'show_time_seconds', selector: { boolean: {} } },
+      { name: 'use_12hour_format', selector: { boolean: {} } },
+    );
+  }
+  schema.push(
+    { name: 'show_day', selector: { boolean: {} } },
+    { name: 'show_date', selector: { boolean: {} } },
+  );
+  return schema;
+}
+
+// Attributes-row gate + 10 sub-toggles. Each metric only appears in the
+// schema when its backing sensor (or weather-entity attribute, for
+// hasLiveValue) is configured — keeps the editor focused on what the
+// user can actually control.
+function buildAttributesSchema(
+  showAttrs: boolean,
+  hasLiveValue: (key: string) => boolean,
+  hasSensor: (key: string) => boolean,
+): SchemaField[] {
+  const schema: SchemaField[] = [
+    { name: 'show_attributes', selector: { boolean: {} } },
+  ];
+  if (!showAttrs) return schema;
+  if (hasLiveValue('humidity')) {
+    schema.push({ name: 'show_humidity', selector: { boolean: {} } });
+  }
+  if (hasLiveValue('pressure')) {
+    schema.push({ name: 'show_pressure', selector: { boolean: {} } });
+  }
+  if (hasLiveValue('dew_point')) {
+    schema.push({ name: 'show_dew_point', selector: { boolean: {} } });
+  }
+  if (hasSensor('precipitation')) {
+    schema.push({ name: 'show_precipitation', selector: { boolean: {} } });
+  }
+  if (hasLiveValue('uv_index')) {
+    schema.push({ name: 'show_uv_index', selector: { boolean: {} } });
+  }
+  if (hasSensor('illuminance')) {
+    schema.push({ name: 'show_illuminance', selector: { boolean: {} } });
+  }
+  if (hasSensor('sunshine_duration')) {
+    schema.push({ name: 'show_sunshine_duration', selector: { boolean: {} } });
+  }
+  if (hasLiveValue('wind_direction')) {
+    schema.push({ name: 'show_wind_direction', selector: { boolean: {} } });
+  }
+  if (hasLiveValue('wind_speed')) {
+    schema.push({ name: 'show_wind_speed', selector: { boolean: {} } });
+  }
+  if (hasLiveValue('gust_speed')) {
+    schema.push({ name: 'show_wind_gust_speed', selector: { boolean: {} } });
+  }
+  schema.push({ name: 'show_sun', selector: { boolean: {} } });
+  return schema;
+}
 
 export function renderLivePanelSection(editor: EditorLike, ctx: EditorContext): TemplateResult {
   const { t, cfg, hasSensor, hasLiveValue } = ctx;
-  const valueChanged = (e: ChangeEvt | { target: { value: string } }, key: string): void =>
-    editor._valueChanged(e, key);
+  const showMain = cfg.show_main === true;
+  const showTime = cfg.show_time === true;
+  const showAttrs = cfg.show_attributes === true;
+
+  const mainPanelSchema = buildMainPanelSchema(showMain, showTime);
+  const attributesSchema = buildAttributesSchema(showAttrs, hasLiveValue, hasSensor);
+
+  const mainPanelData = {
+    show_main: showMain,
+    show_temperature: cfg.show_temperature !== false,
+    show_current_condition: cfg.show_current_condition !== false,
+    show_time: showTime,
+    show_time_seconds: cfg.show_time_seconds === true,
+    use_12hour_format: cfg.use_12hour_format === true,
+    show_day: cfg.show_day === true,
+    show_date: cfg.show_date === true,
+  };
+  const attributesData = {
+    show_attributes: showAttrs,
+    show_humidity: cfg.show_humidity !== false,
+    show_pressure: cfg.show_pressure !== false,
+    show_dew_point: cfg.show_dew_point === true,
+    show_precipitation: cfg.show_precipitation === true,
+    show_uv_index: cfg.show_uv_index !== false,
+    show_illuminance: cfg.show_illuminance === true,
+    show_sunshine_duration: cfg.show_sunshine_duration === true,
+    show_wind_direction: cfg.show_wind_direction !== false,
+    show_wind_speed: cfg.show_wind_speed !== false,
+    show_wind_gust_speed: cfg.show_wind_gust_speed === true,
+    show_sun: cfg.show_sun === true,
+  };
+
+  const labelFor = (schema: { name: string }): string => t(schema.name);
 
   return html`
     <h3 class="section">${t('live_panel_heading')}</h3>
 
-    <!-- ─── Hauptpanel ────────────────────────────────────────────── -->
     <h4 class="subsection">${t('main_panel_heading')}</h4>
-    <div class="switch-container">
-      <ha-switch
-        @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_main')}"
-        .checked="${cfg.show_main === true}"
-      ></ha-switch>
-      <label class="switch-label">${t('show_main')}</label>
+    <div class="textfield-container">
+      <ha-form
+        .data=${mainPanelData}
+        .schema=${mainPanelSchema}
+        .hass=${editor.hass}
+        .computeLabel=${labelFor}
+        @value-changed=${editor._livePanelChanged}
+      ></ha-form>
     </div>
-    ${cfg.show_main === true ? html`
-      <div class="switch-container">
-        <ha-switch
-          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_temperature')}"
-          .checked="${cfg.show_temperature !== false}"
-        ></ha-switch>
-        <label class="switch-label">${t('show_temperature')}</label>
-      </div>
-      <div class="switch-container">
-        <ha-switch
-          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_current_condition')}"
-          .checked="${cfg.show_current_condition !== false}"
-        ></ha-switch>
-        <label class="switch-label">${t('show_current_condition')}</label>
-      </div>
-      <div class="switch-container">
-        <ha-switch
-          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_time')}"
-          .checked="${cfg.show_time === true}"
-        ></ha-switch>
-        <label class="switch-label">${t('show_time')}</label>
-      </div>
-      ${cfg.show_time === true ? html`
-        <div class="switch-container" style="padding-left:20px;">
-          <ha-switch
-            @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_time_seconds')}"
-            .checked="${cfg.show_time_seconds === true}"
-          ></ha-switch>
-          <label class="switch-label">${t('show_time_seconds')}</label>
-        </div>
-        <div class="switch-container" style="padding-left:20px;">
-          <ha-switch
-            @change="${(e: Event) => valueChanged(e as ChangeEvt, 'use_12hour_format')}"
-            .checked="${cfg.use_12hour_format === true}"
-          ></ha-switch>
-          <label class="switch-label">${t('use_12hour_format')}</label>
-        </div>
-      ` : ''}
-      <div class="switch-container">
-        <ha-switch
-          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_day')}"
-          .checked="${cfg.show_day === true}"
-        ></ha-switch>
-        <label class="switch-label">${t('show_day')}</label>
-      </div>
-      <div class="switch-container">
-        <ha-switch
-          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_date')}"
-          .checked="${cfg.show_date === true}"
-        ></ha-switch>
-        <label class="switch-label">${t('show_date')}</label>
-      </div>
-    ` : ''}
 
-    <!-- ─── Attributzeile ─────────────────────────────────────────── -->
     <h4 class="subsection">${t('attributes_heading')}</h4>
-    <div class="switch-container">
-      <ha-switch
-        @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_attributes')}"
-        .checked="${cfg.show_attributes === true}"
-      ></ha-switch>
-      <label class="switch-label">${t('show_attributes')}</label>
+    <div class="textfield-container">
+      <ha-form
+        .data=${attributesData}
+        .schema=${attributesSchema}
+        .hass=${editor.hass}
+        .computeLabel=${labelFor}
+        @value-changed=${editor._livePanelChanged}
+      ></ha-form>
     </div>
-    ${cfg.show_attributes === true && hasLiveValue('humidity') ? html`
-      <div class="switch-container">
-        <ha-switch
-          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_humidity')}"
-          .checked="${cfg.show_humidity !== false}"
-        ></ha-switch>
-        <label class="switch-label">${t('show_humidity')}</label>
-      </div>
-    ` : ''}
-    ${cfg.show_attributes === true && hasLiveValue('pressure') ? html`
-      <div class="switch-container">
-        <ha-switch
-          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_pressure')}"
-          .checked="${cfg.show_pressure !== false}"
-        ></ha-switch>
-        <label class="switch-label">${t('show_pressure')}</label>
-      </div>
-    ` : ''}
-    ${cfg.show_attributes === true && hasLiveValue('dew_point') ? html`
-      <div class="switch-container">
-        <ha-switch
-          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_dew_point')}"
-          .checked="${cfg.show_dew_point === true}"
-        ></ha-switch>
-        <label class="switch-label">${t('show_dew_point')}</label>
-      </div>
-    ` : ''}
-    ${cfg.show_attributes === true && hasSensor('precipitation') ? html`
-      <div class="switch-container">
-        <ha-switch
-          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_precipitation')}"
-          .checked="${cfg.show_precipitation === true}"
-        ></ha-switch>
-        <label class="switch-label">${t('show_precipitation')}</label>
-      </div>
-    ` : ''}
-    ${cfg.show_attributes === true && hasLiveValue('uv_index') ? html`
-      <div class="switch-container">
-        <ha-switch
-          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_uv_index')}"
-          .checked="${cfg.show_uv_index !== false}"
-        ></ha-switch>
-        <label class="switch-label">${t('show_uv_index')}</label>
-      </div>
-    ` : ''}
-    ${cfg.show_attributes === true && hasSensor('illuminance') ? html`
-      <div class="switch-container">
-        <ha-switch
-          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_illuminance')}"
-          .checked="${cfg.show_illuminance === true}"
-        ></ha-switch>
-        <label class="switch-label">${t('show_illuminance')}</label>
-      </div>
-    ` : ''}
-    ${cfg.show_attributes === true && hasSensor('sunshine_duration') ? html`
-      <div class="switch-container">
-        <ha-switch
-          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_sunshine_duration')}"
-          .checked="${cfg.show_sunshine_duration === true}"
-        ></ha-switch>
-        <label class="switch-label">${t('show_sunshine_duration')}</label>
-      </div>
-    ` : ''}
-    ${cfg.show_attributes === true && hasLiveValue('wind_direction') ? html`
-      <div class="switch-container">
-        <ha-switch
-          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_wind_direction')}"
-          .checked="${cfg.show_wind_direction !== false}"
-        ></ha-switch>
-        <label class="switch-label">${t('show_wind_direction')}</label>
-      </div>
-    ` : ''}
-    ${cfg.show_attributes === true && hasLiveValue('wind_speed') ? html`
-      <div class="switch-container">
-        <ha-switch
-          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_wind_speed')}"
-          .checked="${cfg.show_wind_speed !== false}"
-        ></ha-switch>
-        <label class="switch-label">${t('show_wind_speed')}</label>
-      </div>
-    ` : ''}
-    ${cfg.show_attributes === true && hasLiveValue('gust_speed') ? html`
-      <div class="switch-container">
-        <ha-switch
-          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_wind_gust_speed')}"
-          .checked="${cfg.show_wind_gust_speed === true}"
-        ></ha-switch>
-        <label class="switch-label">${t('show_wind_gust_speed')}</label>
-      </div>
-    ` : ''}
-    ${cfg.show_attributes === true ? html`
-      <div class="switch-container">
-        <ha-switch
-          @change="${(e: Event) => valueChanged(e as ChangeEvt, 'show_sun')}"
-          .checked="${cfg.show_sun === true}"
-        ></ha-switch>
-        <label class="switch-label">${t('show_sun')}</label>
-      </div>
-    ` : ''}
 
     <!-- Font-size knobs (current_temp_size, icons_size, time_size,
          day_date_size) live in DEFAULTS + YAML only — most users never
