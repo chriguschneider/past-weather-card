@@ -31,3 +31,6 @@ coverage/
 # Throwaway helper scripts used during a single editing session
 # (e.g. ESLint violation extractors during a sweep). Never shipped.
 .tmp-*
+# Phase artifacts from the AI workflow (~/.claude/skills/{brainstorm,grill-me,
+# plan-vertical,recap,verify-fix}). Transient — cleared at end of each task.
+.workflow/
