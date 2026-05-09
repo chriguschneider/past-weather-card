@@ -43,7 +43,6 @@ forecast — driven by sensor data, not a `weather.*` entity.
 - [Three modes](#three-modes)
 - [When to use this card vs. upstream `weather-chart-card`](#when-to-use-this-card-vs-upstream-weather-chart-card)
 - [Installation](#installation)
-- [Example config](#example-config)
 - [Configuration](#configuration) → [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
 - [Conditions, sensors, sunshine](#conditions-sensors-and-sunshine) → [docs/CONDITIONS.md](docs/CONDITIONS.md), [docs/SENSORS.md](docs/SENSORS.md)
 - [Troubleshooting](#troubleshooting) → [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
@@ -157,7 +156,7 @@ type: custom:weather-station-card
 days: 7
 sensors:
   temperature: sensor.YOUR_TEMPERATURE_SENSOR
-  # … (rest as in the example config below)
+  # … add humidity, pressure, wind, … as available
 weather_entity: weather.home   # any weather.* entity that supports daily forecast
 forecast_days: 7
 show_forecast: true            # turn the forecast block on
@@ -202,42 +201,6 @@ Or manually:
    `/local/community/weather-station-card/weather-station-card.js` as a
    JavaScript module.
 4. Hard-refresh and add the card.
-
-## Example config
-
-### Minimal — just a temperature curve
-
-```yaml
-type: custom:weather-station-card
-sensors:
-  temperature: sensor.YOUR_TEMPERATURE_SENSOR
-```
-
-### Typical — all common sensors
-
-```yaml
-type: custom:weather-station-card
-title: Weather Station
-days: 7
-show_main: true
-sensors:
-  temperature: sensor.YOUR_TEMPERATURE_SENSOR
-  humidity: sensor.YOUR_HUMIDITY_SENSOR
-  illuminance: sensor.YOUR_ILLUMINANCE_SENSOR
-  precipitation: sensor.YOUR_PRECIPITATION_SENSOR
-  pressure: sensor.YOUR_PRESSURE_SENSOR
-  wind_speed: sensor.YOUR_WIND_SPEED_SENSOR
-  gust_speed: sensor.YOUR_GUST_SPEED_SENSOR
-  wind_direction: sensor.YOUR_WIND_DIRECTION_SENSOR
-  uv_index: sensor.YOUR_UV_INDEX_SENSOR
-  dew_point: sensor.YOUR_DEW_POINT_SENSOR
-units:
-  speed: km/h
-```
-
-Only `sensors.temperature` is strictly required; the rest are optional but
-each one unlocks more chart series, attribute readouts, and live-condition
-classifier inputs.
 
 ## Configuration
 
