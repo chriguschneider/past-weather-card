@@ -184,9 +184,13 @@ mistake (#121) gets prevented next time.
 | Concept | YAML config key | Default value | Where it applies |
 | --- | --- | --- | --- |
 | **Sunshine** | `forecast.sunshine_color` | `rgba(255, 215, 0, 1.0)` (literal `#FFD700`) | Sunshine bar in the chart. |
-| **Precipitation** | `forecast.precipitation_color` | `var(--state-sensor-precipitation-color, rgba(132, 209, 253, 1.0))` | Precipitation bar in the chart. Forecast-side bars (combination mode) render at ~45 % alpha. |
-| **Temperature — high** | `forecast.temperature1_color` | `var(--state-sensor-temperature-color, rgba(255, 152, 0, 1.0))` | High-temperature curve and per-day high label. |
-| **Temperature — low** | `forecast.temperature2_color` | `var(--info-color, rgba(68, 115, 158, 1.0))` | Low-temperature curve and per-day low label. |
+| **Precipitation** | `forecast.precipitation_color` | `rgba(132, 209, 253, 1.0)` (literal light blue) | Precipitation bar in the chart. Forecast-side bars (combination mode) render at ~45 % alpha. |
+| **Temperature — high** | `forecast.temperature1_color` | `rgba(255, 152, 0, 1.0)` (literal orange) | High-temperature curve and per-day high label. |
+| **Temperature — low** | `forecast.temperature2_color` | `rgba(68, 115, 158, 1.0)` (literal dark blue) | Low-temperature curve and per-day low label. |
+
+All four defaults are literal RGBA. Users can still pass their own
+`var(--token, fallback)` in YAML for theme-driven colouring; the chart
+resolver expands user input the same way it always did.
 
 ### Choosing a theme token for a new concept colour
 
@@ -203,7 +207,10 @@ expects from the concept name. Two forms of the trap:
   bundle (`frontend/src/resources/styles.ts`), every theme that doesn't
   define it falls through to the literal fallback. That's fine — but it
   means the `var(...)` wrapper buys nothing. Drop it and use the
-  literal directly (`forecast.sunshine_color` does this).
+  literal directly. The v1.9.0 defaults wired `--state-sensor-precipitation-color`
+  and `--state-sensor-temperature-color` this way; both turned out to
+  not exist in HA at all (verified via code search on
+  home-assistant/frontend) and were dropped in the #121 follow-up.
 
 Verify a candidate token by opening HA's `developer-tools/template` and
 evaluating `{{ state_attr('frontend.styles', '--your-token') }}` against

@@ -10,20 +10,26 @@ export const DEFAULTS_FORECAST = {
   // beside the lines (no boxes around each value). 'style1' was the
   // legacy default with bordered boxes — kept as an opt-in.
   style: 'style2',
-  // Theme-aware colour defaults: each falls back to its v1.x literal
-  // when the user's HA theme doesn't define the token. Chart.js
-  // doesn't resolve var() natively in our pinned version, so the
-  // chart pipeline expands these via resolveCssVar at draw time.
-  // User-set RGBA / hex strings still win — pass-through.
-  temperature1_color: 'var(--state-sensor-temperature-color, rgba(255, 152, 0, 1.0))',
-  temperature2_color: 'var(--info-color, rgba(68, 115, 158, 1.0))',
-  precipitation_color: 'var(--state-sensor-precipitation-color, rgba(132, 209, 253, 1.0))',
+  // Concept-colour defaults are literal RGBA strings.
+  //
+  // Theme tokens were tried in v1.9.0 (--warning-color for sunshine,
+  // --info-color for low temp, --state-sensor-*-color for the rest),
+  // but two failure modes surfaced. The "warning"-shaped tokens are
+  // semantic mismatches — --warning-color is HA's alert orange/red,
+  // not "sunshine" (#121); --info-color is for info banners, not
+  // "cold" — and the --state-sensor-*-color tokens we picked don't
+  // actually exist in HA's frontend at all (verified via
+  // home-assistant/frontend code search), so the var() wrapper was
+  // dead weight that only obscured the literal.
+  //
+  // Users who want theme-driven colours can still pass their own
+  // var(...) string in YAML — resolveCssVar resolves user input the
+  // same way it always did. The defaults are predictable; bespoke
+  // theming stays opt-in.
+  temperature1_color: 'rgba(255, 152, 0, 1.0)',
+  temperature2_color: 'rgba(68, 115, 158, 1.0)',
+  precipitation_color: 'rgba(132, 209, 253, 1.0)',
   show_sunshine: false,
-  // Sun is universally yellow — every HA "yellow"-ish token
-  // (--warning-color, --label-badge-yellow, --state-sun-color) drifts
-  // to orange / amber / red in different themes. The literal stays
-  // predictable; users who want theme-driven sunshine can pass their
-  // own var(...) string in YAML.
   sunshine_color: 'rgba(255, 215, 0, 1.0)',
   condition_icons: true,
   // DEPRECATED v1.9.x — see renderWind in main.ts. Kept as a hard
