@@ -185,59 +185,77 @@ export function setupActionHandler(card: ActionHandlerCard): void {
  *  Exported so unit tests can exercise each branch without rigging up
  *  pointer-event timing; the runtime path is via the fire() closure
  *  inside `setupActionHandler` above. */
+// Per-action handlers. Each takes the card + the action's config (plus the
+// resolved fallback entity for actions that may target a fallback) and
+// performs the side-effect. None return a value; runAction is fire-and-forget.
+
+function _runMoreInfo(card: ActionHandlerCard, cfg: ActionConfig, fallback: string): void {
+  const entityId = cfg.entity || fallback;
+  if (entityId) card._fire('hass-more-info', { entityId });
+}
+
+function _runNavigate(cfg: ActionConfig): void {
+  if (!cfg.navigation_path) return;
+  window.history.pushState(null, '', cfg.navigation_path);
+  // HA listens for `location-changed` on window to drive the router;
+  // bubbles:true so it reaches the panel regardless of who fired it.
+  const ev = new Event('location-changed', { bubbles: true, composed: true, cancelable: false }) as Event & { detail?: unknown };
+  ev.detail = { replace: cfg.navigation_replace === true };
+  window.dispatchEvent(ev);
+}
+
+function _runUrl(cfg: ActionConfig): void {
+  if (!cfg.url_path) return;
+  window.open(cfg.url_path);
+}
+
+function _runToggle(card: ActionHandlerCard, cfg: ActionConfig, fallback: string): void {
+  const entityId = cfg.entity || fallback;
+  if (!entityId || !card._hass) return;
+  const domain = entityId.split('.')[0];
+  card._hass.callService(domain, 'toggle', { entity_id: entityId });
+}
+
+function _runService(card: ActionHandlerCard, cfg: ActionConfig): void {
+  // HA renamed `service` → `perform_action` in 2024.8; keep both for
+  // backwards compatibility with older YAML.
+  const svc = cfg.perform_action || cfg.service;
+  if (!svc || !card._hass) return;
+  const dot = svc.indexOf('.');
+  if (dot < 0) return;
+  const domain = svc.slice(0, dot);
+  const service = svc.slice(dot + 1);
+  const data = cfg.data ?? cfg.service_data ?? {};
+  card._hass.callService(domain, service, data, cfg.target);
+}
+
+function _runAssist(card: ActionHandlerCard, cfg: ActionConfig): void {
+  card._fire('hass-action-assist', cfg);
+}
+
+function _runFireDomEvent(card: ActionHandlerCard, cfg: ActionConfig): void {
+  card._fire('ll-custom', cfg);
+}
+
+// Dispatcher table — keeps runAction itself a thin dispatch instead of an
+// 8-arm if/else chain. `perform-action` and the legacy `call-service` alias
+// share the same handler.
+type ActionRunner = (card: ActionHandlerCard, cfg: ActionConfig, fallback: string) => void;
+const ACTION_RUNNERS: Record<string, ActionRunner> = {
+  'more-info': _runMoreInfo,
+  navigate: (_card, cfg) => _runNavigate(cfg),
+  url: (_card, cfg) => _runUrl(cfg),
+  toggle: _runToggle,
+  'perform-action': (card, cfg) => _runService(card, cfg),
+  'call-service': (card, cfg) => _runService(card, cfg),
+  assist: (card, cfg) => _runAssist(card, cfg),
+  'fire-dom-event': (card, cfg) => _runFireDomEvent(card, cfg),
+};
+
 export function runAction(card: ActionHandlerCard, actionConfig: ActionConfig | undefined): void {
   if (!actionConfig?.action || actionConfig.action === 'none') return;
-  const hass = card._hass;
+  const runner = ACTION_RUNNERS[actionConfig.action];
+  if (!runner) return;
   const fallbackEntity = (card.config?.sensors?.temperature) || '';
-  const action = actionConfig.action;
-
-  if (action === 'more-info') {
-    const entityId = actionConfig.entity || fallbackEntity;
-    if (entityId) card._fire('hass-more-info', { entityId });
-    return;
-  }
-  if (action === 'navigate') {
-    if (!actionConfig.navigation_path) return;
-    window.history.pushState(null, '', actionConfig.navigation_path);
-    // HA listens for `location-changed` on window to drive the router;
-    // bubbles:true so it reaches the panel regardless of who fired it.
-    const ev = new Event('location-changed', { bubbles: true, composed: true, cancelable: false }) as Event & { detail?: unknown };
-    ev.detail = { replace: actionConfig.navigation_replace === true };
-    window.dispatchEvent(ev);
-    return;
-  }
-  if (action === 'url') {
-    if (!actionConfig.url_path) return;
-    window.open(actionConfig.url_path);
-    return;
-  }
-  if (action === 'toggle') {
-    const entityId = actionConfig.entity || fallbackEntity;
-    if (!entityId || !hass) return;
-    const domain = entityId.split('.')[0];
-    hass.callService(domain, 'toggle', { entity_id: entityId });
-    return;
-  }
-  if (action === 'perform-action' || action === 'call-service') {
-    // HA renamed `service` → `perform_action` in 2024.8; keep both for
-    // backwards compatibility with older YAML.
-    const svc = actionConfig.perform_action || actionConfig.service;
-    if (!svc || !hass) return;
-    const dot = svc.indexOf('.');
-    if (dot < 0) return;
-    const domain = svc.slice(0, dot);
-    const service = svc.slice(dot + 1);
-    const data = actionConfig.data ?? actionConfig.service_data ?? {};
-    const target = actionConfig.target;
-    hass.callService(domain, service, data, target);
-    return;
-  }
-  if (action === 'assist') {
-    card._fire('hass-action-assist', actionConfig);
-    return;
-  }
-  if (action === 'fire-dom-event') {
-    card._fire('ll-custom', actionConfig);
-    
-  }
+  runner(card, actionConfig, fallbackEntity);
 }

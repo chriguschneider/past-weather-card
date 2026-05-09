@@ -479,70 +479,92 @@ _extractSensorReadings(hass: HassMain): void {
 // rate without extra history and would otherwise spuriously trigger
 // 'rainy' on a dry day.
 _classifyLiveCondition(hass: HassMain): void {
+  const inputs = this._resolveLiveClassifierInputs(hass);
+  const currentCondition = this._pickLiveCondition(inputs);
+  this.weather = this._synthesizeWeatherEntity(currentCondition);
+}
+
+// Pull the numeric inputs the live-condition classifier needs out of
+// hass.states. Detects whether the precipitation sensor reports a rate
+// (unit ends in /h) — cumulative counters can't be turned into an
+// instantaneous rate without history and would otherwise trigger
+// 'rainy' spuriously on a dry day.
+// deno-lint-ignore no-explicit-any
+_resolveLiveClassifierInputs(hass: HassMain): any {
   const sensors = this.config.sensors || {};
   const wxEntity = this.config.weather_entity ? hass.states?.[this.config.weather_entity] : null;
-  const wxState = wxEntity?.state;
   const precipState = sensors.precipitation ? hass.states?.[sensors.precipitation] : null;
   const illuminanceState = sensors.illuminance ? hass.states?.[sensors.illuminance] : null;
-
-  const nowTemp = parseNumericSafe(this.temperature);
-  const luxNow = parseNumericSafe(illuminanceState?.state);
   const precipUnitRaw = precipState?.attributes?.unit_of_measurement;
   const precipUnit = typeof precipUnitRaw === 'string' ? precipUnitRaw : '';
   const precipIsRate = /\/(h|hr|hour)$/i.test(precipUnit);
-  const precipRateNow = precipIsRate ? parseNumericSafe(precipState?.state) : null;
-  const lat = hass.config?.latitude;
-  const lon = hass.config?.longitude;
 
-  // Memoize: classifyDay walks an ~80-line decision tree and clearSkyLuxAt
-  // does ~4 trig ops + cos. Across the 2–5 hass ticks per second that
-  // arrive when many entities update at once, the inputs rarely change
-  // — sensors update at a far slower cadence than HA's WebSocket fan-out.
-  // Cache key buckets the time at minute precision so clearskyNow drift
-  // doesn't break the cache (lux moves ~50 lx/minute under a clear sky,
-  // immaterial to the cloud-ratio threshold). Cache invalidates on
-  // setConfig (condition_mapping changes) — see setConfig.
+  return {
+    sensors,
+    wxState: wxEntity?.state,
+    nowTemp: parseNumericSafe(this.temperature),
+    luxNow: parseNumericSafe(illuminanceState?.state),
+    precipRateNow: precipIsRate ? parseNumericSafe(precipState?.state) : null,
+    lat: hass.config?.latitude,
+    lon: hass.config?.longitude,
+  };
+}
+
+// Memoize: classifyDay walks an ~80-line decision tree and clearSkyLuxAt
+// does ~4 trig ops + cos. Across the 2–5 hass ticks per second that
+// arrive when many entities update at once, the inputs rarely change —
+// sensors update at a far slower cadence than HA's WebSocket fan-out.
+// Cache key buckets the time at minute precision so clearskyNow drift
+// doesn't break the cache (lux moves ~50 lx/minute under a clear sky,
+// immaterial to the cloud-ratio threshold). Cache invalidates on
+// setConfig (condition_mapping changes) — see setConfig.
+// deno-lint-ignore no-explicit-any
+_pickLiveCondition(inputs: any): string | undefined {
+  const { sensors, wxState, nowTemp, luxNow, precipRateNow, lat, lon } = inputs;
   const minuteKey = Math.floor(Date.now() / 60_000);
   const conditionKey =
     nowTemp + '|' + luxNow + '|' + precipRateNow + '|' +
     this.humidity + '|' + this.windSpeed + '|' + this.wind_gust_speed + '|' +
     this.dew_point + '|' + minuteKey;
-  let currentCondition;
-  if (this._liveConditionKey === conditionKey) {
-    currentCondition = this._liveCondition;
-  } else if (!sensors.temperature && wxState) {
-    // No station temperature sensor — defer to the weather entity's
-    // own state for the live condition. Forecast-only mode lands here.
-    currentCondition = wxState;
+  if (this._liveConditionKey === conditionKey) return this._liveCondition;
+
+  // No station temperature sensor — defer to the weather entity's own
+  // state for the live condition. Forecast-only mode lands here.
+  if (!sensors.temperature && wxState) {
     this._liveConditionKey = conditionKey;
-    this._liveCondition = currentCondition;
-  } else {
-    const clearskyNow = lat != null && lon != null
-      ? clearSkyLuxAt(lat, lon, new Date())
-      : 110000;
-    // precip_total here is precipRateNow — an instantaneous rate (mm/h)
-    // when the sensor reports a /h unit. Use period: 'hour' so the
-    // precipitation thresholds match the rate semantics, not 24 h totals.
-    currentCondition = classifyDay({
-      temp_max: nowTemp,
-      temp_min: nowTemp,
-      humidity: parseNumericSafe(this.humidity),
-      lux_max: luxNow,
-      precip_total: precipRateNow,
-      wind_mean: parseNumericSafe(this.windSpeed),
-      gust_max: parseNumericSafe(this.wind_gust_speed),
-      dew_point_mean: parseNumericSafe(this.dew_point),
-      clearsky_lux: clearskyNow,
-    }, this.config.condition_mapping || {}, 'hour');
-    this._liveConditionKey = conditionKey;
-    this._liveCondition = currentCondition;
+    this._liveCondition = wxState;
+    return wxState;
   }
 
-  // Synthesized stand-in for the original weather entity. The *_unit fields
-  // here represent the SOURCE units (what the data layer actually emits);
-  // the conversion code compares them against this.unitSpeed / unitPressure
-  // to decide whether to convert.
-  this.weather = {
+  const clearskyNow = lat != null && lon != null
+    ? clearSkyLuxAt(lat, lon, new Date())
+    : 110000;
+  // precip_total here is precipRateNow — an instantaneous rate (mm/h)
+  // when the sensor reports a /h unit. Use period: 'hour' so the
+  // precipitation thresholds match the rate semantics, not 24 h totals.
+  const condition = classifyDay({
+    temp_max: nowTemp,
+    temp_min: nowTemp,
+    humidity: parseNumericSafe(this.humidity),
+    lux_max: luxNow,
+    precip_total: precipRateNow,
+    wind_mean: parseNumericSafe(this.windSpeed),
+    gust_max: parseNumericSafe(this.wind_gust_speed),
+    dew_point_mean: parseNumericSafe(this.dew_point),
+    clearsky_lux: clearskyNow,
+  }, this.config.condition_mapping || {}, 'hour');
+  this._liveConditionKey = conditionKey;
+  this._liveCondition = condition;
+  return condition;
+}
+
+// Synthesized stand-in for the original weather entity. The *_unit
+// fields here represent the SOURCE units (what the data layer actually
+// emits); the conversion code compares them against this.unitSpeed /
+// unitPressure to decide whether to convert.
+// deno-lint-ignore no-explicit-any
+_synthesizeWeatherEntity(currentCondition: string | undefined): any {
+  return {
     state: currentCondition,
     attributes: {
       wind_speed_unit: this._sourceWindUnit,
@@ -763,85 +785,19 @@ _syncDataSources(hass: HassMain): void {
     // MeasuredDataSource fetches with period:'hour' when the type is
     // hourly — so the previous show_station-override at hourly is gone.
     const { config: effectiveCfg } = normalizeForecastMode(this.config);
-    let station = effectiveCfg.show_station !== false ? (this._stationData || []) : [];
-    let forecast = [];
-    // Midnight-transition guards (see filterMidnightStaleForecast and
-    // dropEmptyStationToday below). Cached locally so the same `today`
-    // boundary is used for both station + forecast filters within one
-    // refresh tick.
     const todayStartMs = startOfTodayMs();
     const fcType = effectiveCfg.forecast.type;
     const isToday = fcType === 'today';
-    if (effectiveCfg.show_forecast === true && effectiveCfg.weather_entity) {
-      // `days` / `forecast_days` are the data-loading window in days for
-      // both modes; at hourly each day expands to 24 buckets.
-      //
-      // 'today' caps the forecast slice at end-of-today (tomorrow's
-      // local midnight). Combined with the data source's
-      // today-midnight-to-now station window, the chart shows exactly
-      // today's 24 hours — no yesterday spill, no tomorrow spill.
-      const isHourlyish = fcType === 'hourly' || isToday;
-      const slotsPerUnit = isHourlyish ? 24 : 1;
-      const cap = parseInt(effectiveCfg.forecast_days, 10);
-      const dayLimit = cap > 0 ? cap : (parseInt(effectiveCfg.days, 10) || 7);
-      // 'today': in COMBINATION the forecast block carries 12 hours
-      // forward (paired with 12 station hours back). In FORECAST-ONLY
-      // (no station block) the forecast expands to the full 24 hours
-      // forward so the user still sees a one-day view.
-      const isForecastOnly = isToday && effectiveCfg.show_station === false;
-      const todayLimit = isForecastOnly ? 24 : 12;
-      const limit = isToday ? todayLimit : dayLimit * slotsPerUnit;
-      forecast = filterMidnightStaleForecast(this._forecastData || [], todayStartMs)
-        .slice(0, limit);
-    }
+
+    let station = effectiveCfg.show_station !== false ? (this._stationData || []) : [];
+    const forecast = this._sliceForecast(effectiveCfg, fcType, isToday, todayStartMs);
     station = [...dropEmptyStationToday(station, todayStartMs)];
     this._ensureSunshineSource(effectiveCfg);
+
     if (isToday) {
-      // 'today' flow:
-      //   1. Apply HOURLY sunshine to each entry (per-hour value).
-      //   2. 3-hour aggregate: temp/wind/etc. mean, precip+sunshine
-      //      SUM, condition mode. Day-length stays at hourly
-      //      semantics (1h per block × 3 = 3h denominator).
-      //   3. Recompute day_length to 3 (3 hours per block).
-      const merged = overlayFromOpenMeteo(
-        [...station, ...forecast],
-        this._hass,
-        this._sunshineSource,
-        'hourly',
-      );
-      const stationLen = station.length;
-      const stationWithSun = merged.slice(0, stationLen);
-      const forecastWithSun = merged.slice(stationLen);
-      station = aggregateThreeHour(stationWithSun);
-      forecast = aggregateThreeHour(forecastWithSun);
-      // Each 3h block represents 3 hours of "day". Used as the
-      // denominator for the sunshine fraction (sunshine_h / 3).
-      for (const e of station) e.day_length = 3;
-      for (const e of forecast) e.day_length = 3;
-      this._stationCount = station.length;
-      this._forecastCount = forecast.length;
-      this.forecasts = [...station, ...forecast];
+      this._buildTodayForecasts(station, forecast);
     } else {
-      this._stationCount = station.length;
-      this._forecastCount = forecast.length;
-      const granularity = fcType === 'hourly' ? 'hourly' : 'daily';
-      // F3 fallback (#6): when neither sensor.sunshine_duration nor
-      // Open-Meteo resolves a forecast value, the configured exponent
-      // (default 1.7, tunable via condition_mapping.sunshine_cloud_exponent)
-      // lets attachSunshine derive the value from forecast.cloud_coverage
-      // via the Kasten formula. Setting the exponent to null disables
-      // F3 entirely.
-      const cm = effectiveCfg.condition_mapping || {};
-      const cloudExp = (cm.sunshine_cloud_exponent != null && Number.isFinite(cm.sunshine_cloud_exponent))
-        ? Number(cm.sunshine_cloud_exponent)
-        : 1.7;
-      this.forecasts = overlayFromOpenMeteo(
-        [...station, ...forecast],
-        this._hass,
-        this._sunshineSource,
-        granularity,
-        granularity === 'daily' ? cloudExp : null,
-      );
+      this._buildDailyOrHourlyForecasts(station, forecast, fcType, effectiveCfg);
     }
     this.requestUpdate();
     // measureCard() recomputes forecastItems from the new this.forecasts
@@ -853,6 +809,76 @@ _syncDataSources(hass: HassMain): void {
     // shadow root. Skip the redraw in that window — firstUpdated() will
     // call measureCard() once the DOM is in place.
     if (this.shadowRoot) this.measureCard();
+  }
+
+  // `days` / `forecast_days` define the data-loading window for both
+  // daily and hourly modes; at hourly each day expands to 24 buckets.
+  // 'today' caps the forecast slice at end-of-today; combination splits
+  // 12 station + 12 forecast hours, forecast-only expands to 24.
+  // deno-lint-ignore no-explicit-any
+  _sliceForecast(effectiveCfg: any, fcType: string, isToday: boolean, todayStartMs: number): any[] {
+    if (effectiveCfg.show_forecast !== true || !effectiveCfg.weather_entity) return [];
+    const isHourlyish = fcType === 'hourly' || isToday;
+    const slotsPerUnit = isHourlyish ? 24 : 1;
+    const cap = parseInt(effectiveCfg.forecast_days, 10);
+    const dayLimit = cap > 0 ? cap : (parseInt(effectiveCfg.days, 10) || 7);
+    const isForecastOnly = isToday && effectiveCfg.show_station === false;
+    const todayLimit = isForecastOnly ? 24 : 12;
+    const limit = isToday ? todayLimit : dayLimit * slotsPerUnit;
+    return filterMidnightStaleForecast(this._forecastData || [], todayStartMs)
+      .slice(0, limit);
+  }
+
+  // 'today' flow:
+  //   1. Apply HOURLY sunshine to each entry (per-hour value).
+  //   2. 3-hour aggregate: temp/wind/etc. mean, precip+sunshine SUM,
+  //      condition mode. Day-length stays at hourly semantics
+  //      (1h per block × 3 = 3h denominator).
+  //   3. Recompute day_length to 3 (3 hours per block).
+  // deno-lint-ignore no-explicit-any
+  _buildTodayForecasts(station: any[], forecast: any[]): void {
+    const merged = overlayFromOpenMeteo(
+      [...station, ...forecast],
+      this._hass,
+      this._sunshineSource,
+      'hourly',
+    );
+    const stationLen = station.length;
+    const stationWithSun = merged.slice(0, stationLen);
+    const forecastWithSun = merged.slice(stationLen);
+    const stationAgg = aggregateThreeHour(stationWithSun);
+    const forecastAgg = aggregateThreeHour(forecastWithSun);
+    // Each 3h block represents 3 hours of "day". Used as the denominator
+    // for the sunshine fraction (sunshine_h / 3).
+    for (const e of stationAgg) e.day_length = 3;
+    for (const e of forecastAgg) e.day_length = 3;
+    this._stationCount = stationAgg.length;
+    this._forecastCount = forecastAgg.length;
+    this.forecasts = [...stationAgg, ...forecastAgg];
+  }
+
+  // Daily / hourly flow: overlay sunshine at the matching granularity.
+  // F3 fallback (#6): when neither sensor.sunshine_duration nor Open-Meteo
+  // resolves a forecast value, the configured exponent
+  // (default 1.7, tunable via condition_mapping.sunshine_cloud_exponent)
+  // lets attachSunshine derive the value from forecast.cloud_coverage via
+  // the Kasten formula. Setting the exponent to null disables F3 entirely.
+  // deno-lint-ignore no-explicit-any
+  _buildDailyOrHourlyForecasts(station: any[], forecast: any[], fcType: string, effectiveCfg: any): void {
+    this._stationCount = station.length;
+    this._forecastCount = forecast.length;
+    const granularity = fcType === 'hourly' ? 'hourly' : 'daily';
+    const cm = effectiveCfg.condition_mapping || {};
+    const cloudExp = (cm.sunshine_cloud_exponent != null && Number.isFinite(cm.sunshine_cloud_exponent))
+      ? Number(cm.sunshine_cloud_exponent)
+      : 1.7;
+    this.forecasts = overlayFromOpenMeteo(
+      [...station, ...forecast],
+      this._hass,
+      this._sunshineSource,
+      granularity,
+      granularity === 'daily' ? cloudExp : null,
+    );
   }
 
   // Lazy-init the Open-Meteo source on first use, tear it down when the
