@@ -75,13 +75,11 @@ export interface EditorContext {
     forecast?: Record<string, unknown>;
     sensors?: Record<string, string>;
     units?: Record<string, string>;
-    condition_mapping?: Record<string, number>;
     [k: string]: unknown;
   };
   fcfg: Record<string, unknown>;
   sensorsConfig: Record<string, string>;
   unitsConfig: Record<string, string>;
-  cmap: Record<string, number>;
   mode: 'station' | 'forecast' | 'combination';
   showsStation: boolean;
   showsForecast: boolean;
