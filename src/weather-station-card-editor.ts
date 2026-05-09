@@ -375,10 +375,9 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
       const v = wxAttrs[wxKey];
       return v !== undefined && v !== null;
     };
-    const cmap = (cfg.condition_mapping ?? {});
 
     const ctx: EditorContext = {
-      t, cfg, fcfg, sensorsConfig, unitsConfig, cmap,
+      t, cfg, fcfg, sensorsConfig, unitsConfig,
       mode, showsStation, showsForecast,
       hasSensor, hasLiveValue,
     };
@@ -471,21 +470,6 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
           font-size: 0.85rem;
           color: var(--secondary-text-color);
           margin: 4px 0 12px;
-        }
-        .cmap-row {
-          display: grid;
-          grid-template-columns: 1fr 80px 60px;
-          gap: 8px;
-          align-items: center;
-          margin-bottom: 6px;
-        }
-        .cmap-default {
-          font-size: 0.8rem;
-          color: var(--secondary-text-color);
-        }
-        .cmap-unit {
-          font-size: 0.85rem;
-          color: var(--secondary-text-color);
         }
         .editor-footer {
           margin-top: 24px;
