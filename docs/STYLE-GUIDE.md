@@ -173,6 +173,52 @@ For light/dark adaptive rendering on GitHub:
 
 All images carry meaningful `alt` text.
 
+## Card colour tokens
+
+Single source of truth for the card's visual colours. Every concept
+colour exposed to users via YAML is listed here together with where it
+applies in the rendered card. When adding a new colourable concept,
+extend this table first — that's how the `--warning-color`-as-sunshine
+mistake (#121) gets prevented next time.
+
+| Concept | YAML config key | Default value | Where it applies |
+| --- | --- | --- | --- |
+| **Sunshine** | `forecast.sunshine_color` | `rgba(255, 215, 0, 1.0)` (literal `#FFD700`) | Sunshine bar in the chart. |
+| **Precipitation** | `forecast.precipitation_color` | `var(--state-sensor-precipitation-color, rgba(132, 209, 253, 1.0))` | Precipitation bar in the chart. Forecast-side bars (combination mode) render at ~45 % alpha. |
+| **Temperature — high** | `forecast.temperature1_color` | `var(--state-sensor-temperature-color, rgba(255, 152, 0, 1.0))` | High-temperature curve and per-day high label. |
+| **Temperature — low** | `forecast.temperature2_color` | `var(--info-color, rgba(68, 115, 158, 1.0))` | Low-temperature curve and per-day low label. |
+
+### Choosing a theme token for a new concept colour
+
+If you wire a new default to `var(--some-token, fallback)`, the token's
+*semantic meaning* in HA's standard themes has to match what the user
+expects from the concept name. Two forms of the trap:
+
+- **Name overlap, semantic mismatch.** `--warning-color` is the warning /
+  alert colour (orange / red in default + Mushroom + Slate themes), not
+  "warm yellow". `forecast.sunshine_color` defaulting to `--warning-color`
+  rendered orange bars in real installs while looking yellow in
+  Playwright (Chromium has no HA theme; the literal fallback ran).
+- **Token defined but obscure.** If the token isn't in HA's default theme
+  bundle (`frontend/src/resources/styles.ts`), every theme that doesn't
+  define it falls through to the literal fallback. That's fine — but it
+  means the `var(...)` wrapper buys nothing. Drop it and use the
+  literal directly (`forecast.sunshine_color` does this).
+
+Verify a candidate token by opening HA's `developer-tools/template` and
+evaluating `{{ state_attr('frontend.styles', '--your-token') }}` against
+your live theme — or just inspect `getComputedStyle(document.body)` in
+the browser console.
+
+### Test coverage
+
+The Playwright e2e baselines run against Chromium with no HA theme
+loaded, so theme-driven token resolution isn't exercised there. The
+Vitest case in `tests/defaults-colours.test.js` simulates a hostile
+theme (every "warning"-shaped token defined to orange) and asserts each
+default still resolves to the right colour family — extend that file
+when you add a new concept colour.
+
 ## CHANGELOG format
 
 Follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and SemVer.

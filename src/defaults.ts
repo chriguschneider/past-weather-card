@@ -19,7 +19,12 @@ export const DEFAULTS_FORECAST = {
   temperature2_color: 'var(--info-color, rgba(68, 115, 158, 1.0))',
   precipitation_color: 'var(--state-sensor-precipitation-color, rgba(132, 209, 253, 1.0))',
   show_sunshine: false,
-  sunshine_color: 'var(--warning-color, rgba(255, 215, 0, 1.0))',
+  // Sun is universally yellow — every HA "yellow"-ish token
+  // (--warning-color, --label-badge-yellow, --state-sun-color) drifts
+  // to orange / amber / red in different themes. The literal stays
+  // predictable; users who want theme-driven sunshine can pass their
+  // own var(...) string in YAML.
+  sunshine_color: 'rgba(255, 215, 0, 1.0)',
   condition_icons: true,
   // DEPRECATED v1.9.x — see renderWind in main.ts. Kept as a hard
   // master-off shim for v1.x YAML configs with show_wind_forecast:
