@@ -58,8 +58,6 @@ forecast — driven by sensor data, not a `weather.*` entity.
 </tr>
 </table>
 
-> Hero screenshots auto-update from the e2e visual-baseline run — every release-CI baseline regen ships a fresh README.
-
 ## What this card does
 
 Most Lovelace weather cards visualise a forecast served by a `weather.*`
