@@ -9,6 +9,7 @@ import { renderChartSection } from './editor/render-chart.js';
 import { renderLivePanelSection } from './editor/render-live-panel.js';
 import { renderUnitsSection } from './editor/render-units.js';
 import { renderTapSection } from './editor/render-tap.js';
+import { SECTION_KEYS, type SectionKey } from './editor/section-keys.js';
 import type { EditorContext, EditorLike, TFn } from './editor/types.js';
 
 type EditorMode = 'station' | 'forecast' | 'combination';
@@ -189,6 +190,49 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
     this.requestUpdate();
   };
 
+  // Per-section reset-to-defaults (v1.10.2 #92). Walks the
+  // SECTION_KEYS list for the given section and removes each key from
+  // this._config — letting DEFAULTS take over on the next render.
+  // Dot-paths address nested keys (e.g. `forecast.show_sunshine`).
+  // No confirm dialog: reset is reversible by closing the editor
+  // without saving (HA shows an unsaved-changes indicator).
+  _resetSection = (sectionKey: string): void => {
+    if (!this._config) return;
+    const keys = SECTION_KEYS[sectionKey as SectionKey];
+    if (!keys) return;
+    const newConfig = JSON.parse(JSON.stringify(this._config)) as Record<string, unknown>;
+    for (const path of keys) {
+      this._deleteByPath(newConfig, path);
+    }
+    this.configChanged(newConfig);
+    this.requestUpdate();
+  };
+
+  // Walk a dot-path and delete the leaf. Cleans up empty parent objects
+  // so the YAML stays terse (e.g. resetting every forecast.* key removes
+  // the empty `forecast: {}` block too).
+  _deleteByPath(obj: Record<string, unknown>, path: string): void {
+    const parts = path.split('.');
+    const stack: Array<Record<string, unknown>> = [obj];
+    let cursor: Record<string, unknown> | undefined = obj;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const next = cursor?.[parts[i]];
+      if (!next || typeof next !== 'object') return;
+      cursor = next as Record<string, unknown>;
+      stack.push(cursor);
+    }
+    delete cursor![parts[parts.length - 1]];
+    // Walk back up; drop empty intermediate objects.
+    for (let i = stack.length - 1; i > 0; i--) {
+      const node = stack[i];
+      if (node && Object.keys(node).length === 0) {
+        delete stack[i - 1][parts[i - 1]];
+      } else {
+        break;
+      }
+    }
+  }
+
   _valueChanged = (event: { target: ValueChangedTarget }, key: string): void => {
     if (!this._config) return;
 
@@ -350,6 +394,29 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
           border-bottom: 1px solid var(--divider-color);
         }
         h3.section:first-of-type { margin-top: 0; }
+        /* Section headers with the v1.10.2 reset-to-defaults icon
+           button. The button right-aligns in the heading; clicking it
+           drops every key the section owns from this._config so DEFAULTS
+           take over. */
+        h3.section.section-header-with-reset {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+        }
+        h3.section.section-header-with-reset .section-title {
+          flex: 1;
+        }
+        h3.section.section-header-with-reset .section-reset {
+          --mdc-icon-button-size: 32px;
+          --mdc-icon-size: 18px;
+          color: var(--secondary-text-color);
+          opacity: 0.7;
+        }
+        h3.section.section-header-with-reset .section-reset:hover {
+          opacity: 1;
+          color: var(--primary-text-color);
+        }
         h4.subsection {
           font-size: 0.9rem;
           font-weight: 500;

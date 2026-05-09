@@ -10,6 +10,7 @@
 
 import { html, type TemplateResult } from 'lit';
 import type { EditorLike, EditorContext } from './types.js';
+import { renderSectionHeader } from './section-header.js';
 
 const WEATHER_SCHEMA = [{
   name: 'weather_entity',
@@ -28,7 +29,7 @@ export function renderForecastSection(editor: EditorLike, ctx: EditorContext): T
   };
 
   return html`
-    <h3 class="section">${t('weather_forecast_heading')}</h3>
+    ${renderSectionHeader({ editor, title: t('weather_forecast_heading'), sectionKey: 'weather_forecast', resetLabel: t('reset_section') })}
     <div class="textfield-container">
       <ha-form
         .data=${{ weather_entity: cfg.weather_entity || '' }}

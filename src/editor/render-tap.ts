@@ -3,11 +3,12 @@
 
 import { html, type TemplateResult } from 'lit';
 import type { EditorLike, EditorContext } from './types.js';
+import { renderSectionHeader } from './section-header.js';
 
 export function renderTapSection(editor: EditorLike, ctx: EditorContext): TemplateResult {
   const { t, cfg } = ctx;
   return html`
-    <h3 class="section">${t('actions_section_heading')}</h3>
+    ${renderSectionHeader({ editor, title: t('actions_section_heading'), sectionKey: 'actions', resetLabel: t('reset_section') })}
     <div class="textfield-container">
       ${[
         ['tap_action', 'tap_action_label'],

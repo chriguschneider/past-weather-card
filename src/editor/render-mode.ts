@@ -15,6 +15,7 @@
 
 import { html, type TemplateResult } from 'lit';
 import type { EditorLike, EditorContext } from './types.js';
+import { renderSectionHeader } from './section-header.js';
 
 export function renderModeSection(editor: EditorLike, ctx: EditorContext): TemplateResult {
   const { t, fcfg, mode } = ctx;
@@ -64,7 +65,7 @@ export function renderModeSection(editor: EditorLike, ctx: EditorContext): Templ
   };
 
   return html`
-    <h3 class="section">${t('card_setup_heading')}</h3>
+    ${renderSectionHeader({ editor, title: t('card_setup_heading'), sectionKey: 'card_setup', resetLabel: t('reset_section') })}
     <div class="textfield-container">
       <ha-form
         .data=${{ mode }}

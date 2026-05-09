@@ -17,6 +17,7 @@
 
 import { html, type TemplateResult } from 'lit';
 import type { EditorLike, EditorContext, HomeAssistant } from './types.js';
+import { renderSectionHeader } from './section-header.js';
 
 interface SensorState {
   state: string;
@@ -98,7 +99,7 @@ export function renderSensorsSection(editor: EditorLike, ctx: EditorContext): Te
   };
 
   return html`
-    <h3 class="section">${t('station_sensors_heading')}</h3>
+    ${renderSectionHeader({ editor, title: t('station_sensors_heading'), sectionKey: 'sensors', resetLabel: t('reset_section') })}
     <div class="textfield-container">
       <ha-form
         .data=${sensorsConfig}
