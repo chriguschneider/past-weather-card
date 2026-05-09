@@ -53,10 +53,6 @@ forecast — driven by sensor data, not a `weather.*` entity.
 
 <table>
 <tr>
-<th>Main panel + chart (light)</th>
-<th>Main panel + chart (dark)</th>
-</tr>
-<tr>
 <td><img alt="Daily combination with sunshine, light theme" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/daily-combination-sunshine.png"></td>
 <td><img alt="Daily combination with sunshine, dark theme" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/daily-combination-sunshine-dark.png"></td>
 </tr>
