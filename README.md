@@ -44,7 +44,6 @@ forecast — driven by sensor data, not a `weather.*` entity.
 - [Installation](#installation)
 - [Configuration](#configuration) → [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
 - [Conditions, sensors, sunshine](#conditions-sensors-and-sunshine) → [docs/CONDITIONS.md](docs/CONDITIONS.md), [docs/SENSORS.md](docs/SENSORS.md)
-- [Troubleshooting](#troubleshooting) → [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
 - [Contributing & architecture](#contributing--architecture)
 - [AI-assisted development](#ai-assisted-development)
 - [Community](#community)
@@ -214,18 +213,7 @@ and customisation:
 
 - **[docs/CONDITIONS.md](docs/CONDITIONS.md)** — decision tree, live-vs-daily classifier, day/night-aware icons.
 - **[docs/SENSORS.md](docs/SENSORS.md)** — precipitation sensor wiring, sunshine duration setup, privacy notes.
-
-## Troubleshooting
-
-Three things that catch most people:
-
-- **No chart yet** — a brand-new sensor needs ~1 hour of recorder history before its first daily statistic is available. Wait, then refresh.
-- **Old bundle stuck after update** — bump the HACS `?hacstag=` query in *Settings → Dashboards → Resources*, or "Reload frontend" from your user menu.
-- **Today's column appears doubled** — that's intentional in combination mode (measured + predicted side-by-side). Set `show_forecast: false` for the original single-today layout.
-
-For the full error-banner reference, classifier-tuning recipes,
-editor quirks, and known upstream limitations, see
-**[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)**.
+- **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** — error banners, common gotchas (recorder warm-up, HACS cache), known limitations.
 
 ## Contributing & architecture
 
