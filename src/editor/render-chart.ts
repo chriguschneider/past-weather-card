@@ -8,8 +8,8 @@
 // Always visible — the chart renders in every mode (station = past
 // chart, forecast = future chart, combination = both side-by-side).
 //
-// Schema-driven via <ha-form> (#87, v1.10.2). Three logical groups,
-// each its own form so the visual subsection headings stay between:
+// Schema-driven via <ha-form>. Three logical groups, each its own form
+// so the visual subsection headings stay between:
 //   - Title + time range (top-level + forecast.number_of_forecasts)
 //   - Chart rows (forecast.* booleans)
 //   - Style (forecast.style + 2 forecast.* booleans)

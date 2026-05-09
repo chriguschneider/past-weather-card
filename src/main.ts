@@ -1,27 +1,25 @@
-// main.ts — integration boundary file. ~1500 LOC of LitElement +
-// Home Assistant + Chart.js wiring. Type-checked under `tsc --strict`
-// since v1.8 (#33). HA-shaped fields use the `HassMain` extension of
-// the data-source `HassLike` type below — full HomeAssistant type
-// would pull in too many UI deps. Anything where the HA frontend
-// type-shape isn't documented (synthesised `weather`, editor-callback
-// payloads) is `any`-typed, with eslint-disable lines limited to
-// those exact slots.
+// main.ts — integration boundary file. LitElement + Home Assistant +
+// Chart.js wiring, type-checked under `tsc --strict`. HA-shaped fields
+// use the `HassMain` extension of the data-source `HassLike` type below
+// — the full HomeAssistant type would pull in too many UI deps.
+// Anything where the HA frontend type-shape isn't documented
+// (synthesised `weather`, editor-callback payloads) is `any`-typed,
+// with eslint-disable lines limited to those exact slots.
 //
-// Why the opt-out: this class touches ~30 instance fields (forecasts,
-// weather, current sensor readings, scroll-ux teardowns, animation
-// controllers, …), most of which were declared implicitly via runtime
-// assignment in `set hass` / `setConfig`. Strict-typing them all means
-// porting half a dozen HA frontend type imports we don't currently
-// depend on, mocking them where the types are missing, and threading
-// `HassLike` through the entire render path. None of that adds value
-// to the v1.2 milestone, which is "the codebase compiles under TS and
-// downstream contributors get types when they import from us".
+// Why the opt-out on stricter typing: this class touches ~30 instance
+// fields (forecasts, weather, current sensor readings, scroll-ux
+// teardowns, animation controllers, …), most of which were declared
+// implicitly via runtime assignment in `set hass` / `setConfig`.
+// Strict-typing them all means porting half a dozen HA frontend type
+// imports we don't currently depend on, mocking them where the types
+// are missing, and threading `HassLike` through the entire render path
+// — without adding value to the goal of "the codebase compiles under TS
+// and downstream contributors get types when they import from us".
 //
 // The boundary modules main.ts pulls in (data-source, chart/*,
 // sunshine-source, openmeteo-source, scroll-ux, action-handler,
 // editor/*) ARE all strictly typed — anyone importing from this card
-// gets typed exports. Tightening main.ts itself is tracked as future
-// follow-up.
+// gets typed exports.
 
 import locale from './locale.js';
 import {
@@ -609,7 +607,7 @@ _syncDataSources(hass: HassMain): void {
           const newData = event.forecast || [];
           const newError = event.error || null;
           // Skip the re-render path when HA's WS layer fan-outs an
-          // identical payload (#55) — common when a sibling card on
+          // identical payload — common when a sibling card on
           // the same dashboard resubscribes against the same recorder
           // bucket and HA broadcasts the cached state to every
           // subscriber. The error string flips equally rarely so an
@@ -640,7 +638,7 @@ _syncDataSources(hass: HassMain): void {
         try {
           const newData = event.forecast || [];
           const newError = event.error || null;
-          // Same fan-out suppression as the station path above (#55).
+          // Same fan-out suppression as the station path above.
           // weather/subscribe_forecast in HA fan-outs the entity's
           // current forecast to every active subscriber whenever
           // any one of them (re)subscribes — without this guard, a
@@ -684,7 +682,7 @@ _syncDataSources(hass: HassMain): void {
     this.resizeObserver = null;
     this.resizeInitialized = false;
     this._teardownRegistry = new TeardownRegistry();
-    // Lazy-cache (#10): when forecast.type changes, save the current
+    // Lazy-cache: when forecast.type changes, save the current
     // data under the OLD fetch-key and restore the NEW key from cache
     // for an instant render. Fresh data lands on the resubscribe
     // callback and overwrites the cached entry.
@@ -858,7 +856,7 @@ _syncDataSources(hass: HassMain): void {
   }
 
   // Daily / hourly flow: overlay sunshine at the matching granularity.
-  // F3 fallback (#6): when neither sensor.sunshine_duration nor Open-Meteo
+  // F3 fallback: when neither sensor.sunshine_duration nor Open-Meteo
   // resolves a forecast value, the configured exponent
   // (default 1.7, tunable via condition_mapping.sunshine_cloud_exponent)
   // lets attachSunshine derive the value from forecast.cloud_coverage via
@@ -972,11 +970,12 @@ measureCard() {
   const card = safeQuery(this.shadowRoot,'ha-card');
   if (!card) return;
 
-  // forecastItems is the count of bars actually rendered. v0.8 treats
-  // forecast.number_of_forecasts as a *viewport size* (handled in render
-  // via overflow-x scroll), not as a data-cropping cap — so this always
-  // renders the full series. Width-based auto-fit only kicks in when no
-  // data is loaded yet (initial render before the data sources fire).
+  // forecastItems is the count of bars actually rendered. The card
+  // treats forecast.number_of_forecasts as a *viewport size* (handled
+  // in render via overflow-x scroll), not as a data-cropping cap — so
+  // this always renders the full series. Width-based auto-fit only
+  // kicks in when no data is loaded yet (initial render before the
+  // data sources fire).
   if (this.forecasts?.length) {
     this.forecastItems = this.forecasts.length;
   } else {
@@ -1119,11 +1118,10 @@ async updated(changedProperties: Map<PropertyKey, unknown>) {
   // weather-undefined fallback uses a different template than the
   // populated branch); the per-element _wsActionHandlerBound flag
   // makes this idempotent on stable elements.
-  // The card class has all the fields these helpers need (verified at
-  // runtime by the v0.6 extraction); the structural-mismatch errors come
-  // from the helpers' tighter `forecasts: ForecastEntry[]` and config
-  // shapes. Cast through `unknown` to keep tsc happy while preserving
-  // the runtime assumption.
+  // The card class has all the fields these helpers need; the
+  // structural-mismatch errors come from the helpers' tighter
+  // `forecasts: ForecastEntry[]` and config shapes. Cast through
+  // `unknown` to keep tsc happy while preserving the runtime assumption.
   setupActionHandler(this as unknown as Parameters<typeof setupActionHandler>[0]);
   this._maybeApplyInitialScroll(changedProperties);
   setupScrollUx(this as unknown as Parameters<typeof setupScrollUx>[0]);
@@ -1155,7 +1153,7 @@ async updated(changedProperties: Map<PropertyKey, unknown>) {
 // merge via _refreshForecasts. Adding a new field that drives a source is
 // a one-line edit to the keys table, not a new branch in updated().
 //
-// Mode-toggle lazy-cache (#10): when only forecast.type changed and the
+// Mode-toggle lazy-cache: when only forecast.type changed and the
 // underlying recorder/subscribe fetch-key is the same (e.g. hourly↔today
 // share period='hour' and forecast_type='hourly'), no teardown is needed
 // at all — the displayed data is already correct, only the render-time
@@ -1595,10 +1593,9 @@ _formatSunshineHours(sunshine_duration: any, sunshine_duration_unit: any): numbe
   return formatSunshineHours(sunshine_duration, sunshine_duration_unit);
 }
 
-// Per-row template helpers. Extracted from the group renderers so each
-// row is a single conditional render — clearer than 4-row nested
-// ternaries and lets ESLint's no-nested-conditional rule apply at
-// per-row granularity (vs. the previous group-level miss).
+// Per-row template helpers. Each row is a single conditional render —
+// clearer than 4-row nested ternaries and lets ESLint's
+// no-nested-conditional rule apply at per-row granularity.
 
 _climateRow_humidity(show: boolean, humidity: unknown) {
   if (!show || humidity === undefined) return html``;
@@ -1822,13 +1819,11 @@ renderWind({ config, forecastItems } = this) {
   // forecast.show_wind_speed (numeric speed). The wind row appears
   // when either is on.
   //
-  // DEPRECATED: forecast.show_wind_forecast is a v1.x backwards-compat
-  // shim that still accepts `false` as a hard master-off so existing
-  // YAML configs that explicitly disabled the wind row keep working.
-  // New configs should use `show_wind_arrow: false` +
-  // `show_wind_speed: false` instead. Slated for removal in v2.0 — the
-  // editor never exposed it, so the install base for the explicit-false
-  // case is small.
+  // Deprecated: forecast.show_wind_forecast is a backwards-compat shim
+  // that still accepts `false` as a hard master-off so existing YAML
+  // configs that explicitly disabled the wind row keep working. New
+  // configs should use `show_wind_arrow: false` + `show_wind_speed:
+  // false` instead.
   const masterOff = config.forecast.show_wind_forecast === false;
   if (masterOff) return html``;
 

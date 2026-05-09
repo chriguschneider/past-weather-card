@@ -69,9 +69,9 @@ export interface DataSourceConfig {
   forecast?: { type?: 'daily' | 'hourly' | 'today' } | null;
   sensors?: SensorMap;
   condition_mapping?: ConditionThresholdOverrides & {
-    /** Threshold for the Method-B2 lux-derivation (#66): a sample
-     *  counts as sunshine when `measured_lux / clearsky_lux ≥ this`.
-     *  Default 0.6 per the #6 spec. */
+    /** Threshold for the Method-B2 lux-derivation: a sample counts
+     *  as sunshine when `measured_lux / clearsky_lux ≥ this`.
+     *  Default 0.6. */
     sunshine_lux_ratio?: number;
   };
   weather_entity?: string;
@@ -223,7 +223,7 @@ export class MeasuredDataSource {
     if (!this.hass) return [];
     const cfgDays = parseInt(String(this.config.days), 10) || 7;
     const type = this.config.forecast?.type;
-    // 'today' is the 24-hour zoom mode (#17): hourly granularity but
+    // 'today' is the 24-hour zoom mode: hourly granularity but
     // forced to a single-day horizon regardless of the user's `days:`
     // setting. Reuses the entire hourly fetch / build path.
     const isToday = type === 'today';
@@ -289,7 +289,7 @@ export class MeasuredDataSource {
       types: ['min', 'max', 'mean', 'change', 'sum'],
     });
 
-    // Method B2 fallback (#66): when the user has an illuminance sensor
+    // Method B2 fallback: when the user has an illuminance sensor
     // configured but no `sensors.sunshine_duration`, derive sunshine
     // duration from the high-resolution illuminance history via the
     // lux/clearsky_lux ratio. Skipped silently if either input is
@@ -299,8 +299,8 @@ export class MeasuredDataSource {
     return this._buildForecast(stats, sensors, start, days, luxByDate);
   }
 
-  /** B2 past-tier helper (#66): fetch the configured illuminance
-   *  sensor's high-resolution history and convert it into a per-day
+  /** B2 past-tier helper: fetch the configured illuminance sensor's
+   *  high-resolution history and convert it into a per-day
    *  sunshine-hours map. Returns `null` when the path is inapplicable
    *  (no illuminance sensor, recorder sensor takes precedence, or
    *  the WS call fails) so the caller can short-circuit to the next
@@ -432,7 +432,7 @@ export class MeasuredDataSource {
       let sunshineRaw = sensors.sunshine_duration
         ? at(sensors.sunshine_duration, 'max')
         : null;
-      // B2 fallback (#66): when no recorder sunshine sensor resolved
+      // B2 fallback: when no recorder sunshine sensor resolved
       // a value, look up the per-day total from the lux-derivation
       // map computed from the illuminance sensor's history. The
       // map's date key is `YYYY-MM-DD` in the local timezone — same
@@ -493,8 +493,7 @@ export class MeasuredDataSource {
    *      computed for the actual hour rather than the day's noon, so
    *      the cloud-cover ratio reflects the relevant solar geometry.
    *      Threshold semantics (rainy_threshold_mm etc.) are kept as-is
-   *      and known to be conservative at hour scale — refining hourly
-   *      thresholds is tracked as a v0.9 issue. */
+   *      and known to be conservative at hour scale. */
   private _buildHourlyForecast(
     stats: StatsResponse,
     sensors: SensorMap,

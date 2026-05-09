@@ -1,9 +1,5 @@
-// Chart.js instance builder. Pulled out of main.js so the lifecycle
-// component (set hass / updated / render / drawChart) and the chart
-// configuration each fit in one screen of mental model.
-//
-// Inputs are passed as a single bag so the call site (drawChart in
-// main.js) reads as a small list of "what does the chart need to know"
+// Chart.js instance builder. Inputs are passed as a single bag so the
+// call site reads as a small list of "what does the chart need to know"
 // instead of a 200-line block of nested options.
 //
 // Chart.js's own option types are deeply generic (`Chart<TType, TData,
@@ -70,10 +66,10 @@ export function buildChart(ctx: CanvasRenderingContext2D | HTMLCanvasElement, op
     },
     options: {
       maintainAspectRatio: false,
-      // Default Chart.js animation is 1000 ms easeOutQuart. With the
-      // post-v0.9 dataset density (precip + sunshine = up to 336 bars
-      // animating in hourly mode), 1 s feels laggy. 500 ms still reads
-      // as a transition without dragging. Users who want it fully off
+      // Default Chart.js animation is 1000 ms easeOutQuart. With dataset
+      // density up to 336 bars (precip + sunshine in hourly mode), 1 s
+      // feels laggy. 500 ms still reads as a transition without dragging.
+      // Users who want it fully off
       // continue to set `forecast.disable_animation: true`. The
       // editor's live preview also forces 0 ms (inPreview from main.ts'
       // connectedCallback ancestor walk) so each editor toggle renders

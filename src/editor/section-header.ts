@@ -1,6 +1,6 @@
-// Shared render helper for editor section headings (v1.10.2 #92).
-// Each section's `<h3 class="section">` is wrapped with this helper so
-// the reset-to-defaults icon button appears uniformly across all 7
+// Shared render helper for editor section headings. Each section's
+// `<h3 class="section">` is wrapped with this helper so the
+// reset-to-defaults icon button appears uniformly across all 7
 // sections. Click → editor._resetSection(sectionKey) → SECTION_KEYS
 // lookup → delete keys from config → DEFAULTS take over.
 

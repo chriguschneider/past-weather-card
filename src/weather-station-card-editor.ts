@@ -129,8 +129,8 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
     this.requestUpdate();
   };
 
-  // Chart-section ha-form handlers (v1.10.2 #87 migration). The chart
-  // section spans two config levels — top-level (title, days,
+  // Chart-section ha-form handlers. The chart section spans two
+  // config levels — top-level (title, days,
   // forecast_days) and forecast.* (number_of_forecasts, condition_icons,
   // show_*, style, round_temp, disable_animation). Each form replaces
   // the keys it owns and merges with the rest of config / forecast.
@@ -169,8 +169,8 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
     this.requestUpdate();
   };
 
-  // Live-panel ha-form handler (v1.10.2 #87 migration). Both forms
-  // (main panel toggles + attributes toggles) feed top-level cfg.show_*
+  // Live-panel ha-form handler. Both forms (main panel toggles +
+  // attributes toggles) feed top-level cfg.show_*
   // keys, so a single handler can merge whichever bag arrives. Same
   // diff/delete pattern as _chartTopChanged.
   _livePanelChanged = (event: Event): void => {
@@ -190,8 +190,8 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
     this.requestUpdate();
   };
 
-  // Per-section reset-to-defaults (v1.10.2 #92). Walks the
-  // SECTION_KEYS list for the given section and removes each key from
+  // Per-section reset-to-defaults. Walks the SECTION_KEYS list for
+  // the given section and removes each key from
   // this._config — letting DEFAULTS take over on the next render.
   // Dot-paths address nested keys (e.g. `forecast.show_sunshine`).
   // No confirm dialog: reset is reversible by closing the editor
@@ -393,8 +393,8 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
           border-bottom: 1px solid var(--divider-color);
         }
         h3.section:first-of-type { margin-top: 0; }
-        /* Section headers with the v1.10.2 reset-to-defaults icon
-           button. The button right-aligns in the heading; clicking it
+        /* Section headers with the reset-to-defaults icon button.
+           The button right-aligns in the heading; clicking it
            drops every key the section owns from this._config so DEFAULTS
            take over. */
         h3.section.section-header-with-reset {

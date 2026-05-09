@@ -288,9 +288,8 @@ export class OpenMeteoSunshineSource {
     return now - this._lastFetchMs >= REFRESH_TTL_MS;
   }
 
-  /** Subscribe a one-shot callback for refresh completion. Used by
-   *  main.js to call `requestUpdate` / `measureCard` once the data
-   *  lands. */
+  /** Subscribe a one-shot callback for refresh completion. Lets the
+   *  caller request an update / re-measure once the data lands. */
   setListener(cb: SunshineListener | null): void {
     this._listener = cb;
   }

@@ -1,8 +1,5 @@
 // Chart orchestration: takes the card's `forecasts` + config and
-// produces a configured Chart.js instance. Lifted out of main.js
-// in v1.1 — was the largest method on the card class (~290 LOC of
-// dataset / plugin / segment-options assembly intermixed with
-// canvas lookup and Chart.defaults global mutation).
+// produces a configured Chart.js instance.
 //
 // Responsibilities:
 //   - normalize the config (forecast.type fallback for typo'd YAML)
@@ -518,7 +515,7 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
   // pixels via afterFit. dailyTickLabelsPlugin then shifts weekday + date
   // up by that amount so the new bottom strip is free for the sunshine
   // box. When sunshine is off, sunshineLabelBand stays 0 and chart
-  // layout is byte-identical to v0.8.
+  // layout is unchanged.
   const labelsBaseSize = parseInt(String(config.forecast.labels_font_size)) || 11;
   const sunshineLabelBand = showSunshineLabels ? Math.max(16, labelsBaseSize + 6) : 0;
 

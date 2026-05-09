@@ -1,14 +1,13 @@
 // Pure helpers for the sunshine-duration row.
 //
-// No DOM, no Home Assistant — just data shaping. The card calls these from
-// data-source.js (past tier) and main.js (post-processing pass that overlays
-// history / forecast attributes onto the merged forecast array).
+// No DOM, no Home Assistant — just data shaping for the past tier and
+// the post-processing pass that overlays history / forecast attributes
+// onto the merged forecast array.
 //
-// The decisions encoded here come from issue #6 (decision A1 = Variant A:
-// Methods F + C only; A2 = two slots; A3 = F2 forecast tier; A6 naming).
-// v1.7 added Method B2 (lux-derivation, #66): when no recorder sensor is
-// configured, derive the past-tier value from the illuminance sensor's
-// high-resolution history via the lux/clearsky_lux ratio.
+// The encoded decisions: Variant A (Methods F + C only) with two slots
+// and an F2 forecast tier. Method B2 (lux-derivation): when no recorder
+// sensor is configured, derive the past-tier value from the illuminance
+// sensor's high-resolution history via the lux/clearsky_lux ratio.
 
 import { clearSkyLuxFactory } from './condition-classifier.js';
 

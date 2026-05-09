@@ -130,11 +130,9 @@ interface HourlyTempSeriesResult {
  *  hide / skip the second dataset instead of pushing an empty array
  *  (which would otherwise leave a dangling legend / pointless gap).
  *
- *  History (v1.0.1): the previous "all-or-nothing" rule (any null →
- *  tempLow returned as null entirely) hid the low-temp line in
- *  combination + station modes whenever a single past day had a
- *  missing min reading. Switched to "some have low" so a single
- *  offline day shows as a gap, not as a vanished dataset. */
+ *  Use "some have low" rather than all-or-nothing: a single offline
+ *  day shows as a gap, not as a vanished dataset across combination +
+ *  station modes. */
 export function hourlyTempSeries(
   entries: ReadonlyArray<Partial<ForecastEntry>>,
   opts: HourlyTempSeriesOpts = {},
@@ -217,7 +215,7 @@ export function nextForecastType(current: string | undefined | null): 'daily' | 
   return 'today';
 }
 
-/** Lazy-cache key for the MeasuredDataSource's recorder fetch (#10).
+/** Lazy-cache key for the MeasuredDataSource's recorder fetch.
  *  Both 'hourly' and 'today' fetch the same hourly buckets — the
  *  difference is purely render-time aggregation — so they share a
  *  cache slot. Toggling between hourly and today therefore needs no
@@ -236,7 +234,7 @@ export function forecastFetchKey(cfg: { forecast?: { type?: string } | null } | 
 }
 
 /** Estimate sunshine duration in hours from a forecast's cloud-coverage
- *  fraction (#6 Option F3 — Kasten-style empirical formula).
+ *  fraction (Kasten-style empirical formula).
  *
  *    sunshine_h ≈ day_length × (1 − (cloud_coverage / 100)^p)
  *
@@ -273,7 +271,7 @@ export function sunshineFromCloudCoverage(
 }
 
 /** Structural deep-equality for two forecast arrays. Used by the data
- *  source subscribe callbacks (#55) to skip re-renders when HA's
+ *  source subscribe callbacks to skip re-renders when HA's
  *  WebSocket layer fan-outs an identical payload — common when one
  *  card's resubscribe causes HA to broadcast the entity's current
  *  state to every subscriber of that entity, including sibling

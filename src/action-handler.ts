@@ -1,15 +1,7 @@
 // Whole-card action handler: pointer-based tap / hold / double-tap
 // detection on the ha-card root, plus the HA-action dispatcher that
-// it fires.
-//
-// Lifted out of main.js in v1.1 — previously these were two methods
-// (_setupActionHandler, _runAction) with intertwined comments that
-// drifted next to scroll-ux during earlier refactors. Coupling to the
-// card instance: card.shadowRoot (cursor + listener attach), card.config
-// (action map + cursor decision), card._hass (callService),
-// card._fire (event dispatch), card._dragMoved (read — drag-to-scroll
-// suppresses the trailing tap/hold), card._actionHandlerTeardown
-// (mutated for the disconnectedCallback path).
+// it fires. Shares `_dragMoved` with scroll-ux so a drag-to-scroll
+// suppresses the trailing tap.
 //
 // Why pointer events vs. plain click: we need hold detection (fires
 // before pointerup) and a way to suppress the trailing tap. A 250 ms

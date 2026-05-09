@@ -6,12 +6,6 @@
 // formatting. Returning null instead lets caller code use a single
 // `value == null` check to gate render branches.
 //
-// Used by:
-//   - main.js set hass for live "now" classifier inputs (8 sensor
-//     readouts per tick)
-//   - the live wind-direction parse where the sensor's state can be
-//     a numeric degree string OR a cardinal-name string ("N", "NW")
-//
 // Returns null for: undefined, null, "", "unknown", "unavailable",
 // "NaN", any non-numeric string, or a finite-check failure.
 export function parseNumericSafe(value: unknown): number | null {

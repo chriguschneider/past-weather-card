@@ -1,6 +1,6 @@
-// Per-section config-key inventories for the v1.10.2 #92 reset-to-
-// defaults buttons. Each entry lists the FULL possible set of keys the
-// section owns — including conditionally-rendered ones. _resetSection
+// Per-section config-key inventories for the reset-to-defaults
+// buttons. Each entry lists the FULL possible set of keys the section
+// owns — including conditionally-rendered ones. _resetSection
 // iterates the list and deletes each key from this._config (lets DEFAULTS
 // take over on the next render).
 //
