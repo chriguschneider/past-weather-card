@@ -6,25 +6,33 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Sunshine bars now render in their intended yellow on every standard HA
-theme. Previously the bar inherited the theme's warning / alert colour
-(orange or red on the default, Mushroom, and Slate themes), which
-turned the sunshine row the wrong colour everywhere except the
-Playwright snapshots. No YAML changes needed — your existing config
-keeps working; if you'd set a custom `forecast.sunshine_color`, that
-still wins.
+Chart bar and curve colours now use predictable defaults that don't
+drift per HA theme. Sunshine bars render yellow, precipitation bars
+light blue, high-temperature curve orange, low-temperature curve dark
+blue — on every theme. Previously some of these inherited theme tokens
+that either didn't mean what their names suggested (sunshine adopted
+the alert / warning colour, low-temperature adopted the info-banner
+colour) or pointed at HA tokens that don't exist, so the behaviour
+varied across themes in ways no one expected. No YAML changes needed
+— if you'd set custom colours, those still win, and you can still pass
+a `var(--your-token, fallback)` string in YAML to opt back into
+theme-driven colouring.
 
 ### Fixed
 - Sunshine bars no longer adopt the theme's warning / alert colour
   on standard HA themes — the default is now a fixed yellow that
   doesn't drift per theme.
+- Low-temperature curve, high-temperature curve, and precipitation bar
+  defaults now also pin to predictable literal colours instead of
+  guessing at HA theme tokens (some of which didn't actually exist).
 
 ### Under the hood
 - Style guide gains a "Card colour tokens" section documenting which
   YAML key controls which UI element, and what to check before wiring
   a new colour default to a theme token.
-- New regression test simulates a hostile HA theme to catch this bug
-  class on future colour-default changes.
+- Regression test simulates a hostile HA theme and asserts no concept
+  colour wraps a known-problem token. Catches future re-introductions
+  of the v1.9.0 token-mismatch pattern.
 
 ## [1.10.2] — 2026-05-09
 

@@ -189,19 +189,22 @@ matching attribute on `weather_entity`)
 | `forecast.chart_height` | number (px) | `180` | Chart canvas height. |
 | `forecast.precip_bar_size` | number (%) | `100` | Width of precipitation bars (0–100 %). |
 
-**Colours** (YAML-only since v1.9.x — defaults are theme-aware)
+**Colours** (YAML-only since v1.9.x — defaults are literal RGBA)
 
-Each default is a `var(--ha-token, rgba-fallback)` string: HA themes
-that define the token win, otherwise the v1.x literal RGBA is used.
-Setting a literal RGBA / hex / named-colour string in your YAML
-overrides both — pass-through to Chart.js.
+Each default is a literal RGBA string. Theme-aware colour tokens were
+tried in v1.9.0 but caused bugs (`--warning-color` resolved to orange
+for sunshine; some `--state-sensor-*-color` tokens we picked don't
+actually exist in HA), so the defaults are now pinned to predictable
+literals. Pass your own `var(--ha-token, fallback)` string in YAML to
+opt back into theme-driven colouring for any of these — the resolver
+expands user-supplied `var(...)` exactly as before.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `forecast.temperature1_color` | CSS colour | `var(--state-sensor-temperature-color, rgba(255, 152, 0, 1.0))` | High-temperature curve. |
-| `forecast.temperature2_color` | CSS colour | `var(--info-color, rgba(68, 115, 158, 1.0))` | Low-temperature curve. |
-| `forecast.precipitation_color` | CSS colour | `var(--state-sensor-precipitation-color, rgba(132, 209, 253, 1.0))` | Precipitation bars. Forecast bars (combination mode) render at ~45 % of this colour's alpha. |
-| `forecast.sunshine_color` | CSS colour | `rgba(255, 215, 0, 1.0)` | Sunshine bars. Same forecast-side alpha treatment as precipitation. Literal yellow by default — pass your own `var(--token, fallback)` string in YAML to make it theme-aware. |
+| `forecast.temperature1_color` | CSS colour | `rgba(255, 152, 0, 1.0)` | High-temperature curve. |
+| `forecast.temperature2_color` | CSS colour | `rgba(68, 115, 158, 1.0)` | Low-temperature curve. |
+| `forecast.precipitation_color` | CSS colour | `rgba(132, 209, 253, 1.0)` | Precipitation bars. Forecast bars (combination mode) render at ~45 % of this colour's alpha. |
+| `forecast.sunshine_color` | CSS colour | `rgba(255, 215, 0, 1.0)` | Sunshine bars. Same forecast-side alpha treatment as precipitation. |
 | `forecast.chart_datetime_color` | CSS colour or `'auto'` | _none_ | X-axis weekday / date colour. |
 | `forecast.chart_text_color` | CSS colour or `'auto'` | _none_ | All other chart text colour. |
 

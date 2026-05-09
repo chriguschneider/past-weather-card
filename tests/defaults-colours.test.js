@@ -47,18 +47,19 @@ describe('forecast colour defaults — regression guard', () => {
   let originalGetComputedStyle;
 
   beforeEach(() => {
-    // Hostile theme: defines every "warning"-shaped token to orange.
-    // Tokens we deliberately use for their semantic colour (info,
-    // sensor-precipitation, sensor-temperature) get plausible HA
-    // defaults so we don't accidentally pin to the rgba fallback.
+    // Hostile theme: every plausibly-misused token resolves to a
+    // colour that would be obviously wrong for the concept it might
+    // be wired to (yellow → orange / red, low-temp blue → green, etc.).
+    // If any default re-introduces a var(--token, ...) wrapper that
+    // hits one of these tokens, the colour-family checks below catch
+    // it.
     originalGetComputedStyle = globalThis.getComputedStyle;
     const themeTokens = {
-      '--warning-color': 'rgb(245, 124, 0)',          // orange
+      '--warning-color': 'rgb(245, 124, 0)',          // orange (the #121 trap)
       '--label-badge-yellow': 'rgb(244, 180, 0)',     // amber
       '--state-sun-color': 'rgb(255, 193, 7)',        // amber
-      '--info-color': 'rgb(68, 115, 158)',            // dark blue
-      '--state-sensor-precipitation-color': 'rgb(132, 209, 253)', // light blue
-      '--state-sensor-temperature-color': 'rgb(255, 152, 0)',     // orange
+      '--info-color': 'rgb(46, 204, 113)',            // green — would mis-tint cold temp
+      '--error-color': 'rgb(244, 67, 54)',            // red
     };
     globalThis.getComputedStyle = () => ({
       getPropertyValue: (name) => themeTokens[name] || '',
@@ -74,10 +75,6 @@ describe('forecast colour defaults — regression guard', () => {
     expect(isYellowFamily(rgbaTuple(resolved))).toBe(true);
   });
 
-  it('sunshine_color is NOT wired to --warning-color (orange in HA themes)', () => {
-    expect(DEFAULTS_FORECAST.sunshine_color).not.toMatch(/--warning-color/);
-  });
-
   it('precipitation_color resolves to a blue family colour', () => {
     const resolved = resolveCssVar(DEFAULTS_FORECAST.precipitation_color, 'rgba(132, 209, 253, 1.0)');
     expect(isBlueFamily(rgbaTuple(resolved))).toBe(true);
@@ -91,5 +88,19 @@ describe('forecast colour defaults — regression guard', () => {
   it('temperature2_color (low) resolves to a blue family colour', () => {
     const resolved = resolveCssVar(DEFAULTS_FORECAST.temperature2_color, 'rgba(68, 115, 158, 1.0)');
     expect(isBlueFamily(rgbaTuple(resolved))).toBe(true);
+  });
+
+  // No concept-colour default may wrap a known-problem token. Adding
+  // a future colour-default that does (e.g. wiring --info-color back
+  // for temperature2) gets caught here even before the colour-family
+  // assertions notice.
+  it.each([
+    ['sunshine_color',     '--warning-color'],
+    ['sunshine_color',     '--label-badge-yellow'],
+    ['temperature2_color', '--info-color'],
+    ['precipitation_color', '--state-sensor-precipitation-color'],
+    ['temperature1_color', '--state-sensor-temperature-color'],
+  ])('%s does not wrap %s (semantic mismatch or non-existent token)', (key, token) => {
+    expect(DEFAULTS_FORECAST[key]).not.toMatch(token);
   });
 });
