@@ -70,14 +70,17 @@ panel's attribute row will now read `humidity`, `pressure`,
 when present. **No YAML change is required**; this is informational so
 you know why attributes might appear that previously didn't surface.
 
-### Theme-aware default chart colours
+### Theme-aware default chart colours (introduced v1.9.0, reverted v1.10.x)
 
-Chart line / bar colour defaults follow the user's HA theme via CSS
-custom properties (e.g.
-`var(--state-sensor-temperature-color, rgba(255, 152, 0, 1.0))`).
-Light/dark theme switches now shift the chart hues automatically.
-**No YAML change required**; user-set RGBA / hex / hsl strings still
-override (pass-through).
+v1.9.0 wired chart line / bar colour defaults to HA theme tokens
+(`var(--token, rgba-fallback)`). The follow-up audit in #121 found
+that some of those tokens didn't mean what their names suggested
+(`--warning-color` is HA's alert orange, not "warm yellow") and others
+didn't actually exist in HA at all. Defaults are now back to literal
+RGBA strings that don't drift per theme. **No YAML change required in
+either direction**; user-set RGBA / hex / hsl strings still
+pass-through, and you can opt back into theme-driven colouring by
+passing your own `var(--token, fallback)` string in YAML.
 
 ### Editor sizing / colours / font-sizes are YAML-only
 

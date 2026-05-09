@@ -69,7 +69,7 @@ The card uses your Home Assistant location (`hass.config.latitude`
 / `longitude`) to query Open-Meteo, fetches once on first render, and
 re-fetches at most once an hour. The response covers the past N days
 plus the next N forecast days in a single call. The bar colour is
-`forecast.sunshine_color` (default Material amber).
+`forecast.sunshine_color` (default `#FFD700` yellow).
 
 **Privacy note**: enabling sunshine sends your latitude / longitude to
 `api.open-meteo.com` from each browser that renders the dashboard. The
