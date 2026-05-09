@@ -41,7 +41,6 @@ forecast — driven by sensor data, not a `weather.*` entity.
 
 - [What this card does](#what-this-card-does)
 - [Three modes](#three-modes)
-- [When to use this card vs. upstream `weather-chart-card`](#when-to-use-this-card-vs-upstream-weather-chart-card)
 - [Installation](#installation)
 - [Configuration](#configuration) → [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
 - [Conditions, sensors, sunshine](#conditions-sensors-and-sunshine) → [docs/CONDITIONS.md](docs/CONDITIONS.md), [docs/SENSORS.md](docs/SENSORS.md)
@@ -90,17 +89,6 @@ reflects the live readings of those same sensors. This card does both:
 Conditions are derived by a deterministic, meteorologically-grounded
 classifier (see [docs/CONDITIONS.md](docs/CONDITIONS.md#how-conditions-are-determined)
 — every threshold is tied to a WMO / NWS / AMS / IES source).
-
-## When to use this card vs. upstream `weather-chart-card`
-
-This card is a fork of [`mlamberts78/weather-chart-card`](https://github.com/mlamberts78/weather-chart-card)
-(now archived). The two answer different needs:
-
-| You have… | …use |
-| --- | --- |
-| Only a `weather.*` entity (Met.no / Open-Meteo / Pirateweather), no on-site sensors | Upstream `weather-chart-card` |
-| A real weather station — Shelly Plus H&T, BTHome, ESPHome, Pirateweather receiver, Ecowitt, … — and you want **past sensor history** plus optional forecast | **This card** |
-| Both: forecast and sensors, side-by-side in one chart with measured-vs-predicted contrast | **This card** (combination mode) |
 
 ## Three modes
 
