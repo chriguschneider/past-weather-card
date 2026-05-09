@@ -307,7 +307,13 @@ extended with these gates (since v1.4.2 — issue #19):
   Dependabot PRs (`.github/dependabot.yml`, weekly).
 - **Lint**: ESLint 10 with `typescript-eslint`, `eslint-plugin-lit`,
   `eslint-plugin-sonarjs`. Zero errors required; complexity warnings
-  tracked as backlog (see `eslint.config.mjs`).
+  tracked as backlog (see `eslint.config.mjs`). Each rule starts as
+  `warn` while legacy hot-spots exist and is promoted to `error` once
+  it reaches zero violations — v1.10 locked in seven such rules
+  (`max-depth`, `lit/no-useless-template-literals`,
+  `lit/attribute-value-entities`, `sonarjs/no-identical-functions`,
+  `sonarjs/no-collapsible-if`, `sonarjs/prefer-single-boolean-return`,
+  `sonarjs/no-redundant-jump`).
 - **Coverage gate at ≥ 80 %** (statements, branches, functions, lines).
   Configured in `vitest.config.js`. Failing the gate fails the build.
   Note: pre-v1.4.2 the include array listed `.js` paths after the
