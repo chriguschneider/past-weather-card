@@ -4,14 +4,14 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.11.0] — 2026-05-09
 
 Chart bar and curve colours now use predictable defaults that don't
 drift per HA theme. Sunshine bars render yellow, precipitation bars
 light blue, high-temperature curve orange, low-temperature curve dark
 blue — on every theme. Previously some of these inherited theme tokens
-that either didn't mean what their names suggested (sunshine adopted
-the alert / warning colour, low-temperature adopted the info-banner
+that didn't mean what their names suggested (sunshine adopted the
+alert / warning colour, low-temperature adopted the info-banner
 colour) or pointed at HA tokens that don't exist, so the behaviour
 varied across themes in ways no one expected. No YAML changes needed
 — if you'd set custom colours, those still win, and you can still pass
@@ -21,18 +21,35 @@ theme-driven colouring.
 ### Fixed
 - Sunshine bars no longer adopt the theme's warning / alert colour
   on standard HA themes — the default is now a fixed yellow that
-  doesn't drift per theme.
+  doesn't drift per theme. (#121)
 - Low-temperature curve, high-temperature curve, and precipitation bar
   defaults now also pin to predictable literal colours instead of
   guessing at HA theme tokens (some of which didn't actually exist).
 
 ### Under the hood
-- Style guide gains a "Card colour tokens" section documenting which
-  YAML key controls which UI element, and what to check before wiring
-  a new colour default to a theme token.
-- Regression test simulates a hostile HA theme and asserts no concept
-  colour wraps a known-problem token. Catches future re-introductions
-  of the v1.9.0 token-mismatch pattern.
+- New `AGENTS.md` at repo root with the conventions for AI-assisted
+  contributions; the maintainer's local-only `CLAUDE.md` content
+  migrated into tracked docs (`docs/QUALITY-GATES.md`, additions to
+  `TESTING.md` / `CONTRIBUTING.md` / `STYLE-GUIDE.md` /
+  `TROUBLESHOOTING.md`) so external contributors no longer hit broken
+  references. (#131)
+- New `LOCAL-TESTING.md` with a Docker recipe so contributors can
+  verify a build against a real HA instance without the maintainer's
+  Pi setup. (#130)
+- New "Card colour tokens" section in the style guide pinning each
+  concept colour to a single source of truth across the codebase, plus
+  a regression test that simulates a hostile theme to catch the
+  v1.9.0 token-mismatch pattern on future colour changes.
+- README hero shows a light/dark theme pair of the strongest layout
+  instead of two light renders of different layouts. (#128)
+- CI workflow runs now cancel earlier in-flight runs when a new push
+  lands on the same branch, cutting the GHA cost on iterative PRs.
+  Tag-push behaviour is unchanged so release builds run end-to-end.
+  (#129)
+- SonarCloud noise reduction: `src/locale.ts` excluded from
+  copy-paste detection (its per-language repetition is intentional);
+  the void-floating-promise pattern that typescript-eslint actively
+  requires is no longer flagged project-wide. (#57, #123)
 
 ## [1.10.2] — 2026-05-09
 
