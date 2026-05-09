@@ -89,6 +89,10 @@ add cases for any new toggle, sub-section heading, or
 `EditorLike` + `EditorContext` so they're cheap to extend — see the
 existing files for the pattern.
 
+For UI changes that need eyeballing against a real Home Assistant
+instance, see [LOCAL-TESTING.md](LOCAL-TESTING.md) for a Docker-based
+recipe that doesn't depend on any maintainer-specific setup.
+
 PRs that introduce a new architectural pattern, shift a public-API
 contract, or make a hard-to-reverse choice should land an ADR under
 `docs/adr/` alongside the code (see `docs/adr/README.md` for the
