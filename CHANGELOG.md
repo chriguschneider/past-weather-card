@@ -4,6 +4,129 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.1] — 2026-05-09
+
+Aftercare for v1.10.0 plus the larger-scope items the original v1.10
+plan deferred. Zero user-facing behaviour change — internal sweep
+that closes the structural items left open from the v1.10.0 quality
+release: branch-coverage uplift, full `drawChartUnsafe` phase split,
+three more complexity hot-spot refactors, render-time CI advisory,
+and two ADRs codifying the patterns the v1.10 sweeps established.
+
+The schema-driven editor migration (#87, #92, #93) remains deferred —
+it depends on local HA verification on each section migration, which
+this release cycle still couldn't accommodate.
+
+### Internal — v1.10 aftercare
+
+- `WIND_CONVERSION` / `PRESSURE_CONVERSION` lookup tables and the
+  three `_convertDisplayWindSpeed` / `_convertDisplayPressure` /
+  `_formatSunshineHours` helpers extracted from `main.ts` into
+  `src/utils/unit-converters.ts`. Pure functions, Beaufort injected
+  as a callback to keep utils leaf-only. `convertPressure` return
+  type narrowed from `number | string` to `number` (inHg now uses
+  `Math.round(x * 100) / 100` for 2-decimal precision instead of
+  `.toFixed(2)`).
+- New `tests/unit-converters.test.js` covers all three with 31 cases
+  (round-trip, identity, undefined units, Beaufort delegation, edge
+  cases). Total suite: 469 → 510 tests.
+- Per-row helpers extracted from `_renderClimateGroup` /
+  `_renderSunGroup` (e.g. `_climateRow_humidity`,
+  `_sunRow_uv`, `_windRow_speed`). Removes 4 nested-conditional
+  warnings; group renderers now compose row helpers instead of
+  inlining ternaries.
+
+### Internal — three more complexity hot-spot refactors
+
+- `main.ts _classifyLiveCondition` (CC=23) split into
+  `_resolveLiveClassifierInputs` (sensor states + numeric inputs +
+  precip-rate detection), `_pickLiveCondition` (cache lookup +
+  classify decision tree), `_synthesizeWeatherEntity` (build the
+  stand-in `weather` object).
+- `main.ts _refreshForecasts` (CC=22) split into `_sliceForecast`
+  (bound the forecast block by mode), `_buildTodayForecasts` (today
+  pipeline with hourly sunshine + 3-hour aggregation), and
+  `_buildDailyOrHourlyForecasts` (standard pipeline with F3-fallback
+  cloudExp threading).
+- `action-handler.ts runAction` (CC=28) refactored into 7 dedicated
+  `_run*` handlers + an `ACTION_RUNNERS` dispatch table. The legacy
+  `call-service` alias and `perform-action` share the `_runService`
+  handler.
+
+### Internal — `drawChartUnsafe` full phase split (chart/orchestrator.ts)
+
+v1.10.0 only extracted `pickPerBarColor`. v1.10.1 completes the
+phase split: `buildSegmentHelpers`, `buildDatasets`,
+`applyStyle2DataLabels`, `buildPlugins`, `computePrecipMax`,
+`applyChartDefaults` are now standalone helpers. `drawChartUnsafe`
+itself drops from 232 LOC / CC=36 to 105 LOC / CC=24, with
+cognitive-complexity now under the gate. The function is now a
+straight orchestrator (validate → theme → setup → datasets +
+plugins → buildChart).
+
+### Internal — quality lock-in (round 2)
+
+Mechanical lint sweep round 2: 5× type-alias / function-return-type /
+floating-promises / prefer-optional-chain cleanups. ESLint warnings:
+**76 → 63 (-13 across v1.10.1)**. Combined with v1.10.0: **168 → 63
+(-62.5%)**.
+
+### Internal — branch-coverage uplift
+
+Test additions:
+- `MeasuredDataSource` lifecycle: subscribe/unsubscribe timer cleanup,
+  unsubscribe idempotency, 3-failure threshold notify, failure-counter
+  reset on success.
+- `OpenMeteoSunshineSource.ensureFresh`: no-fetch / non-finite-coords
+  early-returns, ok:true / ok:false / AbortError listener notifications,
+  in-flight coalescing.
+
+Coverage: global branches 84.18% → 85.98% (+1.8pp);
+data-source.ts branches 70.19% → 76.92% (+6.7pp).
+
+### CI
+
+- New `tests-e2e/perf-render-time.spec.ts` measures end-to-end mount
+  → chart-rendered timing for three configs (daily/today/hourly
+  combination), 5 iterations, median + p95.
+- New "Render-time advisory summary" CI step renders the timings in
+  the GitHub Actions build summary. **Advisory only** — no CI gate
+  (GHA-runner CPU variability would create false positives). Trend
+  signal across multiple PRs.
+- Closes the render-time portion of #111.
+
+### ADRs
+
+- **ADR-0009** — Lookup-table pattern for unit conversions (codifies
+  the v1.10 `WIND_CONVERSION` / `PRESSURE_CONVERSION` shape as a
+  precedent for future Map-based conversions).
+- **ADR-0010** — Group-renderer pattern for conditional template
+  blocks (parent + ctx + per-group + per-row split, from
+  renderAttributes; references ADR-0007 as the same flavour at the
+  data path).
+
+### Deferred to v1.10.2 / v1.11
+
+- **#87** — Schema-driven editor sections via `<ha-form>` (still
+  needs HA-side verification on each section migration).
+- **#92** — Per-section reset-to-defaults (depends on #87).
+- **#93** — Schema-coverage assertion (depends on #87).
+- Per-file branch-coverage uplift in `data-source.ts` and
+  `openmeteo-source.ts` to 80%+ (currently 76.92% / 79.36%; global
+  gate at 85.98% holds).
+- Remaining complexity hot-spots: `_extractSensorReadings` (CC=18),
+  `_resolveLiveClassifierInputs` (CC=17, new from this release),
+  `_syncDataSources` (CC=19), `_ensureSunshineSource` (CC=22),
+  `getWindDirIcon` (CC=18), `calculateBeaufortScale` (CC=16),
+  `classifyDay` (CC=34), `setupScrollUx` (136 LOC), `cardStyles`
+  (246 LOC), `_buildHourlyForecast` (CC=21), `_maybeApplyInitialScroll`
+  (CC=21), `sunshineFromLuxHistory` (CC=16), `pickHourlyTickIndices`
+  (CC=20), `drawChartUnsafe` itself (CC=24, down from 36).
+
+### Issues closed
+
+- #111 — Render-time advisory in CI summary
+
 ## [1.10.0] — 2026-05-09
 
 Quality-and-modernisation release. Zero user-facing behaviour change —
