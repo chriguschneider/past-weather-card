@@ -31,7 +31,7 @@ Alternatives considered:
   it just fails the build instead of silently shipping a stale banner.
 - **Add `@rollup/plugin-replace` as a dependency.** The standard way
   to inject build-time constants. Works, but adds a dep to the build
-  graph for one trivial substitution. Per CLAUDE.md's quality stack,
+  graph for one trivial substitution. Per [docs/QUALITY-GATES.md](../QUALITY-GATES.md#dependabot),
   major-version bumps need manual changelog review; even a minor dep
   add is non-trivial.
 - **Inline Rollup transform plugin (no new dep).** A small object with

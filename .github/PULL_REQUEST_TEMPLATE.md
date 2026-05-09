@@ -13,7 +13,7 @@ don't apply.
 <!-- Checklist of what to verify. Examples:
 - [ ] `npm run build` passes locally
 - [ ] New unit test for X covers the regression
-- [ ] Smoke-tested on Pi (Pi setup is in CLAUDE.md)
+- [ ] Smoke-tested locally (see [LOCAL-TESTING.md](../LOCAL-TESTING.md) for the Docker recipe; maintainers may use a live HA instance instead)
 -->
 
 - [ ]

@@ -150,17 +150,40 @@ Animations are disabled per-test by setting
 500 ms easeOutQuart on the temperature line doesn't make the
 screenshot timing race-prone.
 
+<a id="updating-visual-baselines"></a>
 ### Updating baselines after a deliberate UI change
 
+Visual baselines are pinned to the GitHub Actions `ubuntu-latest`
+runner (see [ADR-0003](docs/adr/0003-e2e-baselines-pinned-to-gha.md)).
+The comparison environment matches the assertion environment exactly,
+which is what lets the Playwright tolerance sit at 0.2 % — tight
+enough to catch subtle regressions like 1-px text shifts. The flip
+side is that **locally-generated PNGs diff 1–4 % against the GHA
+images** and must not be committed.
+
+The supported regen path is the
+[`update-baselines.yml`](.github/workflows/update-baselines.yml)
+workflow:
+
 ```bash
-npm run test:e2e:update
-git add tests-e2e/snapshots
-git commit -m "Refresh E2E baselines after <change>"
+gh workflow run update-baselines.yml --ref <your-feature-branch>
+gh run list --workflow update-baselines.yml \
+  --event workflow_dispatch --limit 1
+gh run watch <run-id> --exit-status
 ```
 
-Always include the *why* in the commit — a baseline change is a
-visual contract change, and reviewers can't tell from the .png alone
-whether the diff is intended.
+The bot pushes a `chore: update e2e baselines from CI` commit on top
+of the dispatched branch with the regenerated PNGs. Pull, review the
+diff, merge through the normal PR flow.
+
+> **Branch protection note.** The bot can push to feature branches
+> but not directly to `master` (which is branch-protected). If you
+> need master baselines refreshed, dispatch on a feature branch and
+> open a PR; the bot writes there, the PR carries it through.
+
+Always include the *why* in the commit / PR body — a baseline change
+is a visual contract change, and reviewers can't tell from the .png
+alone whether the diff is intended.
 
 ## What to add when
 
@@ -186,8 +209,9 @@ whether the diff is intended.
   outcome; mocking Chart.js's internal APIs adds setup without
   payoff.
 - **Real Home Assistant frontend.** Specs run against the mock; HA
-  integration is verified manually on a Pi smoke test (CLAUDE.md has
-  the procedure).
+  integration is verified manually against a real HA instance — see
+  [LOCAL-TESTING.md](LOCAL-TESTING.md) for the Docker recipe that
+  doesn't depend on any maintainer-specific setup.
 - **Cross-browser visual regression.** One project (Chromium) is
   sufficient: HA frontend itself targets Chromium-class browsers,
   and baselines pinned to a single rendering engine sidestep

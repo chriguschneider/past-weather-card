@@ -72,6 +72,15 @@ render tick. If a field doesn't seem to update:
   string `'25'` instead of the number `25`; the card coerces, but if you
   see a chart sized oddly, check the YAML view for stray quotes.
 
+## Tap / hold action does nothing in the editor preview
+
+The card-configuration dialog renders a live preview of the card on
+the right side. `tap_action`, `hold_action`, and `double_tap_action`
+all *fire* in the preview — but the visual side effects of `navigate`
+or `url` actions are obscured by the dialog overlay. If you're testing
+a navigation action and nothing seems to happen, close the editor and
+try the action on the real dashboard.
+
 ## Removed in v1.9.x
 
 The following config keys no longer exist in the code path. Old YAML
