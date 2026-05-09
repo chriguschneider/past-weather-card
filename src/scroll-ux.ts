@@ -1,23 +1,12 @@
-// Scroll UX wiring for the forecast block.
+// Scroll UX wiring for the forecast block: drag-to-scroll on desktop,
+// left/right indicator chevrons, the jump-to-now floating button, the
+// leftmost / rightmost visible-date overlay at hourly mode, and the
+// indicator visibility tracking via the wrapper's scroll event.
 //
-// Lifted out of main.js in v1.1 — previously these were 4 methods
-// (_setupScrollUx, _updateScrollIndicators, _updateScrollDateStamps,
-// _onJumpToNowClick) plus inline @click bindings spread across
-// render markup. The module is the single source of truth for:
-//
-//   - mouse drag-to-scroll on desktop (touch falls through to native
-//     `overflow-x: auto` scroll; we only listen for movement-detection
-//     so a swipe doesn't also fire the card-level tap_action)
-//   - left/right indicator chevrons (one viewport step on click)
-//   - jump-to-now floating button (visible when scrolled noticeably
-//     away from the canonical "now" position; click smooth-scrolls
-//     back)
-//   - the leftmost / rightmost visible-date overlay at hourly mode
-//   - indicator visibility tracking via the wrapper's scroll event
-//
-// Coupling to the card instance: see `ScrollUxCard` interface below.
-// `_dragMoved` is shared with action-handler so a drag-to-scroll
-// suppresses the trailing tap.
+// Touch falls through to native `overflow-x: auto` scroll; we only
+// listen for movement-detection so a swipe doesn't also fire the
+// card-level tap_action. `_dragMoved` is shared with action-handler
+// so a drag-to-scroll suppresses the trailing tap.
 //
 // Idempotent on stable wrapper elements via a `_wsScrollUxBound`
 // flag — Lit reuses the wrapper across data refreshes, so re-binding

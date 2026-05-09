@@ -10,8 +10,8 @@
 // Always visible — show_main is the gate for the panel itself; users
 // can keep it off in pure forecast mode if they prefer the chart alone.
 //
-// Schema-driven via <ha-form> (#87, v1.10.2). Two ha-form blocks split
-// the section visually:
+// Schema-driven via <ha-form>. Two ha-form blocks split the section
+// visually:
 //   - Main panel: show_main + 6 sub-toggles (time-related toggles
 //     conditionally appear)
 //   - Attributes: show_attributes + 10 sub-toggles (each conditional

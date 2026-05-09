@@ -1,7 +1,4 @@
-// Pure unit-conversion helpers used by the live-attributes block in
-// `main.ts`. Extracted from the WeatherStationCard class in v1.10.1
-// so the conversion tables live alongside the leaf utilities and the
-// helpers themselves get direct unit-test coverage.
+// Pure unit-conversion helpers used by the live-attributes block.
 //
 // Wind / pressure tables are keyed by `targetUnit->sourceUnit`. Beaufort
 // and same-unit cases are short-circuited inside the converters and

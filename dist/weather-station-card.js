@@ -28,8 +28,8 @@
           border-bottom: 1px solid var(--divider-color);
         }
         h3.section:first-of-type { margin-top: 0; }
-        /* Section headers with the v1.10.2 reset-to-defaults icon
-           button. The button right-aligns in the heading; clicking it
+        /* Section headers with the reset-to-defaults icon button.
+           The button right-aligns in the heading; clicking it
            drops every key the section owns from this._config so DEFAULTS
            take over. */
         h3.section.section-header-with-reset {

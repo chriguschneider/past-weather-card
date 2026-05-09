@@ -12,15 +12,14 @@ export const DEFAULTS_FORECAST = {
   style: 'style2',
   // Concept-colour defaults are literal RGBA strings.
   //
-  // Theme tokens were tried in v1.9.0 (--warning-color for sunshine,
-  // --info-color for low temp, --state-sensor-*-color for the rest),
-  // but two failure modes surfaced. The "warning"-shaped tokens are
-  // semantic mismatches — --warning-color is HA's alert orange/red,
-  // not "sunshine" (#121); --info-color is for info banners, not
-  // "cold" — and the --state-sensor-*-color tokens we picked don't
-  // actually exist in HA's frontend at all (verified via
-  // home-assistant/frontend code search), so the var() wrapper was
-  // dead weight that only obscured the literal.
+  // Theme tokens were tried (--warning-color for sunshine, --info-color
+  // for low temp, --state-sensor-*-color for the rest), but two failure
+  // modes surfaced. The "warning"-shaped tokens are semantic mismatches
+  // — --warning-color is HA's alert orange/red, not "sunshine";
+  // --info-color is for info banners, not "cold" — and the
+  // --state-sensor-*-color tokens we picked don't actually exist in HA's
+  // frontend at all (verified via home-assistant/frontend code search),
+  // so the var() wrapper was dead weight that only obscured the literal.
   //
   // Users who want theme-driven colours can still pass their own
   // var(...) string in YAML — resolveCssVar resolves user input the
@@ -32,9 +31,9 @@ export const DEFAULTS_FORECAST = {
   show_sunshine: false,
   sunshine_color: 'rgba(255, 215, 0, 1.0)',
   condition_icons: true,
-  // DEPRECATED v1.9.x — see renderWind in main.ts. Kept as a hard
-  // master-off shim for v1.x YAML configs with show_wind_forecast:
-  // false; slated for removal in v2.0. New installs should not set it.
+  // Deprecated — see renderWind in main.ts. Kept as a hard master-off
+  // shim for YAML configs that explicitly set show_wind_forecast:
+  // false; new installs should not set it.
   show_wind_forecast: true,
   show_wind_arrow: true,
   show_wind_speed: true,
@@ -75,8 +74,8 @@ export const DEFAULTS = {
   show_sun: false,
   show_dew_point: false,
   show_wind_gust_speed: false,
-  // UV index defaults to true to preserve v1.x behaviour where UV was
-  // always shown if a sensor was wired. The other three new attribute
+  // UV index defaults to true to preserve the original behaviour where
+  // UV was always shown if a sensor was wired. The other three attribute
   // cells default to false so existing layouts don't suddenly grow.
   show_uv_index: true,
   show_illuminance: false,

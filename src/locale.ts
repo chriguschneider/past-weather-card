@@ -144,19 +144,19 @@ const locale: Locale = {
       'style_heading': 'Stil & Farben',
       'units_heading': 'Einheiten',
       'advanced_heading': 'Erweitert',
-      // v1.10 section headings — top-level
+      // Section headings — top-level
       'card_setup_heading': 'Karte einrichten',
       'station_sensors_heading': 'Sensoren deiner Wetterstation',
       'weather_forecast_heading': 'Wettervorhersage',
       'chart_section_heading': 'Diagramm',
       'live_panel_heading': 'Live-Anzeige',
       'actions_section_heading': 'Aktionen',
-      // v1.10.2 — per-section reset-to-defaults button (#92)
+      // Per-section reset-to-defaults button
       'reset_section': 'Diese Sektion auf Standardwerte zurücksetzen',
-      // v1.10 sub-section headings
+      // Sub-section headings
       'chart_time_range_heading': 'Zeitraum & Auflösung',
-      // v1.9 keys retained for backwards compatibility (third-party
-      // translations that have been updated for v1.9 keep working).
+      // Keys retained for backwards compatibility (third-party
+      // translations that target the previous schema keep working).
       'mode_question_heading': 'Was zeigt die Karte?',
       'display_question_heading': 'Was wird angezeigt?',
       'appearance_heading': 'Aussehen',
@@ -317,23 +317,23 @@ const locale: Locale = {
       'style_heading': 'Style & Colours',
       'units_heading': 'Units',
       'advanced_heading': 'Advanced',
-      // v1.10 section headings — top-level
+      // Section headings — top-level
       'card_setup_heading': 'Card setup',
       'station_sensors_heading': 'Your weather station\'s sensors',
       'weather_forecast_heading': 'Weather forecast',
       'chart_section_heading': 'Chart',
       'live_panel_heading': 'Live panel',
       'actions_section_heading': 'Actions',
-      // v1.10.2 — per-section reset-to-defaults button (#92)
+      // Per-section reset-to-defaults button
       'reset_section': 'Reset this section to defaults',
-      // v1.10 sub-section headings
+      // Sub-section headings
       'chart_time_range_heading': 'Time range & resolution',
-      // v1.9 keys retained for backwards compatibility.
+      // Keys retained for backwards compatibility.
       'mode_question_heading': 'What this card shows',
       'display_question_heading': 'What gets shown',
       'appearance_heading': 'Appearance',
       'tap_behavior_heading': 'Tap behavior',
-      // Legacy keys (kept so old translations keep working in v0.6)
+      // Legacy keys (kept so older translations keep working).
       'card_heading': 'Card',
       'display_heading': 'Display',
       'chart_heading': 'Chart',
@@ -342,7 +342,7 @@ const locale: Locale = {
       'mode_station': 'Station only',
       'mode_forecast': 'Forecast only',
       'mode_combination': 'Station and Forecast Combined',
-      // Chart type radio (v0.8 — re-introduced)
+      // Chart type radio
       'chart_type_label': 'Chart type',
       'forecast_type_daily': 'Daily',
       'forecast_type_today': 'Today (24h)',
