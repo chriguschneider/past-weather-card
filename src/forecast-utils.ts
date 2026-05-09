@@ -353,12 +353,12 @@ export function filterMidnightStaleForecast<T extends { datetime?: string }>(
  *  to show its column with whatever data IS present (e.g. a sunshine
  *  reading from a different sensor). */
 export function dropEmptyStationToday<T extends Partial<ForecastEntry>>(
-  station: ReadonlyArray<T> | T[],
+  station: ReadonlyArray<T>,
   todayStartMs: number,
-): T[] | ReadonlyArray<T> {
+): ReadonlyArray<T> {
   if (!Array.isArray(station) || station.length === 0) return station;
   const last = station[station.length - 1];
-  if (!last || !last.datetime) return station;
+  if (!last?.datetime) return station;
   const lastT = new Date(last.datetime).getTime();
   if (!Number.isFinite(lastT) || lastT < todayStartMs) return station;
   const noRecordedData = last.temperature == null

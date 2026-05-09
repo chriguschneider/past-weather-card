@@ -186,8 +186,10 @@ export class MeasuredDataSource {
 
   subscribe(callback: DataSourceListener): Unsubscribe {
     this._listener = callback;
-    this._poll();
-    this._timer = setInterval(() => this._poll(), POLL_INTERVAL_MS);
+    // Fire-and-forget the initial poll; the interval re-polls every
+    // POLL_INTERVAL_MS regardless of whether the first call resolves.
+    void this._poll();
+    this._timer = setInterval(() => { void this._poll(); }, POLL_INTERVAL_MS);
     return () => this.unsubscribe();
   }
 

@@ -21,13 +21,19 @@ export type DateLike = Date | string | number;
 /** Per-day sunshine entry. The card supports a few historic shapes
  *  (object with `date` + `value`, object map by date, [date, value]
  *  tuple) — `findInDateArray` normalises across them. */
+/** Per-key value shape — the entries are loose-typed because the source
+ *  may deliver numeric strings (HA recorder), proper numbers (Open-Meteo),
+ *  or nulls (gap markers). `findInDateArray` normalises via
+ *  `normalizeSunshineValue`. */
+export type SunshineValueLike = number | string | null;
+
 export interface DailySunshineEntry {
   date?: string;
   datetime?: string;
-  value?: number | string | null;
-  sunshine?: number | string | null;
-  duration?: number | string | null;
-  sunshine_duration?: number | string | null;
+  value?: SunshineValueLike;
+  sunshine?: SunshineValueLike;
+  duration?: SunshineValueLike;
+  sunshine_duration?: SunshineValueLike;
 }
 
 /** Per-hour sunshine entry — Open-Meteo's hourly response after we
