@@ -40,7 +40,7 @@ forecast — driven by sensor data, not a `weather.*` entity.
 <summary><b>Table of contents</b></summary>
 
 - [What this card does](#what-this-card-does)
-- [Three modes](#three-modes)
+- [Modes and chart resolutions](#modes-and-chart-resolutions)
 - [Installation](#installation)
 - [Configuration](#configuration) → [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
 - [Conditions, sensors, sunshine](#conditions-sensors-and-sunshine) → [docs/CONDITIONS.md](docs/CONDITIONS.md), [docs/SENSORS.md](docs/SENSORS.md)
@@ -90,73 +90,63 @@ Conditions are derived by a deterministic, meteorologically-grounded
 classifier (see [docs/CONDITIONS.md](docs/CONDITIONS.md#how-conditions-are-determined)
 — every threshold is tied to a WMO / NWS / AMS / IES source).
 
-## Three modes
+## Modes and chart resolutions
 
-The same card renders three distinct layouts depending on which blocks
-are enabled. Each mode pairs with two `forecast.style` variants ("with
-boxes" / "without boxes"), giving the six layouts shown below — top row
-is the default style (`style2`, without boxes), bottom row is
-`style1` (with boxes).
+The card has two independent axes: which **blocks** render
+(combination / station / forecast) and which time **resolution**
+the chart uses (daily / today / hourly). All nine combinations are
+supported; you cycle resolutions live with the chart's mode-toggle
+button.
 
 <table>
 <tr>
+<th></th>
+<th>Daily (default)</th>
+<th>Today (24 h)</th>
+<th>Hourly (7 days)</th>
+</tr>
+<tr>
 <th>Combination</th>
+<td><img alt="Combination, daily" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/daily-combination.png" /></td>
+<td><img alt="Combination, today" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/today-combination.png" /></td>
+<td><img alt="Combination, hourly" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/hourly-combination.png" /></td>
+</tr>
+<tr>
 <th>Station</th>
+<td><img alt="Station, daily" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/daily-station.png" /></td>
+<td><img alt="Station, today" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/today-station.png" /></td>
+<td><img alt="Station, hourly" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/hourly-station.png" /></td>
+</tr>
+<tr>
 <th>Forecast</th>
-</tr>
-<tr>
-<td><sub>style 2 (default, no boxes)</sub></td>
-<td><sub>style 2 (default, no boxes)</sub></td>
-<td><sub>style 2 (default, no boxes)</sub></td>
-</tr>
-<tr>
-<td><img alt="Combination, style 2" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/styles-grid.spec.ts/combination-style2.png" /></td>
-<td><img alt="Station, style 2" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/styles-grid.spec.ts/station-style2.png" /></td>
-<td><img alt="Forecast, style 2" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/styles-grid.spec.ts/forecast-style2.png" /></td>
-</tr>
-<tr>
-<td><sub>style 1 (with boxes)</sub></td>
-<td><sub>style 1 (with boxes)</sub></td>
-<td><sub>style 1 (with boxes)</sub></td>
-</tr>
-<tr>
-<td><img alt="Combination, style 1" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/styles-grid.spec.ts/combination-style1.png" /></td>
-<td><img alt="Station, style 1" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/styles-grid.spec.ts/station-style1.png" /></td>
-<td><img alt="Forecast, style 1" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/styles-grid.spec.ts/forecast-style1.png" /></td>
+<td><img alt="Forecast, daily" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/daily-forecast.png" /></td>
+<td><img alt="Forecast, today" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/today-forecast.png" /></td>
+<td><img alt="Forecast, hourly" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/hourly-forecast.png" /></td>
 </tr>
 </table>
 
-> **Combination** (left column): past N days from your sensors + today
-> as a doubled column (measured + predicted) + forecast N days from a
-> `weather.*` entity. Forecast temperature lines are dashed and
-> forecast precipitation bars draw at ~45 % opacity so predicted values
-> read distinctly from measured ones.
->
-> **Station** (centre): the original layout — past 7 days from your
-> sensors, today as the rightmost column. No `weather.*` entity needed.
->
-> **Forecast** (right): forecast-only — no station-history block. Useful
-> when the card is paired with another sensor-history visualisation
-> elsewhere on the dashboard.
+**Modes** (rows):
 
-```yaml
-type: custom:weather-station-card
-days: 7
-sensors:
-  temperature: sensor.YOUR_TEMPERATURE_SENSOR
-  # … add humidity, pressure, wind, … as available
-weather_entity: weather.home   # any weather.* entity that supports daily forecast
-forecast_days: 7
-show_forecast: true            # turn the forecast block on
-show_station: true             # default; flip to false for forecast-only
-```
+- **Combination** — past sensor history + today as a doubled column
+  (measured + predicted) + forecast from a `weather.*` entity. Forecast
+  temperature lines are dashed and forecast precipitation bars draw at
+  ~45 % opacity so predicted values read distinctly from measured ones.
+- **Station** — past sensor history only, no forecast block. No
+  `weather.*` entity needed.
+- **Forecast** — forecast-only, no station-history block. Useful when
+  another sensor-history visualisation lives elsewhere on the
+  dashboard.
 
-Both blocks toggle independently — leave `show_forecast: false` (the
-default) for the original station-only experience, or set
-`show_station: false` to hide the historical block.
+**Chart resolutions** (columns):
 
-For hourly resolution (`forecast.type: hourly`), see
-[CONFIGURATION.md → Daily vs. hourly resolution](docs/CONFIGURATION.md#daily-vs-hourly-resolution).
+- **Daily** (default) — one column per day across the past + forecast
+  window. The classic view.
+- **Today** — zoom on the current 24 hours, 3-hourly aggregation
+  (8 columns). Combination splits into 12 station-hours back and
+  12 forecast-hours forward; forecast-only expands to the full 24.
+- **Hourly** — one column per hour over 7 days, scrollable. 168
+  columns; the jump-to-now button snaps the viewport to the present
+  hour.
 
 ## Installation
 
