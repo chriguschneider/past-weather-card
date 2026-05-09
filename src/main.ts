@@ -1569,6 +1569,69 @@ _formatSunshineHours(sunshine_duration: any, sunshine_duration_unit: any): numbe
   return formatSunshineHours(sunshine_duration, sunshine_duration_unit);
 }
 
+// Per-row template helpers. Extracted from the group renderers so each
+// row is a single conditional render — clearer than 4-row nested
+// ternaries and lets ESLint's no-nested-conditional rule apply at
+// per-row granularity (vs. the previous group-level miss).
+
+_climateRow_humidity(show: boolean, humidity: unknown) {
+  if (!show || humidity === undefined) return html``;
+  return html`<ha-icon icon="hass:water-percent"></ha-icon> ${humidity} %<br>`;
+}
+// deno-lint-ignore no-explicit-any
+_climateRow_pressure(show: boolean, dPressure: any) {
+  if (!show || dPressure === undefined) return html``;
+  const unitLabel = this.unitPressure ? this.ll('units')[this.unitPressure] : '';
+  return html`<ha-icon icon="hass:gauge"></ha-icon> ${dPressure} ${unitLabel} <br>`;
+}
+_climateRow_dewpoint(show: boolean, dew_point: unknown) {
+  if (!show || dew_point === undefined) return html``;
+  return html`<ha-icon icon="hass:thermometer-water"></ha-icon> ${dew_point} ${this.weather.attributes.temperature_unit} <br>`;
+}
+_climateRow_precip(show: boolean, hasValue: boolean, precipitation: unknown, precipitation_unit: unknown) {
+  if (!show || !hasValue) return html``;
+  const unitSuffix = precipitation_unit ? ' ' + precipitation_unit : '';
+  return html`<ha-icon icon="hass:weather-rainy"></ha-icon> ${precipitation}${unitSuffix}<br>`;
+}
+
+_sunRow_uv(show: boolean, uv_index: unknown) {
+  if (!show || uv_index === undefined || uv_index === '') return html``;
+  return html`<div><ha-icon icon="hass:white-balance-sunny"></ha-icon> UV: ${Math.round(parseFloat(String(uv_index)) * 10) / 10}</div>`;
+}
+_sunRow_illuminance(show: boolean, illuminance: unknown) {
+  if (!show || illuminance === undefined || illuminance === '') return html``;
+  return html`<div><ha-icon icon="hass:brightness-5"></ha-icon> ${Math.round(parseFloat(String(illuminance)))} lx</div>`;
+}
+_sunRow_sunshine(show: boolean, sunshineHours: number | undefined) {
+  if (!show || sunshineHours === undefined) return html``;
+  return html`<div><ha-icon icon="hass:weather-sunny"></ha-icon> ${sunshineHours} h</div>`;
+}
+// deno-lint-ignore no-explicit-any
+_sunRow_sunPanel(show: boolean, sun: any, language: string) {
+  if (!show || sun === undefined) return html``;
+  return html`<div>${this.renderSun({ sun, language } as unknown as this)}</div>`;
+}
+
+// deno-lint-ignore no-explicit-any
+_windRow_direction(show: boolean, windDirection: any) {
+  if (!show || windDirection === undefined) return html``;
+  return html`<ha-icon icon="hass:${this.getWindDirIcon(windDirection)}"></ha-icon> ${this.getWindDir(windDirection)} <br>`;
+}
+// deno-lint-ignore no-explicit-any
+_windRow_speed(show: boolean, dWindSpeed: any) {
+  if (!show || dWindSpeed === undefined) return html``;
+  const unitLabel = this.unitSpeed ? this.ll('units')[this.unitSpeed] : '';
+  return html`<ha-icon icon="hass:weather-windy"></ha-icon>
+    ${dWindSpeed} ${unitLabel} <br>`;
+}
+// deno-lint-ignore no-explicit-any
+_windRow_gust(show: boolean, wind_gust_speed: any) {
+  if (!show || wind_gust_speed === undefined) return html``;
+  const unitLabel = this.unitSpeed ? this.ll('units')[this.unitSpeed] : '';
+  return html`<ha-icon icon="hass:weather-windy-variant"></ha-icon>
+    ${this._convertWindSpeed(parseFloat(wind_gust_speed))} ${unitLabel}`;
+}
+
 // Climate group: humidity / pressure / dew-point / precipitation. Returns
 // nothing-html when every row's toggle is off or backing value is empty.
 // deno-lint-ignore no-explicit-any
@@ -1577,18 +1640,10 @@ _renderClimateGroup({ showHumidity, humidity, showPressure, dPressure, showDewpo
   if (!anyVisible) return html``;
   return html`
     <div>
-      ${showHumidity && humidity !== undefined ? html`
-        <ha-icon icon="hass:water-percent"></ha-icon> ${humidity} %<br>
-      ` : ''}
-      ${showPressure && dPressure !== undefined ? html`
-        <ha-icon icon="hass:gauge"></ha-icon> ${dPressure} ${this.unitPressure ? this.ll('units')[this.unitPressure] : ''} <br>
-      ` : ''}
-      ${showDewpoint && dew_point !== undefined ? html`
-        <ha-icon icon="hass:thermometer-water"></ha-icon> ${dew_point} ${this.weather.attributes.temperature_unit} <br>
-      ` : ''}
-      ${showPrecipitation && hasPrecipValue ? html`
-        <ha-icon icon="hass:weather-rainy"></ha-icon> ${precipitation}${precipitation_unit ? ' ' + precipitation_unit : ''}<br>
-      ` : ''}
+      ${this._climateRow_humidity(showHumidity, humidity)}
+      ${this._climateRow_pressure(showPressure, dPressure)}
+      ${this._climateRow_dewpoint(showDewpoint, dew_point)}
+      ${this._climateRow_precip(showPrecipitation, hasPrecipValue, precipitation, precipitation_unit)}
     </div>
   `;
 }
@@ -1600,26 +1655,10 @@ _renderSunGroup({ showSun, sun, showUvIndex, uv_index, showIlluminance, illumina
   if (!anyVisible) return html``;
   return html`
     <div>
-      ${showUvIndex && uv_index !== undefined && uv_index !== '' ? html`
-        <div>
-          <ha-icon icon="hass:white-balance-sunny"></ha-icon> UV: ${Math.round(parseFloat(String(uv_index)) * 10) / 10}
-        </div>
-      ` : ''}
-      ${showIlluminance && illuminance !== undefined && illuminance !== '' ? html`
-        <div>
-          <ha-icon icon="hass:brightness-5"></ha-icon> ${Math.round(parseFloat(String(illuminance)))} lx
-        </div>
-      ` : ''}
-      ${showSunshineDuration && sunshineHours !== undefined ? html`
-        <div>
-          <ha-icon icon="hass:weather-sunny"></ha-icon> ${sunshineHours} h
-        </div>
-      ` : ''}
-      ${showSun && sun !== undefined ? html`
-        <div>
-          ${this.renderSun({ sun, language } as unknown as this)}
-        </div>
-      ` : ''}
+      ${this._sunRow_uv(showUvIndex, uv_index)}
+      ${this._sunRow_illuminance(showIlluminance, illuminance)}
+      ${this._sunRow_sunshine(showSunshineDuration, sunshineHours)}
+      ${this._sunRow_sunPanel(showSun, sun, language)}
     </div>
   `;
 }
@@ -1631,17 +1670,9 @@ _renderWindGroup({ showWindDirection, windDirection, showWindSpeed, dWindSpeed, 
   if (!anyVisible) return html``;
   return html`
     <div>
-      ${showWindDirection && windDirection !== undefined ? html`
-        <ha-icon icon="hass:${this.getWindDirIcon(windDirection)}"></ha-icon> ${this.getWindDir(windDirection)} <br>
-      ` : ''}
-      ${showWindSpeed && dWindSpeed !== undefined ? html`
-        <ha-icon icon="hass:weather-windy"></ha-icon>
-        ${dWindSpeed} ${this.unitSpeed ? this.ll('units')[this.unitSpeed] : ''} <br>
-      ` : ''}
-      ${showWindgustspeed && wind_gust_speed !== undefined ? html`
-        <ha-icon icon="hass:weather-windy-variant"></ha-icon>
-        ${this._convertWindSpeed(parseFloat(wind_gust_speed))} ${this.unitSpeed ? this.ll('units')[this.unitSpeed] : ''}
-      ` : ''}
+      ${this._windRow_direction(showWindDirection, windDirection)}
+      ${this._windRow_speed(showWindSpeed, dWindSpeed)}
+      ${this._windRow_gust(showWindgustspeed, wind_gust_speed)}
     </div>
   `;
 }
