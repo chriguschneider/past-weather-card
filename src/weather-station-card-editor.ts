@@ -128,6 +128,46 @@ class WeatherStationCardEditor extends LitElement implements EditorLike {
     this.requestUpdate();
   };
 
+  // Chart-section ha-form handlers (v1.10.2 #87 migration). The chart
+  // section spans two config levels — top-level (title, days,
+  // forecast_days) and forecast.* (number_of_forecasts, condition_icons,
+  // show_*, style, round_temp, disable_animation). Each form replaces
+  // the keys it owns and merges with the rest of config / forecast.
+  _chartTopChanged = (event: Event): void => {
+    if (!this._config) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.tagName.toLowerCase() !== 'ha-form') return;
+    const detail = (event as CustomEvent<{ value: Record<string, unknown> }>).detail;
+    const newConfig: Record<string, unknown> = { ...this._config };
+    for (const [key, value] of Object.entries(detail.value)) {
+      if (value === undefined || value === '') {
+        delete newConfig[key];
+      } else {
+        newConfig[key] = value;
+      }
+    }
+    this.configChanged(newConfig);
+    this.requestUpdate();
+  };
+
+  _chartForecastChanged = (event: Event): void => {
+    if (!this._config) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.tagName.toLowerCase() !== 'ha-form') return;
+    const detail = (event as CustomEvent<{ value: Record<string, unknown> }>).detail;
+    const currentForecast = (this._config.forecast as Record<string, unknown>) || {};
+    const newForecast = { ...currentForecast };
+    for (const [key, value] of Object.entries(detail.value)) {
+      if (value === undefined || value === '') {
+        delete newForecast[key];
+      } else {
+        newForecast[key] = value;
+      }
+    }
+    this.configChanged({ ...this._config, forecast: newForecast });
+    this.requestUpdate();
+  };
+
   _valueChanged = (event: { target: ValueChangedTarget }, key: string): void => {
     if (!this._config) return;
 

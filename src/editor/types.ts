@@ -55,6 +55,8 @@ export interface EditorLike {
   _sensorsChanged(event: Event): void;
   _sensorPickerChanged(key: string, value: unknown): void;
   _unitsChanged(event: Event): void;
+  _chartTopChanged(event: Event): void;
+  _chartForecastChanged(event: Event): void;
   _actionChanged(key: string, value: unknown): void;
   _conditionMappingChanged(event: { target: { value?: string } }, key: string): void;
   _renderSunshineAvailabilityHint(cfg: Record<string, unknown>, t: TFn): unknown;
