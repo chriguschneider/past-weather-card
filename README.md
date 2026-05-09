@@ -106,21 +106,21 @@ button.
 </tr>
 <tr>
 <th>Combination</th>
-<td><img alt="Combination, daily" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/daily-combination.png" /></td>
-<td><img alt="Combination, today" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/today-combination.png" /></td>
-<td><img alt="Combination, hourly" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/hourly-combination.png" /></td>
+<td><img alt="Combination, daily" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/daily-combination-sunshine.png" /></td>
+<td><img alt="Combination, today" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/today-combination-sunshine.png" /></td>
+<td><img alt="Combination, hourly" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/hourly-combination-sunshine.png" /></td>
 </tr>
 <tr>
 <th>Station</th>
-<td><img alt="Station, daily" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/daily-station.png" /></td>
-<td><img alt="Station, today" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/today-station.png" /></td>
-<td><img alt="Station, hourly" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/hourly-station.png" /></td>
+<td><img alt="Station, daily" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/daily-station-sunshine.png" /></td>
+<td><img alt="Station, today" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/today-station-sunshine.png" /></td>
+<td><img alt="Station, hourly" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/hourly-station-sunshine.png" /></td>
 </tr>
 <tr>
 <th>Forecast</th>
-<td><img alt="Forecast, daily" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/daily-forecast.png" /></td>
-<td><img alt="Forecast, today" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/today-forecast.png" /></td>
-<td><img alt="Forecast, hourly" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/hourly-forecast.png" /></td>
+<td><img alt="Forecast, daily" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/daily-forecast-sunshine.png" /></td>
+<td><img alt="Forecast, today" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/today-forecast-sunshine.png" /></td>
+<td><img alt="Forecast, hourly" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/render-modes.spec.ts/hourly-forecast-sunshine.png" /></td>
 </tr>
 </table>
 
