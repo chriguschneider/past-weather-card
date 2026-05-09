@@ -201,18 +201,6 @@ user intent:
 Every YAML key is documented in **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)**
 with type, default, and effect.
 
-For the most common adjustments:
-
-- **Switch modes** — set `show_station` and/or `show_forecast`. See [General](docs/CONFIGURATION.md#general).
-- **Add a forecast** — set `weather_entity` plus `show_forecast: true`. See [General](docs/CONFIGURATION.md#general).
-- **Forecast-only mode without sensors** — the card automatically
-  reads humidity / pressure / wind / dew-point / UV from the
-  configured `weather.*` entity's attributes when station sensors
-  aren't wired.
-- **Adjust colours** — see [Chart appearance](docs/CONFIGURATION.md#chart-appearance). Defaults are theme-aware (`var(--token, fallback)`); set a literal RGBA / hex string to override.
-- **Tune the condition classifier** — see [`condition_mapping`](docs/CONFIGURATION.md#condition_mapping--override-classifier-thresholds).
-
-
 ## Conditions, sensors, and sunshine
 
 The card derives weather conditions (sunny / cloudy / rainy / fog / windy / …)
