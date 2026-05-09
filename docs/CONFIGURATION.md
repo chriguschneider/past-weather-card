@@ -201,7 +201,7 @@ overrides both — pass-through to Chart.js.
 | `forecast.temperature1_color` | CSS colour | `var(--state-sensor-temperature-color, rgba(255, 152, 0, 1.0))` | High-temperature curve. |
 | `forecast.temperature2_color` | CSS colour | `var(--info-color, rgba(68, 115, 158, 1.0))` | Low-temperature curve. |
 | `forecast.precipitation_color` | CSS colour | `var(--state-sensor-precipitation-color, rgba(132, 209, 253, 1.0))` | Precipitation bars. Forecast bars (combination mode) render at ~45 % of this colour's alpha. |
-| `forecast.sunshine_color` | CSS colour | `var(--warning-color, rgba(255, 215, 0, 1.0))` | Sunshine bars. Same forecast-side alpha treatment as precipitation. |
+| `forecast.sunshine_color` | CSS colour | `rgba(255, 215, 0, 1.0)` | Sunshine bars. Same forecast-side alpha treatment as precipitation. Literal yellow by default — pass your own `var(--token, fallback)` string in YAML to make it theme-aware. |
 | `forecast.chart_datetime_color` | CSS colour or `'auto'` | _none_ | X-axis weekday / date colour. |
 | `forecast.chart_text_color` | CSS colour or `'auto'` | _none_ | All other chart text colour. |
 

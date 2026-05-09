@@ -4,6 +4,28 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Sunshine bars now render in their intended yellow on every standard HA
+theme. Previously the bar inherited the theme's warning / alert colour
+(orange or red on the default, Mushroom, and Slate themes), which
+turned the sunshine row the wrong colour everywhere except the
+Playwright snapshots. No YAML changes needed — your existing config
+keeps working; if you'd set a custom `forecast.sunshine_color`, that
+still wins.
+
+### Fixed
+- Sunshine bars no longer adopt the theme's warning / alert colour
+  on standard HA themes — the default is now a fixed yellow that
+  doesn't drift per theme.
+
+### Under the hood
+- Style guide gains a "Card colour tokens" section documenting which
+  YAML key controls which UI element, and what to check before wiring
+  a new colour default to a theme token.
+- New regression test simulates a hostile HA theme to catch this bug
+  class on future colour-default changes.
+
 ## [1.10.2] — 2026-05-09
 
 Schema-driven editor migration release — closes the last three v1.10
