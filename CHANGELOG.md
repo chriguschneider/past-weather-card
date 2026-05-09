@@ -4,6 +4,124 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.2] — 2026-05-09
+
+Schema-driven editor migration release — closes the last three v1.10
+plan items (#87, #92, #93) that needed local HA verification on each
+section. The editor now renders every input through HA's `<ha-form>`
+or `<ha-selector>` (no more hand-rolled `<ha-textfield>` /
+`<ha-switch>` markup), every section header gains a one-click
+reset-to-defaults button, and a CI-enforced drift guard makes the
+schema, the SECTION_KEYS map, and DEFAULTS three-way consistent.
+
+### Editor — fully schema-driven (closes #87)
+
+Two sections still ran on hand-rolled HTML at v1.10.1:
+
+- **Diagramm** (`render-chart.ts`) — 8× `<ha-textfield>` + 14× `<ha-switch>`
+  replaced by 4 logical `<ha-form>` blocks (top-level title + days,
+  forecast count, chart rows, style + appearance). Each form has its
+  own dynamically-built schema with `computeLabel` for DE/EN locale
+  support. Conditional fields preserved (`days` only when station
+  visible, `forecast_days` only when forecast visible, sunshine
+  availability hint subsection only when `forecast.show_sunshine` is
+  on).
+
+- **Live-Anzeige** (`render-live-panel.ts`) — 12+ `<ha-switch>`
+  toggles in two groups (main panel + attributes) replaced by two
+  schema-driven `<ha-form>` blocks. Schema is built dynamically based
+  on the gating flags (`show_main`, `show_attributes`) and the
+  configured sources — `hasLiveValue` / `hasSensor` predicates
+  determine which attribute toggles appear, matching the previous
+  conditional-rendering behaviour exactly.
+
+The five sections that already used `<ha-form>` (units, mode, sensors,
+forecast, tap) are unchanged structurally — they only gain the new
+reset button (see below).
+
+New editor handlers:
+- `_chartTopChanged` — top-level title / days / forecast_days
+- `_chartForecastChanged` — forecast.* nested keys (number_of_forecasts,
+  condition_icons, show_*, style, round_temp, disable_animation)
+- `_livePanelChanged` — top-level cfg.show_* toggles for both
+  main-panel and attributes forms
+- `_resetSection(sectionKey)` — see below
+
+All four use the same diff/delete pattern: keys with empty-string or
+undefined values are pruned from config so unset fields don't leak
+into the YAML.
+
+### Editor — per-section reset-to-defaults buttons (closes #92)
+
+Every section header gains a small `mdi:restore` icon button on the
+right. Click drops every key the section owns from the config (lets
+DEFAULTS take over on the next render). No confirm dialog — reset is
+reversible by closing the editor without saving (HA shows the
+unsaved-changes indicator).
+
+Implementation:
+
+- **`src/editor/section-keys.ts`** (new) — `SECTION_KEYS` map (sectionKey
+  → list of dot-paths) for all 7 sections. Includes
+  conditionally-rendered fields too, so the reset is exhaustive (e.g.
+  `live_panel` lists every `show_*` even when the matching sensor
+  isn't currently configured).
+- **`src/editor/section-header.ts`** (new) — `renderSectionHeader()`
+  helper used by all 7 render-*.ts.
+- **`_resetSection(sectionKey)`** in the editor walks
+  `SECTION_KEYS[sectionKey]` and deletes each path. The `_deleteByPath`
+  helper cleans up empty parent objects (e.g. resetting every
+  `forecast.*` removes the empty `forecast: {}` block too).
+- New locale strings: `'reset_section'` (DE: "Diese Sektion auf
+  Standardwerte zurücksetzen", EN: "Reset this section to defaults").
+
+### Schema-coverage drift guard (closes #93)
+
+`tests/defaults.test.js` gains the second half of the v1.9.0 drift
+guard. The existing tests verified that every DEFAULTS key is referenced
+by `setConfig` / `getStubConfig`. New checks:
+
+1. Every `SECTION_KEYS["<section>"]` path resolves to a real DEFAULTS
+   path (or is in `DELETE_ONLY_PATHS` for runtime-fallback fields like
+   `title` that have no default but are still resettable).
+2. Every schema field exposed by an editor `<ha-form>` appears in the
+   corresponding `SECTION_KEYS` entry, OR is in the `SCHEMA_KEY_SKIPLIST`
+   (UI-only abstractions like `mode`), OR the section uses a parent-path
+   reset (`sensors` / `units`) that implicitly covers all child fields.
+
+Catches: adding a field to a render-*.ts schema without listing it in
+SECTION_KEYS (reset would skip the field), removing a key from DEFAULTS
+while leaving it in SECTION_KEYS (reset would dangle), or renaming a
+SECTION_KEYS path without updating both sides.
+
+### Tests
+
+The two `editor-render-*.test.js` files (chart, live-panel) that
+asserted on the old hand-rolled HTML structure are deleted. Replaced
+by `tests/editor-schema.test.js` — 22 tests that read each `<ha-form>`'s
+`.schema` property and assert on the field names directly. Total suite:
+510 → 522 (+12).
+
+### Internal
+
+- ESLint warnings: 63 → 60 (the hand-rolled live-panel ternary chain
+  was the largest remaining nested-conditional cluster outside main.ts;
+  combined with v1.10.0/v1.10.1: **168 → 60 (-64%)**).
+- New file `src/editor/section-keys.ts` (90 LOC) — single source of
+  truth for the per-section config-key inventory.
+
+### Bundle
+
+Bundle: ~360 KB raw / ~115 KB gzipped (within the 800/250 caps).
+
+### Issues closed
+
+- #87 — Schema-driven editor sections via `<ha-form>` (chart +
+  live-panel migration completes the previous-five-already-migrated
+  set; all 7 sections now schema-driven)
+- #92 — Per-section reset-to-defaults buttons
+- #93 — Schema-coverage assertion (drift guard second half)
+
 ## [1.10.1] — 2026-05-09
 
 Aftercare for v1.10.0 plus the larger-scope items the original v1.10
