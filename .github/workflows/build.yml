@@ -8,6 +8,14 @@ on:
     branches: [master]
   workflow_dispatch:
 
+# Cancel superseded runs on the same ref so iterative pushes (especially
+# from AI-assisted branches that push 3-5 times before CI green) don't
+# stack up. Tag pushes are excluded — they upload release assets, so
+# every tag run must complete.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
