@@ -117,6 +117,36 @@ jobs:
             test-results/
           retention-days: 14
 
+      - name: Render-time advisory summary
+        # Pulls test-results/perf-render-time.json (written by the
+        # tests-e2e/perf-render-time.spec.ts E2E spec) and renders it
+        # in the build summary. Advisory only — never fails the build,
+        # GHA-runner CPU variability would create false positives.
+        # Sustained regressions become visible as a trend in the
+        # summary line over multiple PRs.
+        if: ${{ always() }}
+        run: |
+          if [ ! -f test-results/perf-render-time.json ]; then
+            echo "perf-render-time.json missing (E2E may have failed before the spec ran)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "## Render-time advisory"
+            echo ""
+            echo "End-to-end mount → chart-rendered timing for three representative configs (5 iterations each)."
+            echo ""
+            echo "| Scenario | Median (ms) | p95 (ms) |"
+            echo "|---|---:|---:|"
+            node -e "
+              const r = require('./test-results/perf-render-time.json');
+              for (const s of r.samples) {
+                console.log(\`| \${s.scenario} | \${s.median_ms} | \${s.p95_ms} |\`);
+              }
+            "
+            echo ""
+            echo "_Advisory only — not a CI gate. GHA-runner variability is high; track trends across PRs, not single-PR diffs._"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Verify committed bundle matches source
         run: |
           if ! git diff --quiet -- dist/weather-station-card.js; then
