@@ -4,6 +4,7 @@
 
 import { html, type TemplateResult } from 'lit';
 import type { EditorLike, EditorContext } from './types.js';
+import { renderSectionHeader } from './section-header.js';
 
 const UNITS_SCHEMA = [
   { name: 'pressure',
@@ -21,7 +22,7 @@ export function renderUnitsSection(editor: EditorLike, ctx: EditorContext): Temp
   const { t, unitsConfig } = ctx;
   return html`
     <!-- ─── E. Units ────────────────────────────────────────────── -->
-    <h3 class="section">${t('units_heading')}</h3>
+    ${renderSectionHeader({ editor, title: t('units_heading'), sectionKey: 'units', resetLabel: t('reset_section') })}
     <div class="textfield-container">
       <ha-form
         .data=${unitsConfig}

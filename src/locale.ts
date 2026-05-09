@@ -151,6 +151,8 @@ const locale: Locale = {
       'chart_section_heading': 'Diagramm',
       'live_panel_heading': 'Live-Anzeige',
       'actions_section_heading': 'Aktionen',
+      // v1.10.2 — per-section reset-to-defaults button (#92)
+      'reset_section': 'Diese Sektion auf Standardwerte zurücksetzen',
       // v1.10 sub-section headings
       'chart_time_range_heading': 'Zeitraum & Auflösung',
       // v1.9 keys retained for backwards compatibility (third-party
@@ -337,6 +339,8 @@ const locale: Locale = {
       'chart_section_heading': 'Chart',
       'live_panel_heading': 'Live panel',
       'actions_section_heading': 'Actions',
+      // v1.10.2 — per-section reset-to-defaults button (#92)
+      'reset_section': 'Reset this section to defaults',
       // v1.10 sub-section headings
       'chart_time_range_heading': 'Time range & resolution',
       // v1.9 keys retained for backwards compatibility.

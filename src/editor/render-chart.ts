@@ -16,6 +16,7 @@
 
 import { html, type TemplateResult } from 'lit';
 import type { EditorLike, EditorContext } from './types.js';
+import { renderSectionHeader } from './section-header.js';
 
 interface SchemaField {
   name: string;
@@ -126,7 +127,7 @@ export function renderChartSection(editor: EditorLike, ctx: EditorContext): Temp
   };
 
   return html`
-    <h3 class="section">${t('chart_section_heading')}</h3>
+    ${renderSectionHeader({ editor, title: t('chart_section_heading'), sectionKey: 'chart', resetLabel: t('reset_section') })}
 
     <div class="textfield-container">
       <ha-form

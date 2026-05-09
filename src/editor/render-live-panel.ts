@@ -19,6 +19,7 @@
 
 import { html, type TemplateResult } from 'lit';
 import type { EditorLike, EditorContext } from './types.js';
+import { renderSectionHeader } from './section-header.js';
 
 interface SchemaField {
   name: string;
@@ -134,7 +135,7 @@ export function renderLivePanelSection(editor: EditorLike, ctx: EditorContext): 
   const labelFor = (schema: { name: string }): string => t(schema.name);
 
   return html`
-    <h3 class="section">${t('live_panel_heading')}</h3>
+    ${renderSectionHeader({ editor, title: t('live_panel_heading'), sectionKey: 'live_panel', resetLabel: t('reset_section') })}
 
     <h4 class="subsection">${t('main_panel_heading')}</h4>
     <div class="textfield-container">
