@@ -33,6 +33,7 @@ export default {
         'src/teardown-registry.ts',
         'src/utils/safe-query.ts',
         'src/utils/numeric.ts',
+        'src/utils/unit-converters.ts',
       ],
       thresholds: {
         statements: 80,

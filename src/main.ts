@@ -53,6 +53,11 @@ import { parseNumericSafe } from './utils/numeric.js';
 import { setupScrollUx } from './scroll-ux.js';
 import { setupActionHandler } from './action-handler.js';
 import { TeardownRegistry } from './teardown-registry.js';
+import {
+  convertWindSpeed,
+  convertPressure,
+  formatSunshineHours,
+} from './utils/unit-converters.js';
 import { drawChartUnsafe } from './chart/orchestrator.js';
 import { cardStyles } from './chart/styles.js';
 import {Chart, registerables} from 'chart.js';
@@ -84,28 +89,6 @@ declare global {
     customCards?: any[];
   }
 }
-
-// Wind / pressure unit conversions. Keyed by `targetUnit->sourceUnit`.
-// Beaufort is handled separately (delegates to calculateBeaufortScale).
-// Same-unit cases are short-circuited in the converters and never index
-// into these tables.
-const WIND_CONVERSION: Record<string, number> = {
-  'm/s->km/h': 1000 / 3600,
-  'm/s->mph': 0.44704,
-  'km/h->m/s': 3.6,
-  'km/h->mph': 1.60934,
-  'mph->m/s': 1 / 0.44704,
-  'mph->km/h': 1 / 1.60934,
-};
-
-const PRESSURE_CONVERSION: Record<string, number> = {
-  'mmHg->hPa': 0.75006,
-  'mmHg->inHg': 25.4,
-  'hPa->mmHg': 1 / 0.75006,
-  'hPa->inHg': 33.8639,
-  'inHg->mmHg': 1 / 25.4,
-  'inHg->hPa': 1 / 33.8639,
-};
 
 // Field-declaration block for the WeatherStationCard class. HA-shaped
 // fields are typed as `any` (or HassMain where threaded) — the full
@@ -1557,47 +1540,33 @@ renderMain({ config, sun, weather, temperature } = this) {
   `;
 }
 
-// Convert windSpeed from the source unit (`weather.attributes.wind_speed_unit`)
-// to the configured display unit (`this.unitSpeed`). Beaufort delegates to the
-// classifier; identical units round to integer; cross-unit converts then rounds.
+// Thin wrappers around the pure unit-converter utilities. They thread
+// `this.unitSpeed` / `this.unitPressure` (instance state) and
+// `this.calculateBeaufortScale` (classifier method) into the pure
+// functions in src/utils/unit-converters.ts so callers stay terse and
+// the converters themselves get direct unit-test coverage.
 // deno-lint-ignore no-explicit-any
 _convertDisplayWindSpeed(windSpeed: any): any {
-  const sourceUnit = this.weather.attributes.wind_speed_unit;
-  if (this.unitSpeed === sourceUnit) return Math.round(windSpeed);
-  if (this.unitSpeed === 'Bft') return this.calculateBeaufortScale(windSpeed);
-  // Conversion factors keyed by 'targetUnit->sourceUnit'.
-  const factor = WIND_CONVERSION[`${this.unitSpeed}->${sourceUnit}`];
-  return factor !== undefined ? Math.round(windSpeed * factor) : windSpeed;
+  return convertWindSpeed(
+    windSpeed,
+    this.weather.attributes.wind_speed_unit,
+    this.unitSpeed,
+    (v) => this.calculateBeaufortScale(v),
+  );
 }
 
-// Convert pressure between mmHg / hPa / inHg. Identical units round (except
-// inHg which keeps 2 decimals). Cross-unit converts then rounds (or .toFixed
-// for inHg).
 // deno-lint-ignore no-explicit-any
 _convertDisplayPressure(pressure: any): any {
-  const sourceUnit = this.weather.attributes.pressure_unit;
-  if (this.unitPressure === sourceUnit) {
-    return (this.unitPressure === 'hPa' || this.unitPressure === 'mmHg')
-      ? Math.round(pressure) : pressure;
-  }
-  const factor = PRESSURE_CONVERSION[`${this.unitPressure}->${sourceUnit}`];
-  if (factor === undefined) return pressure;
-  const converted = pressure * factor;
-  return this.unitPressure === 'inHg' ? converted.toFixed(2) : Math.round(converted);
+  return convertPressure(
+    pressure,
+    this.weather.attributes.pressure_unit,
+    this.unitPressure,
+  );
 }
 
-// Sunshine duration sensor reports either seconds or hours — format
-// as decimal hours either way.
 // deno-lint-ignore no-explicit-any
 _formatSunshineHours(sunshine_duration: any, sunshine_duration_unit: any): number | undefined {
-  if (sunshine_duration === undefined || sunshine_duration === null || sunshine_duration === '') return undefined;
-  const raw = parseFloat(String(sunshine_duration));
-  if (!Number.isFinite(raw)) return undefined;
-  const unit = (sunshine_duration_unit || '').toLowerCase();
-  let divisor = 1;
-  if (unit === 's' || unit.startsWith('sec')) divisor = 3600;
-  else if (unit === 'min') divisor = 60;
-  return Math.round((raw / divisor) * 10) / 10;
+  return formatSunshineHours(sunshine_duration, sunshine_duration_unit);
 }
 
 // Climate group: humidity / pressure / dew-point / precipitation. Returns
