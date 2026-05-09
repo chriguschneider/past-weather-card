@@ -173,6 +173,24 @@ For light/dark adaptive rendering on GitHub:
 
 All images carry meaningful `alt` text.
 
+### HACS sanitizer constraints
+
+`README.md` is also rendered inside the HACS info panel, which
+sanitises the markdown more aggressively than GitHub does. Two
+patterns that work on GitHub but get dropped by HACS:
+
+- **`<picture>` / `<source>` tags.** The sanitiser strips them, leaving
+  only the `<img>` fallback. Use plain `<img>` in `README.md` even
+  if it costs the light/dark adaptive rendering — the HACS info-panel
+  reader is the lower-common-denominator audience.
+- **Relative image paths.** Resolve from the GitHub URL, not the HACS
+  install. Always use absolute
+  `https://raw.githubusercontent.com/<owner>/<repo>/master/...` URLs
+  for any image referenced from `README.md`.
+
+Other docs (`docs/*.md`, `CONTRIBUTING.md`, etc.) are GitHub-only
+and aren't affected — `<picture>` and relative paths are fine there.
+
 ## Card colour tokens
 
 Single source of truth for the card's visual colours. Every concept

@@ -24,8 +24,8 @@ that did three logically distinct things in one body:
 The function shared local helpers (`stateOf`, `valueOf`, `attrOf`,
 `fromWxIfMissing`) across all three phases. ESLint
 `sonarjs/cognitive-complexity` flagged it as warn-level
-(CLAUDE.md describes the v1.4.2 backlog of ~123 such warnings as
-"accepted refactoring debt"). It was hard to reason about in isolation
+(see [docs/QUALITY-GATES.md → Lint](../QUALITY-GATES.md#lint--eslint-10-flat-config)
+for how the warning backlog is managed). It was hard to reason about in isolation
 — a change to memoization had to acknowledge the surrounding
 subscription churn; a change to subscription teardown had to step over
 ~80 lines of classifier logic.

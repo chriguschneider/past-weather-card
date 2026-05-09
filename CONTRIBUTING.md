@@ -72,6 +72,21 @@ SonarCloud and Dependabot run on PRs too but are advisory; CodeQL's
 Linear history is enforced (no merge commits) — the maintainer uses
 `gh pr merge --rebase` to land PRs.
 
+[`docs/QUALITY-GATES.md`](docs/QUALITY-GATES.md) is the full reference
+for what each gate enforces, the lint-warnings backlog policy, the
+SonarCloud exclusions, and the Dependabot review conventions (no
+auto-merge, watch for wrapper-deprecations on Actions, manual
+changelog read on major bumps).
+
+## AI-assisted contributions
+
+PRs from contributors using Claude Code, Cursor, Codex, or other AI
+assistants are welcome — see [`AGENTS.md`](AGENTS.md) for the
+conventions specific to AI-assisted work (commit attribution, comment
+discipline, parallel-work coordination, draft-PR convention,
+`dist/`-rebase recipe). Everything in this file applies to those PRs
+too.
+
 ## Tests
 
 Pure-function unit tests live under `tests/` and run via Vitest. See
