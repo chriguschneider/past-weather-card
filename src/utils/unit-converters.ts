@@ -52,16 +52,16 @@ export function convertWindSpeed(
 }
 
 /** Convert pressure from `fromUnit` to `toUnit`. Same-unit rounds to
- *  integer for hPa / mmHg, leaves inHg as-is. Cross-unit converts then
- *  rounds (or `.toFixed(2)` for inHg target). Returns string when the
- *  target is inHg cross-unit (legacy `.toFixed` shape). `fromUnit` /
- *  `toUnit` may be undefined when the HA entity hasn't populated
- *  `pressure_unit` yet. */
+ *  integer for hPa / mmHg, leaves inHg as-is. Cross-unit converts and
+ *  rounds; for inHg target two decimals are preserved
+ *  (`Math.round(x * 100) / 100`) since the integer rounding makes
+ *  inHg readings useless. `fromUnit` / `toUnit` may be undefined when
+ *  the HA entity hasn't populated `pressure_unit` yet. */
 export function convertPressure(
   pressure: number,
   fromUnit: string | undefined,
   toUnit: string | undefined,
-): number | string {
+): number {
   if (toUnit === fromUnit) {
     return (toUnit === 'hPa' || toUnit === 'mmHg')
       ? Math.round(pressure) : pressure;
@@ -69,7 +69,9 @@ export function convertPressure(
   const factor = PRESSURE_CONVERSION[`${toUnit}->${fromUnit}`];
   if (factor === undefined) return pressure;
   const converted = pressure * factor;
-  return toUnit === 'inHg' ? converted.toFixed(2) : Math.round(converted);
+  return toUnit === 'inHg'
+    ? Math.round(converted * 100) / 100
+    : Math.round(converted);
 }
 
 /** Format a sunshine-duration sensor reading as decimal hours. The

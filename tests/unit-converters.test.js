@@ -120,11 +120,13 @@ describe('convertPressure', () => {
     expect(convertPressure(760, 'mmHg', 'hPa')).toBe(1013);
   });
 
-  it('converts hPa → inHg and toFixed(2) string', () => {
+  it('converts hPa → inHg with 2-decimal precision', () => {
     // 1013 hPa ≈ 29.92 inHg
     const out = convertPressure(1013, 'hPa', 'inHg');
-    expect(typeof out).toBe('string');
-    expect(parseFloat(out)).toBeCloseTo(29.92, 1);
+    expect(typeof out).toBe('number');
+    expect(out).toBeCloseTo(29.92, 1);
+    // 2-decimal precision: not 30 (integer rounding) and not 29.91923... (raw).
+    expect(Math.round(out * 100)).toBe(out * 100);
   });
 
   it('returns input unchanged for an unknown unit pair', () => {

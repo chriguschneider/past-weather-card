@@ -1302,7 +1302,7 @@ renderModeToggle() {
   const cfg = this.config || {};
   const showsStation = cfg.show_station !== false;
   const showsForecast = cfg.show_forecast === true && !!cfg.weather_entity;
-  if (!showsStation && !showsForecast) return '';
+  if (!showsStation && !showsForecast) return html``;
   const type = cfg.forecast?.type;
   // 3-way cycle: daily → today → hourly → daily.
   // Icon shows the NEXT mode you'd land on, so users can predict the

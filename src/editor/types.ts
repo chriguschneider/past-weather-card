@@ -42,11 +42,15 @@ interface ValueChangedTarget {
  *  editor._valueChanged(e, 'days')}"`). Method signatures are kept
  *  loose because the host is JS-style with `static get properties`
  *  rather than decorator-typed. */
+/** Top-level mode the card runs in. Defines which inputs the editor
+ *  shows and which sources the data layer subscribes to. */
+export type EditorMode = 'station' | 'forecast' | 'combination';
+
 export interface EditorLike {
   hass: HomeAssistant | null;
   _config: Record<string, unknown> | null;
-  _mode: 'station' | 'forecast' | 'combination';
-  _setMode(value: 'station' | 'forecast' | 'combination'): void;
+  _mode: EditorMode;
+  _setMode(value: EditorMode): void;
   _valueChanged(event: { target: ValueChangedTarget }, key: string): void;
   _sensorsChanged(event: Event): void;
   _sensorPickerChanged(key: string, value: unknown): void;
