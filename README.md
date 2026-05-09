@@ -201,10 +201,6 @@ user intent:
 Every YAML key is documented in **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)**
 with type, default, and effect.
 
-<p align="center">
-  <img alt="Visual editor" src="https://raw.githubusercontent.com/chriguschneider/weather-station-card/master/tests-e2e/snapshots/editor-visual.spec.ts/editor.png" width="720" />
-</p>
-
 For the most common adjustments:
 
 - **Switch modes** — set `show_station` and/or `show_forecast`. See [General](docs/CONFIGURATION.md#general).
