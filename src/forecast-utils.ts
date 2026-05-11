@@ -19,6 +19,15 @@ export interface ForecastEntry {
   wind_speed: number | null;
   wind_gust_speed: number | null;
   wind_bearing: number | null;
+  /** Source unit of `wind_speed` / `wind_gust_speed` for THIS entry.
+   *  Forecast entries from `ForecastDataSource` carry the weather
+   *  entity's unit (typically km/h), while `MeasuredDataSource`
+   *  emits values in the station sensor's unit. Without this per-
+   *  entry tag the renderer would use the synthetic-weather unit
+   *  (always the station's), silently mis-converting forecast wind
+   *  by the m/s↔km/h factor (~3.6). Optional for backwards
+   *  compatibility; missing falls back to the station unit. */
+  wind_speed_unit?: string;
   pressure: number | null;
   humidity: number | null;
   uv_index: number | null;

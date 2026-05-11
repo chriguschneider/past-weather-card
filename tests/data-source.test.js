@@ -708,6 +708,43 @@ describe('ForecastDataSource', () => {
     expect(events.at(-1)).toEqual({ forecast: [{ datetime: '2026-05-01T00:00:00Z', temperature: 20 }] });
   });
 
+  // Bug fix: the renderer's _convertWindSpeed defaults the source unit
+  // to the synthetic-weather attribute, which mirrors the station
+  // sensor's unit. When the weather entity's unit differs (e.g. station
+  // m/s + MeteoSwiss km/h), forecast wind got mis-converted by ~3.6×.
+  // Tagging each entry with the weather entity's wind_speed_unit lets
+  // the renderer pick the right source unit per-entry.
+  it('tags forecast entries with the weather entity wind_speed_unit when available', async () => {
+    hass.states['weather.home'].attributes.wind_speed_unit = 'km/h';
+    const ds = new ForecastDataSource(hass, { weather_entity: 'weather.home' });
+    const events = [];
+    ds.subscribe((e) => events.push(e));
+    await Promise.resolve();
+    const [callback] = conn.subscribeMessage.mock.calls[0];
+    callback({
+      forecast: [
+        { datetime: '2026-05-01T00:00:00Z', wind_speed: 20 },
+        { datetime: '2026-05-02T00:00:00Z', wind_speed: 15 },
+      ],
+    });
+    expect(events.at(-1).forecast).toEqual([
+      { datetime: '2026-05-01T00:00:00Z', wind_speed: 20, wind_speed_unit: 'km/h' },
+      { datetime: '2026-05-02T00:00:00Z', wind_speed: 15, wind_speed_unit: 'km/h' },
+    ]);
+  });
+
+  it('does not tag forecast entries when the weather entity exposes no wind_speed_unit', async () => {
+    // weather.home fixture has supported_features only — no wind_speed_unit.
+    const ds = new ForecastDataSource(hass, { weather_entity: 'weather.home' });
+    const events = [];
+    ds.subscribe((e) => events.push(e));
+    await Promise.resolve();
+    const [callback] = conn.subscribeMessage.mock.calls[0];
+    callback({ forecast: [{ datetime: '2026-05-01T00:00:00Z', wind_speed: 20 }] });
+    const entry = events.at(-1).forecast[0];
+    expect(entry.wind_speed_unit).toBeUndefined();
+  });
+
   it('unsubscribe disposes the underlying subscription', async () => {
     const ds = new ForecastDataSource(hass, { weather_entity: 'weather.home' });
     const cleanup = ds.subscribe(() => {});
