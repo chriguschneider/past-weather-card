@@ -1838,7 +1838,7 @@ renderWind({ config, forecastItems } = this) {
     <div class="wind-details">
       ${forecast.map((item) => {
         const raw = item.wind_gust_speed ?? item.wind_speed;
-        const dWindSpeed = this._convertWindSpeed(raw);
+        const dWindSpeed = this._convertWindSpeed(raw, item.wind_speed_unit);
         const hasSpeed = dWindSpeed !== null && dWindSpeed !== undefined;
         const hasBearing = item.wind_bearing != null;
         // Some integrations (notably HA's Open-Meteo at forecast_type:
@@ -1866,24 +1866,21 @@ renderWind({ config, forecastItems } = this) {
   `;
 }
 
-_convertWindSpeed(raw: unknown): number | null {
+// Forecast-row wind converter. Per-entry `sourceUnit` (set by
+// ForecastDataSource from the weather entity) wins over the synthetic-
+// weather fallback (station unit), so forecast wind doesn't get
+// mis-converted when the station and weather entity disagree on units.
+// Delegates to the lookup-table utility per ADR-0009.
+_convertWindSpeed(raw: unknown, sourceUnit?: string): number | null {
   if (raw === null || raw === undefined) return null;
   if (typeof raw !== 'number') return null;
-  const fromUnit = this.weather.attributes.wind_speed_unit;
-  if (this.unitSpeed === fromUnit) return Math.round(raw);
-  if (this.unitSpeed === 'm/s') {
-    if (fromUnit === 'km/h') return Math.round(raw * 1000 / 3600);
-    if (fromUnit === 'mph') return Math.round(raw * 0.44704);
-  } else if (this.unitSpeed === 'km/h') {
-    if (fromUnit === 'm/s') return Math.round(raw * 3.6);
-    if (fromUnit === 'mph') return Math.round(raw * 1.60934);
-  } else if (this.unitSpeed === 'mph') {
-    if (fromUnit === 'm/s') return Math.round(raw / 0.44704);
-    if (fromUnit === 'km/h') return Math.round(raw / 1.60934);
-  } else if (this.unitSpeed === 'Bft') {
-    return this.calculateBeaufortScale(raw);
-  }
-  return Math.round(raw);
+  const fromUnit = sourceUnit ?? this.weather.attributes.wind_speed_unit;
+  return convertWindSpeed(
+    raw,
+    fromUnit,
+    this.unitSpeed,
+    (v) => this.calculateBeaufortScale(v),
+  );
 }
 
   _fire(type: string, detail: unknown, options?: { bubbles?: boolean; cancelable?: boolean; composed?: boolean }) {

@@ -737,8 +737,21 @@ export class ForecastDataSource {
         this._emit({ forecast: [], error: 'hass connection unavailable' });
         return;
       }
+      // Tag each entry with the weather entity's wind_speed_unit so
+      // the renderer can convert correctly even when the station
+      // sensor (which feeds the synthetic weather attributes used as
+      // the default fromUnit) reports a different unit. Without this,
+      // a m/s station + km/h weather entity yields ~3.6× too-high
+      // forecast wind.
+      const wxWindUnit = state.attributes?.wind_speed_unit as string | undefined;
       this._unsubPromise = this.hass.connection.subscribeMessage(
-        (event) => this._emit({ forecast: (event.forecast as ForecastEntry[]) || [] }),
+        (event) => {
+          const raw = (event.forecast as ForecastEntry[]) || [];
+          const tagged = wxWindUnit
+            ? raw.map((e) => ({ ...e, wind_speed_unit: wxWindUnit }))
+            : raw;
+          this._emit({ forecast: tagged });
+        },
         {
           type: 'weather/subscribe_forecast',
           forecast_type: isHourly ? 'hourly' : 'daily',

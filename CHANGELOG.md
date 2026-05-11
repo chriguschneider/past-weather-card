@@ -4,6 +4,32 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.1] — 2026-05-10
+
+Patch release that fixes a forecast wind-speed mis-conversion. When
+the station sensor (e.g. `m/s`) and the HA weather entity (e.g.
+`km/h` for MeteoSwiss) reported wind in different units, every
+forecast column was multiplied by the m/s↔km/h factor of ~3.6, so a
+real 20 km/h forecast showed up as 72 km/h. Past-day measured
+aggregates (which originate at the station sensor) kept converting
+correctly the whole time — the symptom only appeared on the
+forecast side of the chart.
+
+### Fixed
+- Forecast wind columns now read in the correct unit when the station
+  sensor and the weather entity disagree on `wind_speed_unit`.
+  Previously the renderer used the station sensor's unit for all
+  entries, causing a ~3.6× over-statement on forecast cells (e.g.
+  72 km/h instead of 20 km/h). `ForecastDataSource` now tags each
+  emitted entry with the weather entity's `wind_speed_unit`, and
+  `_convertWindSpeed` honours the per-entry tag. (#145)
+
+### Under the hood
+- `_convertWindSpeed` no longer carries its own copy of the
+  conversion ladder; it now delegates to the lookup-table utility
+  in `src/utils/unit-converters.ts`, restoring the single source of
+  truth mandated by ADR-0009.
+
 ## [1.11.0] — 2026-05-09
 
 Chart bar and curve colours now use predictable defaults that don't
