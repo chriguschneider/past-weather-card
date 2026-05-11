@@ -61,11 +61,27 @@ When suggesting where information should live, use these targets:
 | `CHANGELOG.md` | Release-by-release log (every user-visible change is mentioned here) |
 | `CLAUDE.md` | Local-only context (gitignored). Do not propose ADR rationale to live here. |
 
+## Gating test — apply before proposing
+
+The activation triggers above are **detection signals**, not auto-suggestions. After a trigger fires, gate the proposal by the restrictive AND-of-three filter:
+
+1. **Hard to reverse** — the cost of changing the decision later is meaningful.
+2. **Surprising without context** — a future reader will look at the code and wonder "why on earth did they do it this way?"
+3. **Result of a real trade-off** — there were genuine alternatives and you picked one for specific reasons.
+
+**All three must be true.** If any one is missing, skip the ADR — the rationale belongs in a commit message, a code comment, the `CHANGELOG.md`, or simply in the diff itself.
+
+- Easy to reverse → just reverse it later.
+- Not surprising → nobody will wonder why.
+- No real alternative → "we did the obvious thing" isn't worth recording.
+
+This filter mirrors the one in the user-level `grill-with-docs` skill, so both stay aligned on what counts as ADR-worthy.
+
 ## Proactive prompting
 
-When an ADR-worthy change is detected, surface it before implementation, not after:
+When a trigger fires **and** the AND-of-three gate passes, surface it before implementation, not after:
 
-> This change introduces / modifies / adds X. That looks like a deliberate architectural choice with alternatives — should I draft an ADR for it before continuing?
+> This change introduces / modifies / adds X. That's a deliberate architectural choice with genuine alternatives and meaningful reversal cost — should I draft an ADR for it before continuing?
 >
 > Suggested: `docs/adr/NNNN-descriptive-title.md`.
 
