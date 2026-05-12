@@ -52,7 +52,7 @@ jobs:
         # Direct call to the unified Sonar action (cloud + server).
         # The legacy `sonarsource/sonarcloud-github-action` is itself
         # a deprecated wrapper that delegates here — we skip the hop.
-        uses: SonarSource/sonarqube-scan-action@v5
+        uses: SonarSource/sonarqube-scan-action@v8
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
