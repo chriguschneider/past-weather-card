@@ -19,9 +19,14 @@ horizon, `sunny` and `partlycloudy` swap to their night variants
 ### Precipitation in the live condition needs a *rate* unit
 
 Turning a cumulative precipitation counter into an instantaneous rainfall
-rate requires extra history that the live path does not keep. Therefore
-**precipitation only contributes to the live "now" condition when the
-sensor's `unit_of_measurement` ends in `/h`, `/hr`, or `/hour`**:
+rate requires extra history that the live condition classifier does
+not consult. (Since v1.12.0 the attribute-row precip cell *does* keep
+its own buffer to derive a `mm/h` rate from a cumulative counter — see
+[SENSORS.md → Live precipitation rate from a cumulative sensor](SENSORS.md#live-precipitation-rate-from-a-cumulative-sensor)
+— but that buffer is not currently wired into the main weather-icon
+classifier.) Therefore **precipitation only contributes to the live
+"now" condition when the sensor's `unit_of_measurement` ends in `/h`,
+`/hr`, or `/hour`**:
 
 | Sensor `unit_of_measurement`                      | Used for live rain? |
 | ------------------------------------------------- | ------------------- |

@@ -52,6 +52,16 @@ import { setupScrollUx } from './scroll-ux.js';
 import { setupActionHandler } from './action-handler.js';
 import { TeardownRegistry } from './teardown-registry.js';
 import {
+  appendSample,
+  pruneOlderThan,
+  computeRate,
+  loadBuffer,
+  saveBuffer,
+  precipIcon,
+  DEFAULT_MAX_AGE_MS,
+  type Sample,
+} from './precip-rate.js';
+import {
   convertWindSpeed,
   convertPressure,
   formatSunshineHours,
@@ -139,6 +149,20 @@ class WeatherStationCard extends LitElement {
   precipitation: any;
   // deno-lint-ignore no-explicit-any
   precipitation_unit: string | undefined;
+  // Sliding-anchor buffer for deriving a mm/h rate from a cumulative
+  // rain counter when the configured precipitation sensor reports a
+  // total instead of a rate (unit not ending in /h). Persisted to
+  // localStorage per entity so a hard-reload doesn't restart the 2-15
+  // min warm-up. `_precipBufferEntity` tracks which entity the current
+  // buffer was hydrated for — a config change to a different sensor
+  // re-seeds from that sensor's own slot.
+  _precipBuffer: Sample[] = [];
+  _precipBufferEntity: string | undefined;
+  // Wall-clock recompute timer. Scheduled lazily on first activation
+  // of the cumulative path so configs without a cumulative-precip
+  // sensor never burn a timer. Cleared from the TeardownRegistry
+  // closure on disconnect, matching the `_clockTimer` pattern.
+  _precipRecomputeTimer: ReturnType<typeof setInterval> | null = null;
   // deno-lint-ignore no-explicit-any
   sunshine_duration: any;
   // deno-lint-ignore no-explicit-any
@@ -456,6 +480,7 @@ _extractSensorReadings(hass: HassMain): void {
   this.illuminance = valueOf(sensors.illuminance);
   this.precipitation = valueOf(sensors.precipitation);
   this.precipitation_unit = (attrOf(sensors.precipitation, 'unit_of_measurement') as string | undefined) || undefined;
+  this._maybeDerivePrecipRate(hass);
   this.sunshine_duration = valueOf(sensors.sunshine_duration);
   this.sunshine_duration_unit = (attrOf(sensors.sunshine_duration, 'unit_of_measurement') as string | undefined) || undefined;
 
@@ -466,6 +491,92 @@ _extractSensorReadings(hass: HassMain): void {
   } else {
     this.windDirection = undefined;
   }
+}
+
+// When the configured precipitation sensor is a cumulative counter
+// (unit not ending in /h, e.g. Ecowitt `*_precipitation` reporting
+// total mm), derive a live mm/h rate from a sliding-anchor buffer of
+// recent samples and override `this.precipitation` + `_unit` so the
+// _climateRow_precip cell renders `🌧 X.X mm/h` instead of the
+// meaningless cumulative total. Rate sensors (unit ends in /h) are
+// untouched — the v1.9 pass-through path remains the gate.
+//
+// Three slices layered:
+//   1. In-memory mini-buffer + adaptive sliding-anchor compute.
+//   2. localStorage hydration / persistence + `🌧 ⋯ mm/h` placeholder.
+//   3. Wall-clock recompute tick (this method schedules it lazily) +
+//      counter-reset detection inside `computeRate` / `findUsableSlice`.
+//
+// Per-tick design: append the fresh sample, persist, recompute. The
+// recompute helper is shared with the 30-s wall-clock interval so a
+// dry period (no `set hass` for our sensor) still ages entries out
+// and snaps the displayed rate to 0 mm/h once the buffer empties.
+_maybeDerivePrecipRate(hass: HassMain): void {
+  const unit = this.precipitation_unit ?? '';
+  if (/\/(h|hr|hour)$/i.test(unit)) return;
+
+  const sensors = this.config.sensors || {};
+  const precipEid: string | undefined = sensors.precipitation;
+  if (!precipEid) return;
+  const state = hass.states?.[precipEid];
+  if (!state) return;
+
+  const v = parseNumericSafe(state.state);
+  if (v == null) return;
+  const lastUpdated = (state as { last_updated?: string }).last_updated;
+  const t = lastUpdated ? Date.parse(lastUpdated) : Date.now();
+  if (!Number.isFinite(t)) return;
+
+  // Hydrate once per entity (and re-hydrate if the user repointed
+  // the card at a different sensor via the editor). loadBuffer drops
+  // over-age entries inline, so the buffer starts pre-pruned.
+  if (this._precipBufferEntity !== precipEid) {
+    this._precipBuffer = loadBuffer(precipEid);
+    this._precipBufferEntity = precipEid;
+  }
+
+  this._precipBuffer = appendSample(this._precipBuffer, { t, v });
+  this._recomputePrecipDisplay(precipEid);
+  this._schedulePrecipRecomputeTick();
+}
+
+// Re-derive the displayed rate from the in-memory buffer alone, with
+// no new sample read from hass. Shared between the `set hass`-driven
+// path and the wall-clock interval — the interval is what makes the
+// rate decay during dry periods, because `computeRate` uses `now` as
+// the Δt denominator (the rate falls as wall-clock advances without
+// new ticks).
+//
+// Idempotent: walks prune → save → computeRate → format → assign.
+// Returns true when the displayed value changed (so the interval
+// caller can `requestUpdate()` only when the DOM would actually differ).
+_recomputePrecipDisplay(entityId: string): boolean {
+  this._precipBuffer = pruneOlderThan(this._precipBuffer, DEFAULT_MAX_AGE_MS);
+  saveBuffer(entityId, this._precipBuffer);
+
+  const { rate } = computeRate(this._precipBuffer, Date.now());
+  // Drop the decimal once we're above 10 mm/h — a cell showing
+  // `339 mm/h` reads cleaner than `339.0`, and at that intensity
+  // the tenths digit is noise anyway.
+  const nextValue = rate >= 10 ? rate.toFixed(0) : rate.toFixed(1);
+  const changed = this.precipitation !== nextValue || this.precipitation_unit !== 'mm/h';
+  this.precipitation = nextValue;
+  this.precipitation_unit = 'mm/h';
+  return changed;
+}
+
+// Schedule the 30-s wall-clock recompute on first activation of the
+// cumulative path. Reads `this._precipBufferEntity` at fire time so
+// a sensor repoint (via editor) follows along without re-arming.
+// Teardown is via the TeardownRegistry closure registered in
+// `_registerLifecycleTeardowns`.
+_schedulePrecipRecomputeTick(): void {
+  if (this._precipRecomputeTimer) return;
+  this._precipRecomputeTimer = setInterval(() => {
+    const eid = this._precipBufferEntity;
+    if (!eid) return;
+    if (this._recomputePrecipDisplay(eid)) this.requestUpdate();
+  }, 30_000);
 }
 
 // Phase 2: classify the live "now" condition with minute-level
@@ -761,6 +872,12 @@ _syncDataSources(hass: HassMain): void {
       if (this._clockTimer) {
         clearInterval(this._clockTimer);
         this._clockTimer = null;
+      }
+    });
+    r.add(() => {
+      if (this._precipRecomputeTimer) {
+        clearInterval(this._precipRecomputeTimer);
+        this._precipRecomputeTimer = null;
       }
     });
   }
@@ -1614,7 +1731,14 @@ _climateRow_dewpoint(show: boolean, dew_point: unknown) {
 _climateRow_precip(show: boolean, hasValue: boolean, precipitation: unknown, precipitation_unit: unknown) {
   if (!show || !hasValue) return html``;
   const unitSuffix = precipitation_unit ? ' ' + precipitation_unit : '';
-  return html`<ha-icon icon="hass:weather-rainy"></ha-icon> ${precipitation}${unitSuffix}<br>`;
+  // When the value is a mm/h rate (either a native rate sensor or the
+  // cumulative→rate derivation in precip-rate.ts), map intensity to a
+  // matching icon. Other units (probability `%`, raw `mm`, …) keep the
+  // legacy rainy icon since their numeric magnitude isn't a rate.
+  const isRate = precipitation_unit === 'mm/h';
+  const rate = isRate ? parseFloat(String(precipitation)) : NaN;
+  const icon = isRate && Number.isFinite(rate) ? precipIcon(rate) : 'hass:weather-rainy';
+  return html`<ha-icon icon="${icon}"></ha-icon> ${precipitation}${unitSuffix}<br>`;
 }
 
 _sunRow_uv(show: boolean, uv_index: unknown) {
