@@ -203,6 +203,20 @@ class WeatherStationCard extends LitElement {
   _stationCount: number = 0;
   _forecastCount: number = 0;
   _missingSensors: string[] = [];
+  // Tracks whether each configured data source has produced at least
+  // one value (either via subscribe callback or by restoring a cached
+  // payload on setConfig). Read in _refreshForecasts to hold off the
+  // very first chart render until BOTH expected sources are ready —
+  // otherwise the chart renders once with only the fast source's data
+  // (typically forecast, via HA's cached weather entity) and then
+  // again once the slower one lands (typically station, via a
+  // recorder query). With doubled-today layout, the second render
+  // adds the station-today column to a chart that was previously
+  // forecast-only, narrowing every existing column. Visible as bars
+  // starting wide and then snapping to a tighter spacing.
+  _stationDataReady: boolean = false;
+  _forecastDataReady: boolean = false;
+  _initialChartBuilt: boolean = false;
   // Lazy-cache for #10 mode-toggle.
   // deno-lint-ignore no-explicit-any
   _stationCache: Record<string, any[]> = {};
@@ -743,6 +757,7 @@ _syncDataSources(hass: HassMain): void {
             return;
           }
           this._stationData = newData;
+          this._stationDataReady = true;
           this._stationCache[stationFetchKey(this.config)] = this._stationData;
           this._stationError = newError;
           // Refresh the 3-h pressure tendency on the same cadence as the
@@ -782,6 +797,7 @@ _syncDataSources(hass: HassMain): void {
             return;
           }
           this._forecastData = newData;
+          this._forecastDataReady = true;
           this._forecastCache[forecastFetchKey(this.config)] = this._forecastData;
           this._forecastError = newError;
           this._refreshForecasts();
@@ -971,8 +987,19 @@ async _refreshPressureDelta(): Promise<void> {
     //
     // Data callbacks can fire before Lit's first render has built the
     // shadow root. Skip the redraw in that window — firstUpdated() will
-    // call measureCard() once the DOM is in place.
+    // call measureCard() once the DOM is in place. The
+    // wait-for-all-data-sources gate lives in drawChart so every
+    // caller (firstUpdated, ResizeObserver, here) goes through it
+    // uniformly.
     if (this.shadowRoot) this.measureCard();
+  }
+
+  _allExpectedDataReady(): boolean {
+    const wantStation = this.config.show_station !== false;
+    const wantForecast = this.config.show_forecast === true && !!this.config.weather_entity;
+    if (wantStation && !this._stationDataReady) return false;
+    if (wantForecast && !this._forecastDataReady) return false;
+    return true;
   }
 
   // `days` / `forecast_days` define the data-loading window for both
@@ -1045,11 +1072,45 @@ async _refreshPressureDelta(): Promise<void> {
     );
   }
 
+  // Async sunshine-arrival path. Updates this.forecasts in place with
+  // the freshly-fetched sunshine values and pushes them through the
+  // existing chart via updateChart (no destroy + rebuild). Falls back to
+  // _refreshForecasts when the chart hasn't been built yet or when the
+  // forecast type is 'today' (whose 3-hour aggregation rebuilds the
+  // whole forecasts array, not just the sunshine column).
+  _overlaySunshineOnExisting(): void {
+    if (!this.forecasts || !this.forecastChart) {
+      this._refreshForecasts();
+      return;
+    }
+    // deno-lint-ignore no-explicit-any
+    const { config: effectiveCfg } = normalizeForecastMode(this.config) as { config: any };
+    const fcType = effectiveCfg.forecast.type;
+    if (fcType === 'today') {
+      this._refreshForecasts();
+      return;
+    }
+    const granularity = fcType === 'hourly' ? 'hourly' : 'daily';
+    const cm = effectiveCfg.condition_mapping || {};
+    const cloudExp = (cm.sunshine_cloud_exponent != null && Number.isFinite(cm.sunshine_cloud_exponent))
+      ? Number(cm.sunshine_cloud_exponent)
+      : 1.7;
+    this.forecasts = overlayFromOpenMeteo(
+      // deno-lint-ignore no-explicit-any
+      [...this.forecasts] as any,
+      this._hass,
+      this._sunshineSource,
+      granularity,
+      granularity === 'daily' ? cloudExp : null,
+    );
+    this.updateChart();
+  }
+
   // Lazy-init the Open-Meteo source on first use, tear it down when the
   // user toggles sunshine off, and trigger a fetch when the cache is
-  // stale (no-op if a fetch is already in flight). The source's
-  // listener calls _refreshForecasts again so the chart redraws once
-  // the data lands.
+  // stale (no-op if a fetch is already in flight). On data arrival, the
+  // listener routes through _overlaySunshineOnExisting to avoid a
+  // chart rebuild (which caused a bar-width flicker).
   // deno-lint-ignore no-explicit-any
   _ensureSunshineSource(effectiveCfg: any) {
     const enabled = effectiveCfg?.forecast?.show_sunshine === true;
@@ -1090,9 +1151,20 @@ async _refreshPressureDelta(): Promise<void> {
         includeHourly,
       });
       this._sunshineSource.setListener((event: { ok: boolean; error?: string } | null) => {
-        // On a successful refresh, recompute the forecasts so the new
-        // sunshine values land on the entries — and redraw the chart.
-        if (event?.ok) this._refreshForecasts();
+        // On a successful refresh, re-overlay sunshine on the existing
+        // forecasts and push the new values into the live chart via
+        // updateChart — NOT _refreshForecasts. Going through the
+        // _refreshForecasts → measureCard → drawChart path destroys and
+        // rebuilds the chart, which between the first build (sunshine
+        // values still null) and the rebuild (sunshine values populated)
+        // caused chart.js's bar ruler to recompute the per-column slot
+        // allocation. The visible result was precip bars rendering wide
+        // for a moment and then snapping to their final half-column
+        // width once sunshine landed — read by the user as a "the bars
+        // start twice as wide and then narrow" artefact. Keeping the
+        // same Chart instance and only mutating dataset data sidesteps
+        // the ruler recompute entirely; widths stay correct from frame 1.
+        if (event?.ok) this._overlaySunshineOnExisting();
       });
     }
     // Fire-and-forget — the listener handles the redraw on completion.
@@ -1142,11 +1214,26 @@ measureCard() {
   // this always renders the full series. Width-based auto-fit only
   // kicks in when no data is loaded yet (initial render before the
   // data sources fire).
+  const prevForecastItems = this.forecastItems;
   if (this.forecasts?.length) {
     this.forecastItems = this.forecasts.length;
   } else {
     const fontSize = this.config.forecast.labels_font_size;
     this.forecastItems = Math.round((card as HTMLElement).offsetWidth / (fontSize * 6));
+  }
+  // Skip the destroy-and-rebuild dance when the chart is already live
+  // and the visible-bar count hasn't changed. ResizeObserver fires
+  // repeatedly as HA's section-grid settles its layout; each tick
+  // used to rebuild the Chart.js instance with a slightly different
+  // canvas size, and the bar ruler re-allocated per-column slot
+  // widths each time — visible to the user as bars starting wide
+  // then narrowing once HA's layout settled. Chart.js's own
+  // responsive:true ResizeObserver handles the canvas-size change
+  // for us; the only reason to drawChart() here is when forecastItems
+  // changed (different dataset length needs a fresh chart) or no
+  // chart exists yet.
+  if (this.forecastChart && this.forecastItems === prevForecastItems) {
+    return;
   }
   this.drawChart();
 }
@@ -1277,6 +1364,18 @@ async firstUpdated(changedProperties: Map<PropertyKey, unknown>) {
 
 
 async updated(changedProperties: Map<PropertyKey, unknown>) {
+  // Apply initial scroll BEFORE the `await this.updateComplete` below.
+  // Lit commits the rendered HTML to the DOM synchronously inside the
+  // update() call that triggers this `updated()`, so by this line the
+  // wrapper is in the DOM with its new class set. Running the scroll
+  // positioning here means we set wrapper.scrollLeft in the same task
+  // as the DOM commit, before the browser's next paint — eliminating
+  // the one-frame window in which the chart was visible at scrollLeft=0
+  // before the centered position was applied. The post-await call
+  // below stays for cases where the chart hadn't been built yet on
+  // this render (data still loading); a later render once data lands
+  // will hit this line synchronously.
+  this._maybeApplyInitialScroll(changedProperties);
   await this.updateComplete;
 
   // Re-attempt action-handler binding after every render. Lit can swap
@@ -1289,7 +1388,6 @@ async updated(changedProperties: Map<PropertyKey, unknown>) {
   // `forecasts: ForecastEntry[]` and config shapes. Cast through
   // `unknown` to keep tsc happy while preserving the runtime assumption.
   setupActionHandler(this as unknown as Parameters<typeof setupActionHandler>[0]);
-  this._maybeApplyInitialScroll(changedProperties);
   setupScrollUx(this as unknown as Parameters<typeof setupScrollUx>[0]);
 
   if (changedProperties.has('config')) {
@@ -1370,7 +1468,10 @@ _invalidateStaleSources(oldConfig: any) {
     this._teardownStation();
     if (oldStationKey !== newStationKey) {
       const cached = this._stationCache[newStationKey];
-      if (cached?.length) this._stationData = cached.slice();
+      if (cached?.length) {
+        this._stationData = cached.slice();
+        this._stationDataReady = true;
+      }
     }
     // If the pressure sensor itself changed, the cached delta points at
     // a different entity and must be invalidated — the next station
@@ -1386,7 +1487,10 @@ _invalidateStaleSources(oldConfig: any) {
     this._teardownForecast();
     if (oldForecastKey !== newForecastKey) {
       const cached = this._forecastCache[newForecastKey];
-      if (cached?.length) this._forecastData = cached.slice();
+      if (cached?.length) {
+        this._forecastData = cached.slice();
+        this._forecastDataReady = true;
+      }
     }
   }
 
@@ -1401,18 +1505,92 @@ _teardownStation() {
   if (this._dataUnsubscribe) { this._dataUnsubscribe(); this._dataUnsubscribe = null; }
   this._dataSource = null;
   this._stationData = [];
+  this._stationDataReady = false;
 }
 
 _teardownForecast() {
   if (this._forecastUnsubscribe) { this._forecastUnsubscribe(); this._forecastUnsubscribe = null; }
   this._forecastSource = null;
+  this._forecastDataReady = false;
   this._forecastData = [];
 }
 
 // deno-lint-ignore no-explicit-any
 drawChart(args?: any): unknown[] | undefined {
+  // Hold off the FIRST chart render until every expected data source
+  // has produced at least one value. Forecast (HA's cached weather
+  // entity) typically lands in tens of ms; station (recorder query)
+  // can take a few hundred. Rendering between them produces a chart
+  // with the forecast block only — e.g. 5 columns starting at today
+  // — and the next render after station lands prepends the past-day
+  // station columns, ending at e.g. 7-8 columns. Each existing column
+  // narrows in proportion. The user reads this as bars / day sections
+  // "starting twice as wide and snapping narrower". Once the initial
+  // chart is built, the gate is permanently lifted; subsequent updates
+  // proceed normally (in-place data updates via updateChart, full
+  // rebuilds via drawChart for shape changes).
+  if (!this._initialChartBuilt && !this._allExpectedDataReady()) {
+    return undefined;
+  }
   try {
     const result = drawChartUnsafe(this as unknown as Parameters<typeof drawChartUnsafe>[0], args);
+    if (this.forecastChart) {
+      const isFirstBuild = !this._initialChartBuilt;
+      this._initialChartBuilt = true;
+      // Re-arm initial-scroll application on every fresh chart build.
+      // _maybeApplyInitialScroll sets _initialScrollApplied=true once
+      // the scroll has been applied; a subsequent rebuild (e.g.
+      // daily↔hourly toggle) needs to re-apply because the new layout
+      // moves the boundary pixel. Clearing the flag here makes the
+      // next updated() cycle re-evaluate. Skip on no-op rebuilds
+      // (forecastItems unchanged inside measureCard's gate) — those
+      // never reach drawChart so this path runs only on real builds.
+      this._initialScrollApplied = false;
+      // Force the initial grow-from-below animation to be visible.
+      // Chart.js's constructor-time animation runs through
+      // resize→attach→resize lifecycle steps that, with the
+      // loading-placeholder flow (drawChart fires from an
+      // rAF-after-Lit-commit), end up with the first paint catching
+      // the bars already near their final height — the animation IS
+      // running but completes before the user can perceive it.
+      // Calling reset() + update() right after construction snaps
+      // every bar back to its baseline and animates back over the
+      // configured 800 ms (or instantly when disable_animation is
+      // true). Verified manually in the user's browser console:
+      // `chart.reset(); chart.update()` produces the visible grow.
+      if (isFirstBuild && this.config?.forecast?.disable_animation !== true && !this._isInPreview) {
+        this.forecastChart.reset();
+        this.forecastChart.update();
+      }
+      // Re-apply initial scroll after Lit has fully settled AND
+      // Chart.js has resized its canvas to the new container width.
+      //
+      // drawChart runs inside _refreshForecasts during the current
+      // updated() cycle. Setting this.forecasts there enqueues another
+      // Lit update — the NEW .forecast-content width% (totalBars /
+      // visibleBars × 100) only commits once that second performUpdate
+      // runs. We loop on updateComplete to drain every pending Lit
+      // update before measuring.
+      //
+      // BUT a fully-committed .forecast-content isn't enough: Chart.js
+      // sized its canvas to fill the parent at construction time, and
+      // its responsive ResizeObserver only fires AFTER paint when the
+      // parent's new size is measured. So between Lit's commit and
+      // Chart.js's resize, the canvas overflows the shrunken parent
+      // and inflates wrapper.scrollWidth (e.g. daily after hourly
+      // cycle: parent=583px, canvas=7689px → scrollWidth=7689px). The
+      // browser then auto-clamps the old scrollLeft to that inflated
+      // max, producing the brief "rechtsbündig" flash. Calling
+      // chart.resize() synchronously snaps the canvas to the parent's
+      // current size, so the subsequent apply() reads a consistent
+      // wrapper.scrollWidth that matches totalBars/visibleBars.
+      (async () => {
+        let settled = await this.updateComplete;
+        while (!settled) settled = await this.updateComplete;
+        try { this.forecastChart?.resize(); } catch { /* chart torn down */ }
+        this._maybeApplyInitialScroll(new Map());
+      })();
+    }
     if (this._chartError) {
       this._chartError = null;
       this.requestUpdate();
@@ -1599,6 +1777,7 @@ _onModeToggleClick(ev?: Event) {
           ${this.renderErrorBanner()}
           ${this.renderMain()}
           ${this.renderAttributes()}
+          ${this._allExpectedDataReady() ? html`
           <div class="forecast-scroll-block">
             <div class="forecast-scroll ${scrolling ? 'scrolling' : ''}">
               <div class="forecast-content" style="width: ${contentWidthPct}%">
@@ -1622,6 +1801,9 @@ _onModeToggleClick(ev?: Event) {
               </button>
             ` : ''}
           </div>
+          ` : html`
+          <div class="forecast-loading" style="height: ${config.forecast.chart_height}px"></div>
+          `}
         </div>
       </ha-card>
     `;
@@ -2152,6 +2334,26 @@ _convertWindSpeed(raw: unknown, sourceUnit?: string): number | null {
       // it — at the first paint scrollWidth can still equal clientWidth,
       // which makes computeInitialScrollLeft early-return 0.
       if (wrapper.scrollWidth <= wrapper.clientWidth) return false;
+      // Cross-check: the wrapper's scrollWidth comes from
+      // .forecast-content's `width: <pct>%` (computed in render() as
+      // totalBars/visibleBars * 100). On a mode toggle, drawChart runs
+      // synchronously from inside updated() — its rAF callback can fire
+      // BEFORE Lit's queued re-render commits the NEW pct, so we'd
+      // measure the PREVIOUS mode's content width with the NEW counts.
+      // Bail when the measured width doesn't match what totalBars
+      // implies; the ResizeObserver fallback below picks up the real
+      // size change once Lit's re-render commits.
+      const totalBars = (this._stationCount || 0) + (this._forecastCount || 0);
+      const visibleBars = parseInt(fcfg.number_of_forecasts, 10) || 0;
+      if (totalBars > 0 && visibleBars > 0 && totalBars > visibleBars) {
+        const expectedScrollWidth = wrapper.clientWidth * (totalBars / visibleBars);
+        // Tolerance accounts for sub-pixel rounding + browser layout
+        // quantisation — but stays well under the smallest meaningful
+        // mode-to-mode width delta (daily≈583px ↔ hourly≈7689px).
+        if (Math.abs(wrapper.scrollWidth - expectedScrollWidth) > expectedScrollWidth * 0.1) {
+          return false;
+        }
+      }
       const scrollLeft = computeInitialScrollLeft({
         stationCount: this._stationCount || 0,
         forecastCount: this._forecastCount || 0,

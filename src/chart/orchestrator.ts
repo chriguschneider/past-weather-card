@@ -418,7 +418,20 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
 
   const chartCanvas = card.renderRoot?.querySelector('#forecastChart');
   if (!chartCanvas) {
-    console.error('Canvas element not found:', card.renderRoot);
+    // Canvas isn't in the DOM yet. With the loading-placeholder flow
+    // in main.ts, drawChart is called synchronously inside
+    // _refreshForecasts before Lit's microtask commits the new
+    // template — the chart-container only appears on the NEXT render.
+    // requestAnimationFrame retries on the next browser tick, by
+    // which point Lit has committed and the canvas is mountable. Used
+    // to log an error and bail; that errored on every initial mount
+    // and only succeeded via a serendipitous ResizeObserver-triggered
+    // measureCard call, which happens too late for the chart.js
+    // initial animation to register with the animator service in a
+    // way the user can see.
+    if (typeof requestAnimationFrame !== 'undefined') {
+      requestAnimationFrame(() => card.drawChart());
+    }
     return undefined;
   }
 
