@@ -29,7 +29,17 @@ import {
 import { DEFAULTS, DEFAULTS_FORECAST, DEFAULTS_UNITS } from './defaults.js';
 import {LitElement, html} from 'lit';
 import './weather-station-card-editor.js';
-import { MeasuredDataSource, ForecastDataSource, type HassLike } from './data-source.js';
+import {
+  MeasuredDataSource,
+  ForecastDataSource,
+  fetchPressure3hDelta,
+  type HassLike,
+  type PressureDeltaCache,
+} from './data-source.js';
+import {
+  getPressureTrend,
+  getPressureTrendIcon,
+} from './pressure-trend.js';
 import { classifyDay, clearSkyLuxAt } from './condition-classifier.js';
 import { computeInitialScrollLeft } from './format-utils.js';
 import {
@@ -200,6 +210,12 @@ class WeatherStationCard extends LitElement {
   _forecastCache: Record<string, any[]> = {};
   // deno-lint-ignore no-explicit-any
   _sunshineSource: any = null;
+
+  // 3-h pressure tendency (hPa-normalized), populated by the station
+  // refresh callback. `null` until the first fetch resolves or when
+  // history is insufficient — render falls back to legacy gauge icon.
+  _pressureDelta3h: number | null = null;
+  _pressureDeltaCache: PressureDeltaCache = { bucketMs: null, value: null };
 
   // --- Chart / scroll lifecycle ---
   _chartError: unknown = null;
@@ -729,6 +745,13 @@ _syncDataSources(hass: HassMain): void {
           this._stationData = newData;
           this._stationCache[stationFetchKey(this.config)] = this._stationData;
           this._stationError = newError;
+          // Refresh the 3-h pressure tendency on the same cadence as the
+          // station fetch (POLL_INTERVAL_MS, currently hourly). The
+          // cache key inside `fetchPressure3hDelta` is the
+          // start-of-current-hour timestamp, so renders within the same
+          // hour reuse one roundtrip. Fire-and-forget: errors degrade
+          // silently to the legacy gauge icon.
+          void this._refreshPressureDelta();
           this._refreshForecasts();
         } catch (err) {
           console.error('[weather-station-card] station callback failed', err);
@@ -785,6 +808,32 @@ _syncDataSources(hass: HassMain): void {
     if (!s || s.state === 'unavailable' || s.state === 'unknown') {
       this._missingSensors.push(`${key} (${eid})`);
     }
+  }
+}
+
+// Pull the 3-h pressure delta from the recorder and stash it on the
+// instance. `fetchPressure3hDelta` deduplicates within the same hour via
+// `_pressureDeltaCache`, so re-renders triggered by mode toggles don't
+// re-fetch. A trailing requestUpdate() ensures the row re-renders when
+// the delta lands AFTER the station callback already triggered one.
+async _refreshPressureDelta(): Promise<void> {
+  const pressureId = this.config?.sensors?.pressure;
+  if (!pressureId || this.config?.show_pressure === false) {
+    this._pressureDelta3h = null;
+    return;
+  }
+  try {
+    const delta = await fetchPressure3hDelta(
+      this._hass as HassLike | null,
+      pressureId,
+      this._pressureDeltaCache,
+    );
+    if (delta !== this._pressureDelta3h) {
+      this._pressureDelta3h = delta;
+      this.requestUpdate();
+    }
+  } catch (err) {
+    console.debug('[weather-station-card] pressure delta refresh failed', err);
   }
 }
 
@@ -1323,6 +1372,15 @@ _invalidateStaleSources(oldConfig: any) {
       const cached = this._stationCache[newStationKey];
       if (cached?.length) this._stationData = cached.slice();
     }
+    // If the pressure sensor itself changed, the cached delta points at
+    // a different entity and must be invalidated — the next station
+    // callback will re-fetch.
+    const oldPressureId = (oldConfig as { sensors?: { pressure?: string } } | undefined)?.sensors?.pressure;
+    const newPressureId = this.config?.sensors?.pressure;
+    if (oldPressureId !== newPressureId) {
+      this._pressureDelta3h = null;
+      this._pressureDeltaCache = { bucketMs: null, value: null };
+    }
   }
   if (forecastStale) {
     this._teardownForecast();
@@ -1719,10 +1777,26 @@ _climateRow_humidity(show: boolean, humidity: unknown) {
   return html`<ha-icon icon="hass:water-percent"></ha-icon> ${humidity} %<br>`;
 }
 // deno-lint-ignore no-explicit-any
-_climateRow_pressure(show: boolean, dPressure: any) {
+_climateRow_pressure(show: boolean, dPressure: any, deltaHpa: number | null) {
   if (!show || dPressure === undefined) return html``;
   const unitLabel = this.unitPressure ? this.ll('units')[this.unitPressure] : '';
-  return html`<ha-icon icon="hass:gauge"></ha-icon> ${dPressure} ${unitLabel} <br>`;
+  const trend = getPressureTrend(deltaHpa);
+  const trendIcon = getPressureTrendIcon(trend);
+  const iconName = trendIcon || 'gauge';
+  // Icon-only encoding: adding a `(±X.X/3h)` suffix wrapped on narrow
+  // attribute columns and broke the row layout. The directional arrow
+  // alone is enough — the unit label keeps pressure-semantic anchor.
+  // Aria-label localizes the trend for screen readers; falls back to
+  // the English key when the active locale didn't translate it.
+  const ariaLabel = trend
+    ? (this.ll(`pressure_trend_${trend}`)
+        || (locale.en as Record<string, unknown>)[`pressure_trend_${trend}`]
+        || '')
+    : '';
+  return html`<ha-icon
+      icon="hass:${iconName}"
+      aria-label=${ariaLabel}
+    ></ha-icon> ${dPressure} ${unitLabel} <br>`;
 }
 _climateRow_dewpoint(show: boolean, dew_point: unknown) {
   if (!show || dew_point === undefined) return html``;
@@ -1782,13 +1856,13 @@ _windRow_gust(show: boolean, wind_gust_speed: any) {
 // Climate group: humidity / pressure / dew-point / precipitation. Returns
 // nothing-html when every row's toggle is off or backing value is empty.
 // deno-lint-ignore no-explicit-any
-_renderClimateGroup({ showHumidity, humidity, showPressure, dPressure, showDewpoint, dew_point, showPrecipitation, precipitation, precipitation_unit, hasPrecipValue }: any) {
+_renderClimateGroup({ showHumidity, humidity, showPressure, dPressure, pressureDelta3h, showDewpoint, dew_point, showPrecipitation, precipitation, precipitation_unit, hasPrecipValue }: any) {
   const anyVisible = (showHumidity && humidity !== undefined) || (showPressure && dPressure !== undefined) || (showDewpoint && dew_point !== undefined) || (showPrecipitation && hasPrecipValue);
   if (!anyVisible) return html``;
   return html`
     <div>
       ${this._climateRow_humidity(showHumidity, humidity)}
-      ${this._climateRow_pressure(showPressure, dPressure)}
+      ${this._climateRow_pressure(showPressure, dPressure, pressureDelta3h)}
       ${this._climateRow_dewpoint(showDewpoint, dew_point)}
       ${this._climateRow_precip(showPrecipitation, hasPrecipValue, precipitation, precipitation_unit)}
     </div>
@@ -1853,6 +1927,7 @@ renderAttributes({ config, humidity, pressure, windSpeed, windDirection, sun, la
     hasPrecipValue: precipitation !== undefined && precipitation !== '',
     sunshineHours: this._formatSunshineHours(sunshine_duration, sunshine_duration_unit),
     humidity, dPressure, dew_point, precipitation, precipitation_unit,
+    pressureDelta3h: this._pressureDelta3h,
     sun, uv_index, illuminance, language,
     windDirection, dWindSpeed, wind_gust_speed,
   };
