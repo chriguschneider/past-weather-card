@@ -44,6 +44,7 @@ import {
   getDewPointComfort,
   getDewPointComfortIcon,
 } from './dew-point-comfort.js';
+import { classifySunStrength, formatLux } from './sun-strength.js';
 import { classifyDay, clearSkyLuxAt } from './condition-classifier.js';
 import { computeInitialScrollLeft } from './format-utils.js';
 import {
@@ -2042,13 +2043,61 @@ _climateRow_precip(show: boolean, hasValue: boolean, precipitation: unknown, pre
   return html`<ha-icon icon="${icon}"></ha-icon> ${precipitation}${unitSuffix}<br>`;
 }
 
-_sunRow_uv(show: boolean, uv_index: unknown) {
-  if (!show || uv_index === undefined || uv_index === '') return html``;
-  return html`<div><ha-icon icon="hass:white-balance-sunny"></ha-icon> UV: ${Math.round(parseFloat(String(uv_index)) * 10) / 10}</div>`;
-}
-_sunRow_illuminance(show: boolean, illuminance: unknown) {
-  if (!show || illuminance === undefined || illuminance === '') return html``;
-  return html`<div><ha-icon icon="hass:brightness-5"></ha-icon> ${Math.round(parseFloat(String(illuminance)))} lx</div>`;
+_sunRow_sunStrength(
+  showUv: boolean,
+  showLux: boolean,
+  uv_index: unknown,
+  illuminance: unknown,
+  lat: number | null,
+  lon: number | null,
+) {
+  const uvWired = uv_index !== undefined && uv_index !== '';
+  const luxWired = illuminance !== undefined && illuminance !== '';
+  if (!showUv && !showLux) return html``;
+  if (!uvWired && !luxWired) return html``;
+
+  const uvNum = uvWired ? parseFloat(String(uv_index)) : NaN;
+  const luxNum = luxWired ? parseFloat(String(illuminance)) : NaN;
+  const out = classifySunStrength({
+    uv: Number.isFinite(uvNum) ? uvNum : null,
+    lux: Number.isFinite(luxNum) ? luxNum : null,
+    lat,
+    lon,
+  });
+
+  const showUvSegment = showUv && out.uv != null;
+  const showLuxSegment = showLux && out.lux != null;
+  if (!showUvSegment && !showLuxSegment) return html``;
+
+  const llKey = (k: string) =>
+    (this.ll(k) || (locale.en as Record<string, unknown>)[k] || '') as string;
+
+  let title = '';
+  if (out.mode === 'night') {
+    title = llKey('sun_strength_night_reason');
+  } else {
+    const parts: string[] = [];
+    if (out.bandLocaleKey && showUvSegment) {
+      parts.push(`UV ${Math.round((out.uv ?? 0) * 10) / 10} (${llKey(out.bandLocaleKey)})`);
+    }
+    if (out.cloudPct != null && showLuxSegment) {
+      parts.push(`${out.cloudPct}% of clear sky`);
+    }
+    if (out.protectionAdvised && showUvSegment) {
+      parts.push(llKey('sun_strength_protection_advised'));
+    }
+    title = parts.join(' · ');
+  }
+
+  const uvDisplay = showUvSegment
+    ? `UV ${Math.round((out.uv ?? 0) * 10) / 10}`
+    : '';
+  const luxDisplay = showLuxSegment ? formatLux(out.lux) : '';
+  const valueText = [uvDisplay, luxDisplay].filter(Boolean).join(' / ');
+
+  return html`<div title=${title} aria-label=${title}><ha-icon
+      icon="hass:${out.iconShape}"
+    ></ha-icon> ${valueText}</div>`;
 }
 _sunRow_sunshine(show: boolean, sunshineHours: number | undefined) {
   if (!show || sunshineHours === undefined) return html``;
@@ -2098,13 +2147,12 @@ _renderClimateGroup({ showHumidity, humidity, showPressure, dPressure, pressureD
 
 // Sun / UV / illuminance / sunshine-duration group.
 // deno-lint-ignore no-explicit-any
-_renderSunGroup({ showSun, sun, showUvIndex, uv_index, showIlluminance, illuminance, showSunshineDuration, sunshineHours, language }: any) {
+_renderSunGroup({ showSun, sun, showUvIndex, uv_index, showIlluminance, illuminance, showSunshineDuration, sunshineHours, language, lat, lon }: any) {
   const anyVisible = (showSun && sun !== undefined) || (showUvIndex && uv_index !== undefined && uv_index !== '') || (showIlluminance && illuminance !== undefined && illuminance !== '') || (showSunshineDuration && sunshineHours !== undefined);
   if (!anyVisible) return html``;
   return html`
     <div>
-      ${this._sunRow_uv(showUvIndex, uv_index)}
-      ${this._sunRow_illuminance(showIlluminance, illuminance)}
+      ${this._sunRow_sunStrength(showUvIndex, showIlluminance, uv_index, illuminance, lat, lon)}
       ${this._sunRow_sunshine(showSunshineDuration, sunshineHours)}
       ${this._sunRow_sunPanel(showSun, sun, language)}
     </div>
@@ -2139,6 +2187,15 @@ renderAttributes({ config, humidity, pressure, windSpeed, windDirection, sun, la
   // cumulative sensor: configure a Derivative helper in HA (see
   // GitHub issue) and wire its output sensor here. Card-side
   // auto-derivation was tried and removed — fragile, see issue.
+  // Site lat/lon for the sun-strength row's clear-sky reference. Pulled
+  // from `hass.config` (Home Assistant's configured location) rather
+  // than the card config — chrigu's setup wires it once and the live
+  // panel inherits. Missing/non-finite values fall through to the
+  // 110 000 lx constant inside `classifySunStrength`.
+  const haCfg = this._hass?.config as { latitude?: number; longitude?: number } | undefined;
+  const lat = haCfg && Number.isFinite(haCfg.latitude) ? haCfg.latitude as number : null;
+  const lon = haCfg && Number.isFinite(haCfg.longitude) ? haCfg.longitude as number : null;
+
   const ctx = {
     showHumidity: config.show_humidity !== false,
     showPressure: config.show_pressure !== false,
@@ -2157,6 +2214,7 @@ renderAttributes({ config, humidity, pressure, windSpeed, windDirection, sun, la
     pressureDelta3h: this._pressureDelta3h,
     sun, uv_index, illuminance, language,
     windDirection, dWindSpeed, wind_gust_speed,
+    lat, lon,
   };
 
   return html`
