@@ -11,10 +11,41 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   icon now shows at a glance whether the pressure is rising or falling
   over the last 3 hours — a directional arrow replaces the static
   gauge icon. Five steps: rising fast, rising, stable, falling,
-  falling rapidly. Once your pressure sensor has been recording for
-  three hours, the arrow appears automatically; sensors with less
-  history keep the original gauge icon. Works with any pressure unit
-  (hPa, mmHg, inHg). (#115)
+  falling rapidly. Hovering the row reveals how much the pressure has
+  moved in the last 3 hours and what that typically means for the
+  weather (rapid clearing, improving, no change, deteriorating, storm
+  likely). Once your pressure sensor has been recording for three
+  hours, the arrow appears automatically; sensors with less history
+  keep the original gauge icon. Works with any pressure unit (hPa,
+  mmHg, inHg). (#115)
+- **Dew-point row now shows a comfort hint.** The icon next to the
+  dew-point value changes to reflect what the current dew point and
+  air temperature suggest about conditions: frost risk, fog risk,
+  muggy air, dew likely, or comfortable. Hover the icon to see a
+  short explanation. No configuration change needed — it appears
+  automatically whenever the dew-point row is enabled and an air
+  temperature is available. When the air temperature is missing, the
+  original thermometer icon stays.
+
+### Fixed
+- **Forecast chart now mounts smoothly without bar widths jumping.**
+  When you opened a dashboard, the bars could briefly start wide and
+  then snap narrower as the station history and sunshine values
+  finished loading in the background. The card now waits for both
+  data sources before showing the chart, so the layout you see at
+  first glance is the one that stays. While the data is still
+  arriving, a blank space the size of the chart keeps the rest of
+  the card from shifting around.
+- **Switching forecast views no longer flashes to the wrong edge.**
+  Cycling between the daily, today, and hourly views could briefly
+  leave the chart scrolled to the right edge before snapping back to
+  the now line. The chart now lands at the correct centred position
+  on the first paint after the switch.
+- **Grow-from-below entry animation is visible again on first
+  render.** Earlier polish work moved the chart mount through enough
+  preparation steps that the bars-grow-from-the-baseline animation
+  could complete before the chart became visible. The animation now
+  triggers reliably after the chart is in place. (#152)
 
 ## [1.12.0] — 2026-05-12
 
