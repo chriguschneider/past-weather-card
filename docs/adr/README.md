@@ -6,14 +6,22 @@ particular path was chosen and what alternatives were rejected.
 
 ## When to write one
 
-Write an ADR when a decision is:
+Write an ADR only when **all three** of these are true:
 
-- **Hard to reverse** — package upgrades, bundler swaps, public-API shape, data-source contracts.
-- **Surprising without context** — choices a future reader (or future Claude) would otherwise undo by accident.
-- **Cross-cutting** — touches multiple modules and can't be explained inside a single file's header comment.
+1. **Hard to reverse** — the cost of changing the decision later is meaningful (package upgrades, bundler swaps, public-API shape, data-source contracts).
+2. **Surprising without context** — a future reader (or future Claude) would otherwise undo it by accident, wondering "why on earth did they do it this way?".
+3. **Result of a real trade-off** — there were genuine alternatives and you picked one for specific reasons.
+
+If any one is missing, skip the ADR:
+
+- Easy to reverse → just reverse it later.
+- Not surprising → nobody will wonder why.
+- No real alternative → "we did the obvious thing" isn't worth recording.
 
 Skip the ADR for routine bug fixes, refactors that don't change a contract, or
 decisions whose rationale already lives in the commit message.
+
+This restrictive AND-of-three test is enforced by the `documentation-guardian` skill and aligns with the user-level `grill-with-docs` skill.
 
 ## How to add one
 
