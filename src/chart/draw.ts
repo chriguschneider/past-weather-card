@@ -35,7 +35,9 @@ export interface BuildChartOpts {
   style: CssStyleLike;
   sunshineLabelBand: number;
   // True when the card is mounted inside the card-config dialog's
-  // live preview. Forces animation off regardless of config.
+  // live preview — forces animation off regardless of the user's
+  // forecast.disable_animation setting, so each editor click renders
+  // instantly instead of tweening for half a second.
   inPreview?: boolean;
 }
 
@@ -66,19 +68,43 @@ export function buildChart(ctx: CanvasRenderingContext2D | HTMLCanvasElement, op
     },
     options: {
       maintainAspectRatio: false,
-      // Default Chart.js animation is 1000 ms easeOutQuart. With dataset
-      // density up to 336 bars (precip + sunshine in hourly mode), 1 s
-      // feels laggy. 500 ms still reads as a transition without dragging.
-      // Users who want it fully off
-      // continue to set `forecast.disable_animation: true`. The
-      // editor's live preview also forces 0 ms (inPreview from main.ts'
-      // connectedCallback ancestor walk) so each editor toggle renders
-      // instantly instead of tweening — independent of the user's
-      // config setting, which only governs the dashboard render path.
+      // Chart.js animation: bars grow vertically from the baseline,
+      // x/width pinned to final value from frame 1. The per-dataset
+      // override on `numbers.properties` excludes x and width from the
+      // tween — chart.js's scope resolver consults `datasets.<type>`
+      // BEFORE the chart-level `options.animations` (see
+      // datasetAnimationScopeKeys in node_modules/chart.js), so the
+      // override must live at the dataset-type scope to actually win.
+      //
+      // Earlier this caused a visible "bars start wide then narrow"
+      // artefact: when sunshine data arrived async from Open-Meteo,
+      // the chart was destroyed and rebuilt, and the bar-ruler's
+      // per-column slot allocation recomputed between frames. That
+      // path is gone — sunshine updates now flow through
+      // _overlaySunshineOnExisting → updateChart (in-place data
+      // mutation, no rebuild) — and the first chart render is gated
+      // until ALL expected data sources have produced a value (see
+      // _allExpectedDataReady), so the chart only paints once with its
+      // final dataset shape. With both fixed, the grow-from-below
+      // animation is back to being a polish rather than a footgun.
+      //
+      // `inPreview` and `forecast.disable_animation` force duration:0.
       animation: inPreview === true
         || (config as { forecast: { disable_animation?: boolean } }).forecast.disable_animation === true
         ? { duration: 0 }
-        : { duration: 500 },
+        : { duration: 800, easing: 'easeOutQuad' },
+      datasets: {
+        bar: {
+          animations: {
+            numbers: { type: 'number', properties: ['y', 'base', 'height'] },
+          },
+        },
+        line: {
+          animations: {
+            numbers: { type: 'number', properties: ['y', 'borderWidth', 'radius', 'tension'] },
+          },
+        },
+      } as never,
       layout: { padding: { bottom: 10 } },
       scales: {
         x: {

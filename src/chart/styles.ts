@@ -196,6 +196,15 @@ export function cardStyles({
       width: 100%;
       direction: ltr;
     }
+    /* Placeholder rendered while the data sources are still firing
+     * their first callbacks. Keeps the chart-row height stable so the
+     * page doesn't reflow when data lands. No spinner / text — the
+     * brief blank avoids any visible transition (scroll-state toggles,
+     * partial-data renders) between the placeholder and the final
+     * settled chart. */
+    .forecast-loading {
+      width: 100%;
+    }
     .conditions {
       display: flex;
       justify-content: space-around;
