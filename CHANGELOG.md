@@ -6,6 +6,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.13.0] — 2026-05-12
+
+Minor release that sharpens the live panel with three at-a-glance
+hints. The pressure row's icon turns into a directional arrow that
+shows whether the pressure is rising or falling over the last three
+hours. The dew-point row's icon flips between frost-risk, fog-risk,
+muggy, dew-likely, and comfortable to summarise current conditions in
+one glyph. And the two separate sun rows (UV and illuminance) merge
+into one combined row whose icon mirrors how cloudy it is right now
+and switches to a moon at night. Hover any of these rows for a short
+explanation. Forecast-chart cleanup smooths out a few first-render
+glitches as well.
+
 ### Added
 - **Pressure tendency arrow in the live panel.** The pressure row's
   icon now shows at a glance whether the pressure is rising or falling
