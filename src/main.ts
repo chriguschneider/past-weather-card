@@ -40,6 +40,10 @@ import {
   getPressureTrend,
   getPressureTrendIcon,
 } from './pressure-trend.js';
+import {
+  getDewPointComfort,
+  getDewPointComfortIcon,
+} from './dew-point-comfort.js';
 import { classifyDay, clearSkyLuxAt } from './condition-classifier.js';
 import { computeInitialScrollLeft } from './format-utils.js';
 import {
@@ -1968,21 +1972,62 @@ _climateRow_pressure(show: boolean, dPressure: any, deltaHpa: number | null) {
   // Icon-only encoding: adding a `(±X.X/3h)` suffix wrapped on narrow
   // attribute columns and broke the row layout. The directional arrow
   // alone is enough — the unit label keeps pressure-semantic anchor.
-  // Aria-label localizes the trend for screen readers; falls back to
-  // the English key when the active locale didn't translate it.
-  const ariaLabel = trend
-    ? (this.ll(`pressure_trend_${trend}`)
-        || (locale.en as Record<string, unknown>)[`pressure_trend_${trend}`]
-        || '')
-    : '';
-  return html`<ha-icon
+  // Tooltip / aria-label localises trend + 3-h delta + weather influence;
+  // delta stays in hPa (the WMO classification unit) even when the user
+  // displays mmHg / inHg.
+  let ariaLabel = '';
+  if (trend && deltaHpa != null && Number.isFinite(deltaHpa)) {
+    const llKey = (k: string) =>
+      (this.ll(k) || (locale.en as Record<string, unknown>)[k] || '') as string;
+    const trendLabel = llKey(`pressure_trend_${trend}`);
+    const influenceLabel = llKey(`pressure_influence_${trend}`);
+    const template = llKey('pressure_tooltip_template');
+    const deltaStr = (deltaHpa > 0 ? '+' : '') + deltaHpa.toFixed(1);
+    ariaLabel = template
+      .replace('{trend}', trendLabel)
+      .replace('{delta}', deltaStr)
+      .replace('{influence}', influenceLabel);
+  }
+  return html`<span title=${ariaLabel} aria-label=${ariaLabel}><ha-icon
       icon="hass:${iconName}"
-      aria-label=${ariaLabel}
-    ></ha-icon> ${dPressure} ${unitLabel} <br>`;
+    ></ha-icon> ${dPressure} ${unitLabel}</span><br>`;
 }
 _climateRow_dewpoint(show: boolean, dew_point: unknown) {
   if (!show || dew_point === undefined) return html``;
-  return html`<ha-icon icon="hass:thermometer-water"></ha-icon> ${dew_point} ${this.weather.attributes.temperature_unit} <br>`;
+  const displayUnit = this.weather.attributes.temperature_unit;
+  // Classifier wants pure °C; convert once when the source sensor is in
+  // °F. Display values themselves stay in the user's unit.
+  const toC = (v: number) =>
+    this._sourceTempUnit === '°F' ? (v - 32) * 5 / 9 : v;
+  const td_raw = parseFloat(String(dew_point));
+  const tair_raw = parseFloat(String(this.temperature));
+  const td_c = Number.isFinite(td_raw) ? toC(td_raw) : null;
+  const tair_c = Number.isFinite(tair_raw) ? toC(tair_raw) : null;
+  const band = getDewPointComfort(td_c, tair_c);
+  const bandIcon = getDewPointComfortIcon(band);
+  const iconName = bandIcon || 'thermometer-water';
+  // Tooltip / aria-label localised via the band-keyed locale strings;
+  // English keys are the fallback when the active locale is missing one.
+  // Spread is shown in the user's display unit so the number on screen
+  // matches the dew-point value the row renders.
+  let ariaLabel = '';
+  if (band && Number.isFinite(td_raw) && Number.isFinite(tair_raw)) {
+    const spread = Math.max(0, tair_raw - td_raw);
+    const bandLabel = (this.ll(`dew_point_band_${band}`)
+      || (locale.en as Record<string, unknown>)[`dew_point_band_${band}`]
+      || '') as string;
+    const template = (this.ll('dew_point_tooltip_template')
+      || (locale.en as Record<string, unknown>)['dew_point_tooltip_template']
+      || '') as string;
+    ariaLabel = template
+      .replace('{td}', String(Math.round(td_raw)))
+      .replace('{spread}', String(Math.round(spread)))
+      .replace(/\{unit\}/g, String(displayUnit))
+      .replace('{band}', bandLabel);
+  }
+  return html`<span title=${ariaLabel} aria-label=${ariaLabel}><ha-icon
+      icon="hass:${iconName}"
+    ></ha-icon> ${dew_point} ${displayUnit}</span><br>`;
 }
 _climateRow_precip(show: boolean, hasValue: boolean, precipitation: unknown, precipitation_unit: unknown) {
   if (!show || !hasValue) return html``;
