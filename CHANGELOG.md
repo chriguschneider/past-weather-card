@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Pressure tendency arrow in the live panel.** The pressure row's
+  icon now shows at a glance whether the pressure is rising or falling
+  over the last 3 hours — a directional arrow replaces the static
+  gauge icon. Five steps: rising fast, rising, stable, falling,
+  falling rapidly. Once your pressure sensor has been recording for
+  three hours, the arrow appears automatically; sensors with less
+  history keep the original gauge icon. Works with any pressure unit
+  (hPa, mmHg, inHg). (#115)
+
 ## [1.12.0] — 2026-05-12
 
 Minor release that lets the card derive a live `mm/h` precipitation

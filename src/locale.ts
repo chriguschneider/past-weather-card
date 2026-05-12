@@ -93,6 +93,11 @@ const locale: Locale = {
     'precip': 'Niederschlag',
     'sunshine': 'Sonne',
     'feelsLike': 'Gefühlt',
+    'pressure_trend_rising_fast': 'Luftdruck schnell steigend',
+    'pressure_trend_rising': 'Luftdruck steigend',
+    'pressure_trend_stable': 'Luftdruck stabil',
+    'pressure_trend_falling': 'Luftdruck fallend',
+    'pressure_trend_falling_fast': 'Luftdruck schnell fallend',
     'units': {
       'km/h': 'km/h',
       'm/s': 'm/s',
@@ -261,6 +266,11 @@ const locale: Locale = {
     'precip': 'Precipitations',
     'sunshine': 'Sunshine',
     'feelsLike': 'Feels like',
+    'pressure_trend_rising_fast': 'Pressure rising rapidly',
+    'pressure_trend_rising': 'Pressure rising',
+    'pressure_trend_stable': 'Pressure stable',
+    'pressure_trend_falling': 'Pressure falling',
+    'pressure_trend_falling_fast': 'Pressure falling rapidly',
     'units': {
       'km/h': 'km/h',
       'm/s': 'm/s',

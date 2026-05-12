@@ -21,6 +21,7 @@ import {
 import { WeatherEntityFeature, type ConditionId } from './const.js';
 import type { ForecastEntry } from './forecast-utils.js';
 import { sunshineFromLuxHistory, type LuxSample } from './sunshine-source.js';
+import { PRESSURE_CONVERSION } from './utils/unit-converters.js';
 
 const POLL_INTERVAL_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -159,6 +160,91 @@ export function bucketPrecipitation(
  *  existing tests that import the daily name. Internally identical to
  *  `bucketPrecipitation`. */
 export const dailyPrecipitation = bucketPrecipitation;
+
+/** 1-entry cache shared between the call site and `fetchPressure3hDelta`.
+ *  Caller owns the object; the fetch mutates `bucketMs` / `value` so a
+ *  re-render within the same hour skips the WS roundtrip. Reset by
+ *  setting `bucketMs = null` (e.g. when the configured sensor changes). */
+export interface PressureDeltaCache {
+  bucketMs: number | null;
+  value: number | null;
+}
+
+/** Convert a pressure value from `sourceUnit` to hPa without rounding.
+ *  Falls through unchanged when the unit is missing or unknown. */
+function toHpa(value: number, sourceUnit: string | undefined): number {
+  if (!sourceUnit || sourceUnit === 'hPa') return value;
+  const factor = PRESSURE_CONVERSION[`hPa->${sourceUnit}`];
+  return factor !== undefined ? value * factor : value;
+}
+
+/** Fetch the 3-hour pressure delta in hPa for the configured pressure
+ *  sensor. Returns `null` when the recorder has fewer than the two
+ *  buckets required (newest hour and 3 h earlier), when either mean is
+ *  null, or on fetch error.
+ *
+ *  When `cache` is provided and its `bucketMs` matches the start of the
+ *  current hour, the cached value is returned without issuing a WS
+ *  call — multiple renders within the same hour share one roundtrip. */
+export async function fetchPressure3hDelta(
+  hass: HassLike | null,
+  entityId: string | undefined,
+  cache?: PressureDeltaCache,
+): Promise<number | null> {
+  if (!hass || !entityId) return null;
+
+  // Window ends at the start of the current hour (exclusive) so we only
+  // pull finalized buckets. The newest bucket starts at `bucketMs - 1h`
+  // and the 3 h-earlier bucket starts at `bucketMs - 4h`.
+  const now = new Date();
+  now.setMinutes(0, 0, 0);
+  const bucketMs = now.getTime();
+  if (cache?.bucketMs === bucketMs) return cache.value;
+
+  const end = new Date(bucketMs);
+  const start = new Date(bucketMs - 4 * HOUR_MS);
+
+  let stats: StatsResponse;
+  try {
+    stats = await hass.callWS<StatsResponse>({
+      type: 'recorder/statistics_during_period',
+      start_time: start.toISOString(),
+      end_time: end.toISOString(),
+      statistic_ids: [entityId],
+      period: 'hour',
+      types: ['mean'],
+    });
+  } catch (err) {
+    console.debug('[weather-station-card] pressure 3h delta fetch failed', err);
+    if (cache) { cache.bucketMs = bucketMs; cache.value = null; }
+    return null;
+  }
+
+  const series = stats?.[entityId];
+  let delta: number | null = null;
+  if (series && series.length > 0) {
+    let newest: StatBucket | null = null;
+    let newestMs = -Infinity;
+    for (const b of series) {
+      const t = new Date(b.start).getTime();
+      if (t > newestMs) { newest = b; newestMs = t; }
+    }
+    if (newest?.mean != null) {
+      const targetMs = newestMs - 3 * HOUR_MS;
+      const older = series.find((b) => new Date(b.start).getTime() === targetMs);
+      if (older?.mean != null) {
+        const sourceUnit = hass.states?.[entityId]?.attributes?.unit_of_measurement as
+          | string
+          | undefined;
+        const rawDelta = newest.mean - older.mean;
+        delta = toHpa(rawDelta, sourceUnit);
+      }
+    }
+  }
+
+  if (cache) { cache.bucketMs = bucketMs; cache.value = delta; }
+  return delta;
+}
 
 /** Internal shape of the bag passed to `_mapHourCondition` —
  *  `ClassifyInputs` plus the contextual fields the data source uses
