@@ -6,6 +6,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.13.0] — 2026-05-12
+
+Minor release that sharpens the live panel with three at-a-glance
+hints. The pressure row's icon turns into a directional arrow that
+shows whether the pressure is rising or falling over the last three
+hours. The dew-point row's icon flips between frost-risk, fog-risk,
+muggy, dew-likely, and comfortable to summarise current conditions in
+one glyph. And the two separate sun rows (UV and illuminance) merge
+into one combined row whose icon mirrors how cloudy it is right now
+and switches to a moon at night. Hover any of these rows for a short
+explanation. Forecast-chart cleanup smooths out a few first-render
+glitches as well.
+
 ### Added
 - **Pressure tendency arrow in the live panel.** The pressure row's
   icon now shows at a glance whether the pressure is rising or falling
@@ -26,6 +39,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   automatically whenever the dew-point row is enabled and an air
   temperature is available. When the air temperature is missing, the
   original thermometer icon stays.
+- **Live panel shows UV and illuminance on one combined row.** The two
+  separate sun rows (UV and illuminance) merge into one, with a single
+  icon that reflects how cloudy it is right now — a clear sun, a sun
+  behind a cloud, or a full cloud. Hover the row to see the WHO band
+  name for the current UV value and a sunscreen hint when UV is 3 or
+  higher. At night (or when illuminance is reported as zero) the row
+  switches to a moon icon and hides the UV value, since UV at night is
+  always zero anyway. The existing "show UV" and "show illuminance"
+  toggles continue to control whether each piece of information
+  appears — no YAML changes needed.
 
 ### Fixed
 - **Forecast chart now mounts smoothly without bar widths jumping.**
