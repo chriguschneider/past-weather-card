@@ -23,33 +23,42 @@ for the mechanic.
 
 ### Live precipitation rate from a cumulative sensor
 
-If your weather station only exposes a cumulative `mm` counter and you
-want a live `mm/h` rate (for the attribute-row precipitation cell or
-to drive the live rain icon), the recommended path is HA's built-in
-**Derivative helper**:
+If your weather station only exposes a cumulative `mm` counter
+(Ecowitt `*_precipitation`, BTHome `*_rain_total`, similar
+0.1 mm tipping buckets), point `sensors.precipitation` at the
+cumulative sensor directly — **the card derives the live `mm/h` rate
+itself**. No HA-side helper required.
 
-1. Settings → Devices & services → Helpers → **Create helper** → **Derivative sensor**
-2. **Source**: your `*_rain_total` (or equivalent) sensor
-3. **Unit Time**: `h` (so the result is in `mm/h`)
-4. **Time Window**: `00:05:00` (5-minute smoothing — less noise without
-   much latency)
-5. Wire the resulting `sensor.*_rain_rate` (or whatever name you give
-   it) into this card's `sensors.precipitation` field.
+How it works:
 
-The Derivative integration handles `total_increasing` resets cleanly
-and gives the card a true rate sensor — no card-side history bookkeeping
-needed.
-
-> Card-side auto-derivation from a cumulative sensor was attempted and
-> rolled back; tracked in
-> [issue #117](https://github.com/chriguschneider/weather-station-card/issues/117)
-> for any future reconsideration. The Derivative helper is the canonical
-> path today.
+- The card keeps a 15-minute mini-buffer of recent samples per entity,
+  persisted to `localStorage` so the rate is available immediately
+  after a hard reload.
+- Rate is computed as `(latest − anchor) / (now − anchor)` using a
+  sliding 3-sample anchor and a `now`-driven denominator. The
+  denominator advances with wall-clock time even between sensor ticks,
+  so the rate decays smoothly toward 0 during dry spells.
+- Counter resets (midnight `*_rain_today` rollover, utility-meter
+  resets, device reboots) are detected via monotonicity scan and the
+  rate is computed only from the post-reset suffix.
 
 The attribute-row **precipitation cell** (`show_precipitation: true`)
-shows the configured sensor's raw value with its native unit — that's
-`mm/h` after wiring the Derivative helper, or the cumulative `mm` value
-if you point it at the raw counter.
+shows the derived value as `mm/h` with a rate-driven icon
+(`water-off` / `weather-rainy` / `weather-pouring`). If you point
+`sensors.precipitation` at a sensor whose unit *already* ends in `/h`
+— e.g. a station-native rate channel or your own Derivative helper —
+the card passes the value through unchanged, no derivation, no
+buffering.
+
+> **Manual override with the HA Derivative helper.** If you want
+> server-side smoothing (e.g. your tipping bucket is coarser than
+> 0.1 mm and the card-side buffer can't reach 3 samples within 15
+> minutes during sparse drizzle), build a Derivative helper:
+> Settings → Devices & services → Helpers → **Create helper** →
+> **Derivative sensor**, source = your cumulative counter, Unit Time =
+> `h`, Time Window = `00:05:00`. Wire the resulting
+> `sensor.*_rain_rate` into `sensors.precipitation` and the card
+> passes it through.
 
 ## Sunshine duration
 

@@ -4,6 +4,46 @@ All notable changes to this project are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0] — 2026-05-12
+
+Minor release that lets the card derive a live `mm/h` precipitation
+rate from a cumulative rain counter, so weather stations that only
+expose a running total (Ecowitt `*_precipitation`, BTHome
+`*_rain_total`, similar 0.1 mm tipping buckets) no longer need a
+side-car Derivative helper to populate the attribute-row precip cell.
+The rate cell now also picks a rain-intensity icon (`water-off` →
+`weather-rainy` → `weather-pouring`) so the pictogram matches the
+numeric mm/h.
+
+### Added
+- **Card-side rate derivation from cumulative precipitation sensors.**
+  When `sensors.precipitation` points at a cumulative `mm` counter
+  (unit does NOT end in `/h`), the card keeps a 15-minute mini-buffer
+  of recent samples — persisted to `localStorage` per entity so the
+  rate is available immediately after a hard reload — and computes
+  `rate = (latest − anchor) / (now − anchor)` using a sliding 3-sample
+  anchor and a `now`-driven denominator. The denominator advances with
+  wall-clock time even between sensor ticks, so the rate decays
+  smoothly toward 0 during dry spells (no cliff-edge when the buffer
+  ages out). Counter-reset monotonicity breaks (midnight `*_rain_today`
+  rollover, utility-meter resets, device reboots) are detected via
+  forward scan and the rate is computed only from the post-reset suffix.
+  Native rate sensors (unit ending in `/h`) keep their v1.9 pass-through
+  behaviour, untouched. (#150, resolves #117)
+- **Rate-driven icon on the precipitation attribute row.** The cell's
+  pictogram now follows the rate: `hass:water-off` at 0 mm/h,
+  `hass:weather-rainy` for drizzle and light rain (< 2.5 mm/h),
+  `hass:weather-pouring` for moderate and heavy rain (≥ 2.5 mm/h).
+  Sun-themed glyphs (`weather-partly-rainy`) are deliberately avoided
+  — sun-in-rain reads as visually contradictory.
+
+### Changed
+- `docs/SENSORS.md` — the "live precipitation rate from a cumulative
+  sensor" section now documents the built-in derivation as the default
+  path. The HA Derivative-helper recipe stays as a manual override for
+  users who want server-side smoothing or coarser-than-0.1 mm tipping
+  buckets where the card-side buffer can't reach N=3 within 15 minutes.
+
 ## [1.11.1] — 2026-05-10
 
 Patch release that fixes a forecast wind-speed mis-conversion. When
