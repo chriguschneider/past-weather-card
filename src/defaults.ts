@@ -79,7 +79,7 @@ export const DEFAULTS = {
   // cells default to false so existing layouts don't suddenly grow.
   show_uv_index: true,
   show_illuminance: false,
-  show_precipitation: false,
+  show_precipitation: true,
   show_sunshine_duration: false,
   use_12hour_format: false,
 
