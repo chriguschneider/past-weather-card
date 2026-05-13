@@ -6,6 +6,13 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- **Precipitation row now shown by default.** If a precipitation sensor
+  is wired in the card config, the live panel now shows the current
+  precipitation rate automatically — no extra toggle needed. To hide
+  the row, set `show_precipitation: false` in YAML or flip the toggle
+  off in the visual editor.
+
 ## [1.13.0] — 2026-05-12
 
 Minor release that sharpens the live panel with three at-a-glance

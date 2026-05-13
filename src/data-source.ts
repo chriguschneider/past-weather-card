@@ -156,11 +156,6 @@ export function bucketPrecipitation(
   return current.max;
 }
 
-/** Backwards-compatible alias for the daily-only call sites and
- *  existing tests that import the daily name. Internally identical to
- *  `bucketPrecipitation`. */
-export const dailyPrecipitation = bucketPrecipitation;
-
 /** 1-entry cache shared between the call site and `fetchPressure3hDelta`.
  *  Caller owns the object; the fetch mutates `bucketMs` / `value` so a
  *  re-render within the same hour skips the WS roundtrip. Reset by
@@ -499,7 +494,7 @@ export class MeasuredDataSource {
       const dewPointMean = at(sensors.dew_point, 'mean');
 
       const precipitation = sensors.precipitation
-        ? dailyPrecipitation(byDate[sensors.precipitation], dayKey, prevKey)
+        ? bucketPrecipitation(byDate[sensors.precipitation], dayKey, prevKey)
         : null;
 
       // Sunshine duration from a HA recorder sensor (e.g. integration

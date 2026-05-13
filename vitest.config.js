@@ -34,6 +34,10 @@ export default {
         'src/utils/safe-query.ts',
         'src/utils/numeric.ts',
         'src/utils/unit-converters.ts',
+        'src/precip-rate.ts',
+        'src/pressure-trend.ts',
+        'src/dew-point-comfort.ts',
+        'src/sun-strength.ts',
       ],
       thresholds: {
         statements: 80,

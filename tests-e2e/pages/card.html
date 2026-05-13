@@ -143,9 +143,10 @@
         const pastDays = parseInt(params.get('past_days') || '0', 10);
         const forecastDays = parseInt(params.get('forecast_days') || '7', 10);
         const includeHourly = (params.get('hourly') || '').includes('sunshine_duration');
-        // Anchor at the same FIXTURE_TODAY the spec layer uses so the
-        // sunshine values align column-for-column with the rest of
-        // the chart. Open-Meteo emits dates in YYYY-MM-DD (`timezone=auto`).
+        // Anchor at the same date the spec layer uses (todayAnchor in
+        // fixtures/generate.ts) so the sunshine values align
+        // column-for-column with the rest of the chart. Open-Meteo
+        // emits dates in YYYY-MM-DD (`timezone=auto`).
         const anchor = new Date('2026-05-06T00:00:00');
         const dailyTime = [];
         const dailySunshine = [];
