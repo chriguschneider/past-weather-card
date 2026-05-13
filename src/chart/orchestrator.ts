@@ -44,7 +44,7 @@ import {
  *  All arrays are positional. `tempLowAvailable` lets the caller hide
  *  the second line dataset entirely when the upstream forecast had no
  *  `templow` field (hourly mode). */
-export interface ForecastChartData extends PluginRenderData {
+interface ForecastChartData extends PluginRenderData {
   tempHigh: ReadonlyArray<number | null | undefined>;
   tempLow: ReadonlyArray<number | null | undefined>;
   tempLowAvailable: boolean;
@@ -55,7 +55,7 @@ export interface ForecastChartData extends PluginRenderData {
 }
 
 /** Subset of the card config the orchestrator reads. */
-export interface OrchestratorConfig extends PluginCardConfig {
+interface OrchestratorConfig extends PluginCardConfig {
   forecast: PluginCardConfig['forecast'] & {
     show_sunshine?: boolean;
     sunshine_color?: string;
