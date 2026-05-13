@@ -74,7 +74,7 @@ function buildSensorFields(hass: HassWithStates | null): Array<{ key: string; ca
   ];
 }
 
-export function buildSensorsSchema(hass: HassWithStates | null): Array<{ name: string; required?: boolean; selector: object }> {
+function buildSensorsSchema(hass: HassWithStates | null): Array<{ name: string; required?: boolean; selector: object }> {
   return buildSensorFields(hass).map((f) => ({
     name: f.key,
     required: REQUIRED_KEYS.has(f.key),

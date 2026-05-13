@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { bucketPrecipitation, dailyPrecipitation, MeasuredDataSource, ForecastDataSource } from '../src/data-source.js';
+import { bucketPrecipitation, MeasuredDataSource, ForecastDataSource } from '../src/data-source.js';
 import { WeatherEntityFeature } from '../src/const.js';
 
-describe('dailyPrecipitation', () => {
+describe('bucketPrecipitation', () => {
   const day = (props) => ({ start: '2026-05-01T00:00:00', ...props });
   const series = (entries) => {
     const m = new Map();
@@ -13,44 +13,38 @@ describe('dailyPrecipitation', () => {
   };
 
   it('returns null when sensor has no map', () => {
-    expect(dailyPrecipitation(undefined, 100, 99)).toBe(null);
-    expect(dailyPrecipitation(null, 100, 99)).toBe(null);
+    expect(bucketPrecipitation(undefined, 100, 99)).toBe(null);
+    expect(bucketPrecipitation(null, 100, 99)).toBe(null);
   });
 
   it('returns null when today bucket missing', () => {
-    expect(dailyPrecipitation(series({ 99: { max: 5 } }), 100, 99)).toBe(null);
+    expect(bucketPrecipitation(series({ 99: { max: 5 } }), 100, 99)).toBe(null);
   });
 
   it('uses `change` for total_increasing sensors', () => {
-    expect(dailyPrecipitation(series({ 100: { change: 2.4, max: 30 } }), 100, 99)).toBe(2.4);
+    expect(bucketPrecipitation(series({ 100: { change: 2.4, max: 30 } }), 100, 99)).toBe(2.4);
   });
 
   it('uses `sum` for total sensors when change absent', () => {
-    expect(dailyPrecipitation(series({ 100: { sum: 1.7, max: 5 } }), 100, 99)).toBe(1.7);
+    expect(bucketPrecipitation(series({ 100: { sum: 1.7, max: 5 } }), 100, 99)).toBe(1.7);
   });
 
   it('falls back to today.max−prev.max for measurement sensors', () => {
     const s = series({ 100: { max: 30 }, 99: { max: 25 } });
-    expect(dailyPrecipitation(s, 100, 99)).toBe(5);
+    expect(bucketPrecipitation(s, 100, 99)).toBe(5);
   });
 
   it('returns today.max when previous bucket is missing (no baseline)', () => {
-    expect(dailyPrecipitation(series({ 100: { max: 30 } }), 100, 99)).toBe(30);
+    expect(bucketPrecipitation(series({ 100: { max: 30 } }), 100, 99)).toBe(30);
   });
 
   it('returns today.max when delta is negative (counter reset)', () => {
     const s = series({ 100: { max: 5 }, 99: { max: 30 } });
-    expect(dailyPrecipitation(s, 100, 99)).toBe(5);
+    expect(bucketPrecipitation(s, 100, 99)).toBe(5);
   });
 
   it('returns null when today has no usable field', () => {
-    expect(dailyPrecipitation(series({ 100: {} }), 100, 99)).toBe(null);
-  });
-
-  // Bucket-agnostic shape: same logic must apply at hour granularity
-  // because v0.8 uses bucketPrecipitation directly with hourly buckets.
-  it('alias `bucketPrecipitation` is identical to `dailyPrecipitation`', () => {
-    expect(bucketPrecipitation).toBe(dailyPrecipitation);
+    expect(bucketPrecipitation(series({ 100: {} }), 100, 99)).toBe(null);
   });
 
   it('works for hourly buckets — change path', () => {
