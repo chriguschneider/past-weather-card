@@ -1540,7 +1540,6 @@ drawChart(args?: any): unknown[] | undefined {
   try {
     const result = drawChartUnsafe(this as unknown as Parameters<typeof drawChartUnsafe>[0], args);
     if (this.forecastChart) {
-      const isFirstBuild = !this._initialChartBuilt;
       this._initialChartBuilt = true;
       // Re-arm initial-scroll application on every fresh chart build.
       // _maybeApplyInitialScroll sets _initialScrollApplied=true once
@@ -1551,19 +1550,20 @@ drawChart(args?: any): unknown[] | undefined {
       // (forecastItems unchanged inside measureCard's gate) — those
       // never reach drawChart so this path runs only on real builds.
       this._initialScrollApplied = false;
-      // Force the initial grow-from-below animation to be visible.
-      // Chart.js's constructor-time animation runs through
-      // resize→attach→resize lifecycle steps that, with the
-      // loading-placeholder flow (drawChart fires from an
-      // rAF-after-Lit-commit), end up with the first paint catching
-      // the bars already near their final height — the animation IS
-      // running but completes before the user can perceive it.
-      // Calling reset() + update() right after construction snaps
-      // every bar back to its baseline and animates back over the
-      // configured 800 ms (or instantly when disable_animation is
-      // true). Verified manually in the user's browser console:
-      // `chart.reset(); chart.update()` produces the visible grow.
-      if (isFirstBuild && this.config?.forecast?.disable_animation !== true && !this._isInPreview) {
+      // Force the grow-from-below animation to be visible on every chart
+      // build — initial mount AND mode-toggle rebuilds. Chart.js's
+      // constructor-time animation runs through resize→attach→resize
+      // lifecycle steps that, with the loading-placeholder flow
+      // (drawChart fires from an rAF-after-Lit-commit), end up with the
+      // first paint catching the bars already near their final height —
+      // the animation IS running but completes before the user can
+      // perceive it. Calling reset() + update() right after construction
+      // snaps every bar back to its baseline and animates back over the
+      // configured 800 ms. Running it on every rebuild keeps the grow
+      // animation consistent across the daily/today/hourly cycle — the
+      // lazy-cache otherwise makes only some transitions perceptible.
+      // disable_animation and the editor live-preview still suppress it.
+      if (this.config?.forecast?.disable_animation !== true && !this._isInPreview) {
         this.forecastChart.reset();
         this.forecastChart.update();
       }
