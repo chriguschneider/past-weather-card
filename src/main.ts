@@ -2485,10 +2485,24 @@ _convertWindSpeed(raw: unknown, sourceUnit?: string): number | null {
       return;
     }
     const startedAt = Date.now();
+    let framePending = false;
     const observer = new ResizeObserver(() => {
-      if (Date.now() - startedAt > 1000 || apply()) {
-        this._teardownInitialScrollObserver();
-      }
+      // Chart.js sizes the canvas progressively over its ~800 ms grow
+      // animation, so this observer fires many times per frame. apply()
+      // reads wrapper.scrollWidth/clientWidth — each a forced synchronous
+      // layout — so running it per tick thrashes layout. Coalesce into
+      // one rAF: apply() runs at most once per frame. Behaviour is
+      // unchanged (apply() just returns false until layout settles); the
+      // 1 s hard cap still bounds the wait.
+      if (framePending) return;
+      framePending = true;
+      this._pendingScrollFrame = requestAnimationFrame(() => {
+        framePending = false;
+        this._pendingScrollFrame = null;
+        if (Date.now() - startedAt > 1000 || apply()) {
+          this._teardownInitialScrollObserver();
+        }
+      });
     });
     observer.observe(content);
     this._initialScrollObserver = observer;
