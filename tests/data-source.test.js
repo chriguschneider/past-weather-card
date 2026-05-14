@@ -203,9 +203,35 @@ describe('MeasuredDataSource._buildForecast', () => {
     expect(out[0].sunshine).toBe(999);
   });
 
-  it('emits null sunshine when no source resolves and the lux map is empty (#66)', () => {
+  it('emits 0 (not null) when an illuminance source is configured but resolves no value — the source is authoritative', () => {
+    // A configured station sunshine source (here: illuminance, driving
+    // the lux derivation) owns the station columns. A day it finds no
+    // sunshine for is 0 h measured, NOT "no data" — otherwise the
+    // Open-Meteo overlay (attachSunshine) overwrites the station column
+    // with a forecast value. That is the overcast-morning bug: the lux
+    // derivation finds no above-threshold interval, emits no entry, and
+    // the station-today column borrows the full-day forecast.
     const ds = new MeasuredDataSource(fakeHass, { sensors, days: 3 });
     const out = ds._buildForecast({}, sensors, startDay, 3, new Map());
+    expect(out[0].sunshine).toBe(0);
+  });
+
+  it('emits 0 when a sunshine_duration sensor is configured but the recorder has no bucket for the day', () => {
+    const sensorsWithSunshine = { ...sensors, sunshine_duration: 'sensor.sun' };
+    const ds = new MeasuredDataSource(fakeHass, { sensors: sensorsWithSunshine, days: 3 });
+    // Empty stats → at(sensors.sunshine_duration, 'max') resolves null.
+    // The sensor is configured, so the column is still 0 h, not forecast.
+    const out = ds._buildForecast({}, sensorsWithSunshine, startDay, 3);
+    expect(out[0].sunshine).toBe(0);
+  });
+
+  it('emits null sunshine only when NO station sunshine source is configured (overlay then fills it)', () => {
+    // No illuminance, no sunshine_duration → the card has no measured
+    // source for these columns, so null is correct: the Open-Meteo
+    // overlay is the only data available and SHOULD fill them.
+    const sensorsNoSun = { temperature: 'sensor.temp', precipitation: 'sensor.rain' };
+    const ds = new MeasuredDataSource(fakeHass, { sensors: sensorsNoSun, days: 3 });
+    const out = ds._buildForecast({}, sensorsNoSun, startDay, 3, null);
     expect(out[0].sunshine).toBeNull();
   });
 });

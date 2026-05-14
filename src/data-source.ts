@@ -531,6 +531,16 @@ export class MeasuredDataSource {
           sunshineRaw = luxHours;
         }
       }
+      // A configured station sunshine source is authoritative for the
+      // station columns: a day it has no value for is 0 h measured, not
+      // "no data". Leaving sunshineRaw null lets attachSunshine's
+      // Open-Meteo overlay overwrite the station column with a forecast
+      // value — e.g. an overcast morning, where the lux derivation finds
+      // no above-threshold interval and emits no entry, would otherwise
+      // show the full-day forecast instead of the measured 0 h.
+      if (sunshineRaw == null && (sensors.sunshine_duration || sensors.illuminance)) {
+        sunshineRaw = 0;
+      }
 
       out.push({
         datetime: dayStart.toISOString(),
