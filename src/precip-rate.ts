@@ -47,9 +47,9 @@ export interface ComputeRateResult {
   sampleCount: number;
 }
 
-export const DEFAULT_TARGET_N = 3;
-export const DEFAULT_FRESH_THRESHOLD_MS = 120_000;
-export const DEFAULT_RATE_FLOOR = 0.1;
+const DEFAULT_TARGET_N = 3;
+const DEFAULT_FRESH_THRESHOLD_MS = 120_000;
+const DEFAULT_RATE_FLOOR = 0.1;
 export const DEFAULT_MAX_AGE_MS = 900_000;
 
 // Rate-intensity thresholds (mm/h). Three icon buckets, mapped onto
@@ -66,7 +66,7 @@ export const DEFAULT_MAX_AGE_MS = 900_000;
 //
 // Boundary is half-open on the upper side so the mapping is monotonic
 // non-decreasing: rate === 2.5 → pouring, not rainy.
-export const PRECIP_RATE_LIGHT_MAX = 2.5;
+const PRECIP_RATE_LIGHT_MAX = 2.5;
 
 /** Map a mm/h rate to a Home Assistant `ha-icon` name. Returns one of
  *  the `hass:` / MDI icons that HA's frontend ships out of the box —

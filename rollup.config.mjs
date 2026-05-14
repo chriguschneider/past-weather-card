@@ -3,10 +3,17 @@ import serve from 'rollup-plugin-serve';
 import copy from 'rollup-plugin-copy';
 import terser from '@rollup/plugin-terser';
 import typescript from '@rollup/plugin-typescript';
+import { visualizer } from 'rollup-plugin-visualizer';
 import { readFileSync } from 'node:fs';
 
 const pkg = JSON.parse(readFileSync('./package.json', 'utf8'));
 const dev = process.env.ROLLUP_WATCH;
+// Bundle-attribution mode: emits sourcemap + visualizer treemap/raw-data
+// into test-results/ for a one-off analysis run. Off by default — keeps
+// prod build fast and ships no sourcemap. Toggle with:
+//   BUNDLE_ANALYZE=1 npm run rollup
+// (PowerShell: $env:BUNDLE_ANALYZE=1; npm run rollup)
+const analyze = process.env.BUNDLE_ANALYZE === '1';
 
 // Inline plugin: substitutes the literal '__CARD_VERSION__' in main.ts
 // with the package.json version at build time. Avoids the manual
@@ -39,7 +46,7 @@ export default {
     file: 'dist/weather-station-card.js',
     format: 'cjs',
     name: 'WeatherStationCard',
-    sourcemap: dev ? true : false,
+    sourcemap: (dev || analyze) ? true : false,
   },
   plugins: [
     // Version-string substitution runs before TS so the placeholder
@@ -59,7 +66,7 @@ export default {
       compilerOptions: {
         noEmit: false,
         declaration: false,
-        sourceMap: dev ? true : false,
+        sourceMap: (dev || analyze) ? true : false,
       },
     }),
     resolve(),
@@ -78,6 +85,26 @@ export default {
       format: { comments: false },
       compress: { passes: 2 },
       mangle: { keep_classnames: true, keep_fnames: false },
+    }),
+    // Bundle-attribution treemap + raw JSON, emitted only when
+    // BUNDLE_ANALYZE=1. The treemap is interactive HTML; the raw JSON
+    // is fed into test-results/_analyze-bundle.cjs (or any future
+    // tooling) for module-size aggregation.
+    analyze && visualizer({
+      filename: 'test-results/bundle-stats.html',
+      template: 'treemap',
+      gzipSize: true,
+      brotliSize: false,
+      sourcemap: true,
+      emitFile: false,
+    }),
+    analyze && visualizer({
+      filename: 'test-results/bundle-stats.json',
+      template: 'raw-data',
+      gzipSize: true,
+      brotliSize: false,
+      sourcemap: true,
+      emitFile: false,
     }),
   ].filter(Boolean),
 };

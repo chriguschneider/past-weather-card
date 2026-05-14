@@ -5,9 +5,9 @@
 // natural variation (a single missing reading shifts a min/max bucket)
 // to make stable visual baselines from a HA snapshot.
 //
-// Anchor: every fixture is generated relative to FIXTURE_TODAY (see
-// hass-mock.ts). Each spec calls one of these and feeds the result
-// into createHassMock.
+// Anchor: every fixture is generated relative to the date pinned in
+// `todayAnchor()` below. Each spec calls one of these and feeds the
+// result into createHassMock.
 //
 // Sensor IDs are stable strings ("sensor.test_temperature", etc.) so
 // the same fixture set drives every spec in the suite.
@@ -78,7 +78,7 @@ interface DailyStatsOpts {
 /** Build daily aggregates for every sensor. Each metric uses a
  *  realistic mean + amplitude (matching what a real Pi-side weather
  *  station might emit at 46.91°N in early May). */
-export function buildDailyStats({ days, includeToday = true }: DailyStatsOpts): Record<string, RecorderStatBucket[]> {
+function buildDailyStats({ days, includeToday = true }: DailyStatsOpts): Record<string, RecorderStatBucket[]> {
   const today = todayAnchor();
   // The data source fetches `days+1` buckets so the diff-on-precip
   // path has a baseline. We mirror that here.
@@ -165,7 +165,7 @@ interface HourlyStatsOpts {
 /** Build hourly aggregates for every sensor. Same metric shapes as
  *  daily but shorter periodicity and a precipitation counter that
  *  jumps at a fixed phase so a few hours have rainfall visible. */
-export function buildHourlyStats({ hours }: HourlyStatsOpts): Record<string, RecorderStatBucket[]> {
+function buildHourlyStats({ hours }: HourlyStatsOpts): Record<string, RecorderStatBucket[]> {
   const today = todayAnchor();
   // Window ends at next-full-hour exclusive. Live HA rounds up; we
   // mirror that here so the data-source's start-time math lines up.
@@ -264,7 +264,7 @@ export function buildHourlyStats({ hours }: HourlyStatsOpts): Record<string, Rec
 /** Build weather/subscribe_forecast daily payload. Weather conditions
  *  cycle through a small palette so the tick-icon row isn't
  *  monotonous. */
-export function buildDailyForecast(days: number): Array<Record<string, unknown>> {
+function buildDailyForecast(days: number): Array<Record<string, unknown>> {
   const today = todayAnchor();
   const conditions = ['sunny', 'partlycloudy', 'cloudy', 'rainy', 'partlycloudy', 'sunny', 'cloudy'];
   const round1 = (v: number): number => Math.round(v * 10) / 10;
@@ -285,7 +285,7 @@ export function buildDailyForecast(days: number): Array<Record<string, unknown>>
 }
 
 /** Build weather/subscribe_forecast hourly payload. */
-export function buildHourlyForecast(hours: number): Array<Record<string, unknown>> {
+function buildHourlyForecast(hours: number): Array<Record<string, unknown>> {
   const today = todayAnchor();
   // Future hours start at "now" (rounded to hour). For deterministic
   // baselines we anchor at fixture-day 18:00 (matching the test's
@@ -320,7 +320,7 @@ export function buildHourlyForecast(hours: number): Array<Record<string, unknown
 /** Live state record per sensor. The card reads `hass.states[eid].state`
  *  for the "now" current-condition rendering and for the live-fill in
  *  the last hourly bucket. */
-export function buildLiveStates(): Record<string, HassState> {
+function buildLiveStates(): Record<string, HassState> {
   return {
     [SENSORS.temperature]: { state: '15.2', attributes: { unit_of_measurement: '°C' } },
     [SENSORS.humidity]: { state: '68', attributes: { unit_of_measurement: '%' } },
@@ -426,8 +426,9 @@ export function buildBaseConfig(overrides: Record<string, unknown> = {}): Record
     show_temperature: true,
     show_current_condition: true,
     show_attributes: true,
-    show_humidity: true,
+    show_humidity: false,
     show_pressure: true,
+    show_precipitation: true,
     show_wind_direction: true,
     show_wind_speed: true,
     show_wind_gust_speed: true,

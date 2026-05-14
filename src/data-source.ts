@@ -156,11 +156,6 @@ export function bucketPrecipitation(
   return current.max;
 }
 
-/** Backwards-compatible alias for the daily-only call sites and
- *  existing tests that import the daily name. Internally identical to
- *  `bucketPrecipitation`. */
-export const dailyPrecipitation = bucketPrecipitation;
-
 /** 1-entry cache shared between the call site and `fetchPressure3hDelta`.
  *  Caller owns the object; the fetch mutates `bucketMs` / `value` so a
  *  re-render within the same hour skips the WS roundtrip. Reset by
@@ -499,7 +494,7 @@ export class MeasuredDataSource {
       const dewPointMean = at(sensors.dew_point, 'mean');
 
       const precipitation = sensors.precipitation
-        ? dailyPrecipitation(byDate[sensors.precipitation], dayKey, prevKey)
+        ? bucketPrecipitation(byDate[sensors.precipitation], dayKey, prevKey)
         : null;
 
       // Sunshine duration from a HA recorder sensor (e.g. integration
@@ -530,6 +525,16 @@ export class MeasuredDataSource {
         if (luxHours != null && Number.isFinite(luxHours)) {
           sunshineRaw = luxHours;
         }
+      }
+      // A configured station sunshine source is authoritative for the
+      // station columns: a day it has no value for is 0 h measured, not
+      // "no data". Leaving sunshineRaw null lets attachSunshine's
+      // Open-Meteo overlay overwrite the station column with a forecast
+      // value — e.g. an overcast morning, where the lux derivation finds
+      // no above-threshold interval and emits no entry, would otherwise
+      // show the full-day forecast instead of the measured 0 h.
+      if (sunshineRaw == null && (sensors.sunshine_duration || sensors.illuminance)) {
+        sunshineRaw = 0;
       }
 
       out.push({

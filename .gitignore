@@ -8,6 +8,10 @@ CLAUDE.md
 # regenerates .gz on its own — those are leftovers from local pushes
 # to a Home Assistant instance and should never be committed.
 dist/*.gz
+# Sourcemaps emitted only by `npm run bundle:analyze` for one-off
+# bundle attribution. Never ship them — terser-mangled prod bundle
+# stays opaque on the wire.
+dist/*.map
 # Local-only research / calibration scratchpad. Issue-comment drafts,
 # data dumps, calibration scripts. Each release iteration leaves a few
 # files here that aren't part of the shipped card.
