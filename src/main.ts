@@ -83,9 +83,35 @@ import {
 } from './utils/unit-converters.js';
 import { drawChartUnsafe } from './chart/orchestrator.js';
 import { cardStyles } from './chart/styles.js';
-import {Chart, registerables} from 'chart.js';
+import {
+  Chart,
+  BarController,
+  LineController,
+  BarElement,
+  LineElement,
+  PointElement,
+  CategoryScale,
+  LinearScale,
+} from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
-Chart.register(...registerables, ChartDataLabels);
+// Selective registration instead of `...registerables`: the card only
+// draws bar (precip/sunshine) and line (temperature) datasets on a
+// category x-axis with linear y-axes. `registerables` references every
+// controller/scale/plugin chart.js ships, which pins them all against
+// tree-shaking. Built-in plugins (Legend, Tooltip, Filler, …) are
+// intentionally not registered — the card disables the legend/tooltip
+// and sets explicit colours, so their option blocks are inert without
+// registration.
+Chart.register(
+  BarController,
+  LineController,
+  BarElement,
+  LineElement,
+  PointElement,
+  CategoryScale,
+  LinearScale,
+  ChartDataLabels,
+);
 
 /** Card-side extension of `HassLike`. main.ts reads two fields the
  *  data-sources don't (`language`, `selectedLanguage`) — they pick
