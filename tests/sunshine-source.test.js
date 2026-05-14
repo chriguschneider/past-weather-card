@@ -328,14 +328,16 @@ describe('attachSunshine', () => {
     expect(result[0].sunshine).toBe(8);
   });
 
-  describe('upstream-value preservation (issue #16)', () => {
-    // _buildForecast (data-source) now emits a `sunshine` value for
-    // station entries from a configured sensors.sunshine_duration
-    // recorder source — but emits null for today's entry because the
-    // recorder's daily-max-so-far is a partial running total. The
-    // overlay attaches Open-Meteo's daily forecast value where the
-    // upstream is null, and PRESERVES the recorder value where it's
-    // present.
+  describe('upstream-value preservation (#16 substitution, reverted by #37)', () => {
+    // _buildForecast (data-source) emits a `sunshine` value for every
+    // station entry from a configured sensors.sunshine_duration recorder
+    // source — INCLUDING today, whose value is the recorder's running
+    // daily-max (a partial number early in the day, e.g. 0.4 h at 10 am).
+    // Post-#37 today is no longer special-cased to null. attachSunshine
+    // therefore treats today like any other day: a finite upstream value
+    // is PRESERVED, and the Open-Meteo overlay only fills entries where
+    // upstream is genuinely absent (null/undefined) — forecast-only
+    // future days, or when no recorder sensor is configured at all.
 
     it('preserves a numeric upstream sunshine value (e.g. recorder daily-max from yesterday)', () => {
       const fc = [{ datetime: iso(dayMs(-1)), sunshine: 6.5 }];
@@ -346,10 +348,13 @@ describe('attachSunshine', () => {
       expect(result[0].sunshine).toBe(6.5);
     });
 
-    it('overlays the Open-Meteo value when upstream is null (today substitution)', () => {
-      const fc = [{ datetime: iso(dayMs(0)), sunshine: null }];
-      // Open-Meteo's daily-forecast for today: 8h.
-      const dailyValues = [{ date: localDateString(dayMs(0)), value: 28800 }];
+    it('overlays the Open-Meteo value when upstream is null (forecast-only day / no recorder sensor)', () => {
+      // upstream null is the forecast-only-day case (no station data for
+      // that date) or the no-sensor-configured case — NOT today, which
+      // post-#37 always carries the recorder running total.
+      const fc = [{ datetime: iso(dayMs(1)), sunshine: null }];
+      // Open-Meteo's daily forecast for that day: 8h.
+      const dailyValues = [{ date: localDateString(dayMs(1)), value: 28800 }];
       const result = attachSunshine(fc, { dailyValues, latitude: 47 });
       expect(result[0].sunshine).toBe(8);
     });
@@ -361,21 +366,39 @@ describe('attachSunshine', () => {
       expect(result[0].sunshine).toBe(8);
     });
 
-    it('mixed-source array: past days from recorder, today from overlay', () => {
+    it('mixed-source array: past + today from recorder, forecast-only future day from overlay', () => {
       const fc = [
-        { datetime: iso(dayMs(-2)), sunshine: 4.2 },
-        { datetime: iso(dayMs(-1)), sunshine: 6.5 },
-        { datetime: iso(dayMs(0)), sunshine: null }, // today — recorder skipped
+        { datetime: iso(dayMs(-2)), sunshine: 4.2 },  // past — recorder daily total
+        { datetime: iso(dayMs(-1)), sunshine: 6.5 },  // past — recorder daily total
+        { datetime: iso(dayMs(0)), sunshine: 0.4 },   // today — recorder running daily-max (partial)
+        { datetime: iso(dayMs(1)), sunshine: null },  // future — no station data, overlay fills
       ];
       const dailyValues = [
         { date: localDateString(dayMs(-2)), value: 18000 }, // would have been 5h
         { date: localDateString(dayMs(-1)), value: 28800 }, // would have been 8h
-        { date: localDateString(dayMs(0)), value: 32400 },  // 9h forecast for today
+        { date: localDateString(dayMs(0)), value: 39600 },  // 11h forecast — must NOT win for today
+        { date: localDateString(dayMs(1)), value: 14400 },  // 4h forecast for the future day
       ];
       const result = attachSunshine(fc, { dailyValues, latitude: 47 });
       expect(result[0].sunshine).toBe(4.2); // recorder preserved
       expect(result[1].sunshine).toBe(6.5); // recorder preserved
-      expect(result[2].sunshine).toBe(9);   // today filled from overlay
+      expect(result[2].sunshine).toBe(0.4); // today: measured running total preserved, NOT the 11h forecast
+      expect(result[3].sunshine).toBe(4);   // future-only day: overlay fills
+    });
+
+    it('today column keeps the measured running total — the Open-Meteo forecast does not overlay it (#37)', () => {
+      // The production today-column path: _buildForecast emits the
+      // recorder running daily-max for today — a partial number early in
+      // the day (e.g. 0.4 h at 10 am), NOT null. attachSunshine treats
+      // today like any other day, so the finite upstream value is
+      // preserved and the Open-Meteo forecast is NOT shown for today,
+      // even though the source has one. This is the #37 decision: an
+      // overcast afternoon must not still read "11 h" just because the
+      // morning forecast predicted it.
+      const fc = [{ datetime: iso(dayMs(0)), sunshine: 0.4 }];
+      const dailyValues = [{ date: localDateString(dayMs(0)), value: 39600 }]; // 11h forecast
+      const result = attachSunshine(fc, { dailyValues, latitude: 47 });
+      expect(result[0].sunshine).toBe(0.4);
     });
   });
 
