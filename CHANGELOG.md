@@ -13,6 +13,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the row, set `show_precipitation: false` in YAML or flip the toggle
   off in the visual editor.
 
+### Fixed
+- **Daily forecast: weekday labels no longer drift in the first hour
+  after midnight.** Right after midnight, yesterday's weekday could
+  disappear from the chart and today's label would slide one column to
+  the left — making the daily bars look like they were showing the
+  wrong day. Labels now stay aligned with the bars in that brief
+  window.
+
 ## [1.13.0] — 2026-05-12
 
 Minor release that sharpens the live panel with three at-a-glance

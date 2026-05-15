@@ -105,6 +105,27 @@ interface SegmentCtx {
   p1DataIndex: number;
 }
 
+/** True when the station/forecast boundary represents the SAME calendar
+ *  day, i.e. station's last entry and forecast's first entry are both
+ *  "today". Used to gate the daily-doubled-today framing — see the
+ *  `doubledToday` site in `drawChartUnsafe`. Exported for unit testing
+ *  the post-midnight regression (#162 follow-up). */
+export function boundaryIsSameDay(
+  dateTime: ReadonlyArray<string | undefined>,
+  stationCount: number,
+): boolean {
+  if (stationCount <= 0 || stationCount >= dateTime.length) return false;
+  const a = dateTime[stationCount - 1];
+  const b = dateTime[stationCount];
+  if (!a || !b) return false;
+  const da = new Date(a);
+  const db = new Date(b);
+  if (!Number.isFinite(da.getTime()) || !Number.isFinite(db.getTime())) return false;
+  da.setHours(0, 0, 0, 0);
+  db.setHours(0, 0, 0, 0);
+  return da.getTime() === db.getTime();
+}
+
 interface DataLabelsCtx {
   dataset: { data: ReadonlyArray<unknown> };
   dataIndex: number;
@@ -523,7 +544,18 @@ export function drawChartUnsafe(card: CardLike, args: DrawChartArgs | null): unk
   const isHourly = isHourlyish;
   // doubled-today only makes sense at daily — at hourly / today station
   // and forecast meet at "now" with a single separator line.
-  const doubledToday = !isHourly && stationCount > 0 && forecastCount > 0;
+  //
+  // Just past midnight the station block can end at YESTERDAY (the
+  // recorder hasn't aggregated today yet → `dropEmptyStationToday`
+  // removes the empty trailing bucket) while the forecast block leads
+  // with today. The two boundary columns then represent different
+  // days, so the label-collapse / transparent-gridline logic must NOT
+  // fire — otherwise the THU label vanishes and FRI sits at the
+  // THU/FRI midpoint. Gate on the actual boundary date matching.
+  const doubledToday = !isHourly
+    && stationCount > 0
+    && forecastCount > 0
+    && boundaryIsSameDay(data.dateTime, stationCount);
   // When sunshine is on, draw.ts grows the x-axis box by sunshineLabelBand
   // pixels via afterFit. dailyTickLabelsPlugin then shifts weekday + date
   // up by that amount so the new bottom strip is free for the sunshine
