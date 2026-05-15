@@ -81,6 +81,7 @@ import {
   formatSunshineHours,
 } from './utils/unit-converters.js';
 import { drawChartUnsafe } from './chart/orchestrator.js';
+import { renderChartSkeleton } from './chart/skeleton.js';
 import { cardStyles } from './chart/styles.js';
 import {
   Chart,
@@ -1840,7 +1841,12 @@ _onModeToggleClick(ev?: Event) {
             ` : ''}
           </div>
           ` : html`
-          <div class="forecast-loading" style="height: ${config.forecast.chart_height}px"></div>
+          <div class="forecast-loading" style="height: ${config.forecast.chart_height}px">
+            ${renderChartSkeleton({
+              chartHeight: config.forecast.chart_height,
+              visibleBars: visibleBars,
+            })}
+          </div>
           `}
         </div>
       </ha-card>
