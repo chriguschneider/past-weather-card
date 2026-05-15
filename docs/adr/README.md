@@ -54,3 +54,4 @@ status line.
 - [0008 — DEFAULTS as the single source of truth (`src/defaults.ts`)](./0008-defaults-single-source-of-truth.md) (Accepted)
 - [0009 — Lookup-table pattern for unit conversions](./0009-lookup-table-pattern-for-unit-conversions.md) (Accepted)
 - [0010 — Group-renderer pattern for conditional template blocks](./0010-group-renderer-pattern.md) (Accepted)
+- [0011 — Track `package-lock.json` for reproducible builds](./0011-track-package-lock.md) (Accepted)
