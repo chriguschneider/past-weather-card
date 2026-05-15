@@ -68,6 +68,3 @@ export interface FixtureBag {
   forecastHourly?: Array<Record<string, unknown>>;
 }
 
-/** Anchor "today" — every fixture is generated relative to this date
- *  so the chart's "today is bold + framed" branch fires predictably. */
-export const FIXTURE_TODAY = '2026-05-06T12:00:00.000Z';

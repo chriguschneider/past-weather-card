@@ -43,30 +43,6 @@ const weatherIcons: Readonly<Record<ConditionId, string>> = {
   'windy-variant': 'hass:weather-windy-variant'
 };
 
-const weatherIconsDay: Readonly<Record<ConditionId, string>> = {
-  'clear-night': 'clear-night',
-  'cloudy': 'cloudy',
-  'exceptional': 'exceptional',
-  'fog': 'fog',
-  'hail': 'hail',
-  'lightning': 'lightning',
-  'lightning-rainy': 'lightning-rain',
-  'partlycloudy': 'partlycloudy-day',
-  'pouring': 'pouring',
-  'rainy': 'rain',
-  'snowy': 'snow',
-  'snowy-rainy': 'sleet',
-  'sunny': 'clear-day',
-  'windy': 'wind',
-  'windy-variant': 'wind',
-};
-
-const weatherIconsNight: Readonly<Record<ConditionId, string>> = {
-  ...weatherIconsDay,
-  'sunny': 'clear-night',
-  'partlycloudy': 'partlycloudy-night',
-};
-
 const WeatherEntityFeature = {
   FORECAST_DAILY: 1,
   FORECAST_HOURLY: 2,
@@ -76,7 +52,5 @@ const WeatherEntityFeature = {
 export {
   cardinalDirectionsIcon,
   weatherIcons,
-  weatherIconsDay,
-  weatherIconsNight,
   WeatherEntityFeature
 };
