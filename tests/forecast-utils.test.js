@@ -5,7 +5,6 @@ import {
   normalizeForecastMode,
   startOfTodayMs,
   filterMidnightStaleForecast,
-  dropEmptyStationToday,
   aggregateThreeHour,
   nextForecastType,
   stationFetchKey,
@@ -376,65 +375,6 @@ describe('filterMidnightStaleForecast', () => {
   it('passes through unchanged when todayStartMs is non-finite', () => {
     const input = [{ datetime: '2026-05-05T00:00:00Z' }];
     expect(filterMidnightStaleForecast(input, NaN)).toEqual(input);
-  });
-});
-
-describe('dropEmptyStationToday', () => {
-  const today = new Date(2026, 4, 6, 0, 0, 0, 0).getTime();
-  const yesterday = new Date(2026, 4, 5, 0, 0, 0, 0).getTime();
-
-  const todayEmpty = {
-    datetime: new Date(today).toISOString(),
-    temperature: null, templow: null, precipitation: null,
-    sunshine: 2.0, // sunshine overlay filled this in
-  };
-  const todayWithData = {
-    datetime: new Date(today).toISOString(),
-    temperature: 18, templow: 9, precipitation: 0,
-  };
-  const yesterdayWithData = {
-    datetime: new Date(yesterday).toISOString(),
-    temperature: 17, templow: 8, precipitation: 1.2,
-  };
-  const yesterdayEmpty = {
-    datetime: new Date(yesterday).toISOString(),
-    temperature: null, templow: null, precipitation: null,
-  };
-
-  it('drops the last station entry when it is today + has no recorded data', () => {
-    const out = dropEmptyStationToday([yesterdayWithData, todayEmpty], today);
-    expect(out).toHaveLength(1);
-    expect(out[0]).toBe(yesterdayWithData);
-  });
-
-  it('keeps the last station entry when today already has data', () => {
-    const out = dropEmptyStationToday([yesterdayWithData, todayWithData], today);
-    expect(out).toHaveLength(2);
-  });
-
-  it('keeps an offline-historical day even with all null fields', () => {
-    // yesterdayEmpty has all null fields BUT it's NOT today — sensor
-    // was offline a previous day, the chart should still show the
-    // column (with line gaps) rather than dropping it.
-    const out = dropEmptyStationToday([yesterdayEmpty, todayWithData], today);
-    expect(out).toHaveLength(2);
-  });
-
-  it('does not modify the input array', () => {
-    const input = [yesterdayWithData, todayEmpty];
-    dropEmptyStationToday(input, today);
-    expect(input).toHaveLength(2);
-  });
-
-  it('returns the original on non-array / empty input', () => {
-    expect(dropEmptyStationToday([], today)).toEqual([]);
-    expect(dropEmptyStationToday(null, today)).toEqual(null);
-  });
-
-  it('keeps an entry with missing datetime (defensive)', () => {
-    const noDatetime = { temperature: null, templow: null, precipitation: null };
-    const out = dropEmptyStationToday([yesterdayWithData, noDatetime], today);
-    expect(out).toHaveLength(2);
   });
 });
 

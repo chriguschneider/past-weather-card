@@ -52,7 +52,6 @@ import {
   normalizeForecastMode,
   startOfTodayMs,
   filterMidnightStaleForecast,
-  dropEmptyStationToday,
   aggregateThreeHour,
   nextForecastType,
   stationFetchKey,
@@ -1000,9 +999,17 @@ async _refreshPressureDelta(): Promise<void> {
     const fcType = effectiveCfg.forecast.type;
     const isToday = fcType === 'today';
 
-    let station = effectiveCfg.show_station !== false ? (this._stationData || []) : [];
+    const station = effectiveCfg.show_station !== false ? (this._stationData || []) : [];
     const forecast = this._sliceForecast(effectiveCfg, fcType, isToday, todayStartMs);
-    station = [...dropEmptyStationToday(station, todayStartMs)];
+    // Earlier code dropped the trailing station-today entry when it
+    // carried no recorded data yet (temperature + templow + precipitation
+    // all null). That removed the FR-station column from ~00:00 to ~00:15
+    // every day, breaking the doubled-today framing and stranding the
+    // weekday labels. The column is now kept: HA's running aggregates
+    // fill in over the first quarter-hour, partial values (e.g. 1 mm
+    // precip since midnight) are visible immediately, and missing fields
+    // render as gaps — same convention as an offline sensor on a
+    // historical day.
     this._ensureSunshineSource(effectiveCfg);
 
     if (isToday) {

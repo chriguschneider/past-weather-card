@@ -13,6 +13,17 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the row, set `show_precipitation: false` in YAML or flip the toggle
   off in the visual editor.
 
+### Fixed
+- **Today's daily column no longer goes missing in the first quarter
+  hour after midnight.** Right after midnight (until your station has
+  aggregated its first reading of the new day) the chart used to drop
+  today's station column entirely — the weekday label for yesterday
+  vanished and today's label slid one column to the left. The column
+  is now always shown: any values your station already has (for
+  example a few mm of rain that fell since midnight) appear
+  immediately, and fields that aren't measured yet draw as gaps —
+  same look as a sensor that was offline on a historical day.
+
 ## [1.13.0] — 2026-05-12
 
 Minor release that sharpens the live panel with three at-a-glance

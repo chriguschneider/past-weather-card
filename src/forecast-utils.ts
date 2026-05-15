@@ -311,28 +311,22 @@ export function startOfTodayMs(): number {
   return d.getTime();
 }
 
-// Just past local midnight, two HA-side mismatches can show up at the
-// chart's station/forecast boundary:
+// Just past local midnight, forecast data can still carry yesterday's
+// daily entry — HA weather integrations refresh on their own cadence
+// (Open-Meteo a few times per day, Met.no every model run), so for
+// some minutes after midnight the array can lead with a YYYY-MM-DD
+// that is now yesterday's date. `filterMidnightStaleForecast` drops
+// those. Applied in `_refreshForecasts` so the same today-boundary
+// is used for the station + forecast merge.
 //
-//   1. Forecast data still carries yesterday's daily entry. HA weather
-//      integrations refresh on their own cadence (Open-Meteo a few times
-//      per day, Met.no every model run), so for some minutes after
-//      midnight the array can lead with a YYYY-MM-DD that is now
-//      yesterday's date.
-//
-//   2. Station data has a "today" daily bucket that the recorder hasn't
-//      aggregated yet — temperature / templow / precipitation are all
-//      null. The Open-Meteo sunshine overlay fills `sunshine` from the
-//      forecast value, producing a hybrid entry: sunshine bar visible,
-//      no temperature line, no date label (the doubled-today plugin
-//      suppresses the label at i = stationCount-1, expecting that
-//      column to be the legitimate "today station" partner of "today
-//      forecast"; an empty hybrid entry there shifts the framing onto
-//      the wrong column).
-//
-// Both filters are pure on the array level. Apply them in
-// `_refreshForecasts` once per merge so the same today-boundary is
-// used for station + forecast.
+// Earlier versions also dropped the trailing station-today entry when
+// it carried no recorded data yet (temperature + templow + precipitation
+// all null). That kicked the doubled-today framing off the wrong
+// column and left the weekday labels stranded between ~00:00 and
+// ~00:15 every day. The column is now always kept — partial values
+// (e.g. 1 mm precip since midnight) render immediately, missing
+// fields render as gaps just like an offline sensor on a historical
+// day.
 
 /** Drop forecast entries whose datetime is strictly before today's
  *  local midnight. Idempotent on already-clean arrays. Hourly forecasts
@@ -350,28 +344,6 @@ export function filterMidnightStaleForecast<T extends { datetime?: string }>(
     if (!Number.isFinite(t)) return true;
     return t >= todayStartMs;
   });
-}
-
-/** Drop the last station entry if it's "today" AND has no recorded
- *  data yet (recorder hasn't aggregated). Returns a new array; original
- *  unchanged. The "no recorded data" check is intentionally narrow
- *  (temperature + templow + precipitation): an offline-sensor
- *  historical day should NOT be filtered, since the chart still wants
- *  to show its column with whatever data IS present (e.g. a sunshine
- *  reading from a different sensor). */
-export function dropEmptyStationToday<T extends Partial<ForecastEntry>>(
-  station: ReadonlyArray<T>,
-  todayStartMs: number,
-): ReadonlyArray<T> {
-  if (!Array.isArray(station) || station.length === 0) return station;
-  const last = station[station.length - 1];
-  if (!last?.datetime) return station;
-  const lastT = new Date(last.datetime).getTime();
-  if (!Number.isFinite(lastT) || lastT < todayStartMs) return station;
-  const noRecordedData = last.temperature == null
-    && last.templow == null
-    && last.precipitation == null;
-  return noRecordedData ? station.slice(0, -1) : station;
 }
 
 /** 3-hour aggregator for the 'today' mode. Collapses each consecutive
