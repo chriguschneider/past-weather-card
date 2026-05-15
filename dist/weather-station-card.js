@@ -348,7 +348,7 @@
       class="forecast-skeleton-grid"
       x1="${o}%" y1="${28}"
       x2="${o}%" y2="${t}"
-    />`)}return it`
+    ></line>`)}return it`
     <svg
       class="forecast-skeleton"
       width="100%"
@@ -360,7 +360,7 @@
         class="forecast-skeleton-axis"
         x1="0" y1="${28}"
         x2="100%" y2="${28}"
-      />
+      ></line>
       ${s}
     </svg>
   `}({chartHeight:t.forecast.chart_height,visibleBars:r})}

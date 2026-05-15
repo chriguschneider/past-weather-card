@@ -34,7 +34,7 @@ export function renderChartSkeleton({ chartHeight, visibleBars }: SkeletonOpts):
       class="forecast-skeleton-grid"
       x1="${xPct}%" y1="${LABEL_BAND_PX}"
       x2="${xPct}%" y2="${chartHeight}"
-    />`);
+    ></line>`);
   }
   return html`
     <svg
@@ -48,7 +48,7 @@ export function renderChartSkeleton({ chartHeight, visibleBars }: SkeletonOpts):
         class="forecast-skeleton-axis"
         x1="0" y1="${LABEL_BAND_PX}"
         x2="100%" y2="${LABEL_BAND_PX}"
-      />
+      ></line>
       ${gridlines}
     </svg>
   `;
