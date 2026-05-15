@@ -14,12 +14,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   off in the visual editor.
 
 ### Fixed
-- **Daily forecast: weekday labels no longer drift in the first hour
-  after midnight.** Right after midnight, yesterday's weekday could
-  disappear from the chart and today's label would slide one column to
-  the left — making the daily bars look like they were showing the
-  wrong day. Labels now stay aligned with the bars in that brief
-  window.
+- **Today's daily column no longer goes missing in the first quarter
+  hour after midnight.** Right after midnight (until your station has
+  aggregated its first reading of the new day) the chart used to drop
+  today's station column entirely — the weekday label for yesterday
+  vanished and today's label slid one column to the left. The column
+  is now always shown: any values your station already has (for
+  example a few mm of rain that fell since midnight) appear
+  immediately, and fields that aren't measured yet draw as gaps —
+  same look as a sensor that was offline on a historical day.
 
 ## [1.13.0] — 2026-05-12
 

@@ -1,18 +1,16 @@
-// Regression cover for the post-midnight doubled-today bug
-// (https://github.com/chriguschneider/weather-station-card/issues — the
-// THU label vanished and FRI's label sat between THU and FRI when the
-// chart was viewed minutes after local midnight).
+// Safety-net cover for the doubled-today framing — the same-calendar-day
+// gate must fire whenever the station's last and the forecast's first
+// entry represent different local days.
 //
-// `doubledToday` was previously gated only on stationCount > 0 &&
-// forecastCount > 0. Just past midnight the station block ends at
-// YESTERDAY (the recorder hasn't aggregated today yet, so
-// `dropEmptyStationToday` removes the empty trailing bucket) while the
-// forecast block leads with TODAY. The two boundary columns then
-// represent different days; the label-collapse logic must not fire.
-//
-// `boundaryIsSameDay` is the new gate. We exercise the pure helper
-// here — the rendering side is covered indirectly via the existing
-// e2e suite.
+// Original repro context: at 00:16 on FRI 2026-05-15 the THU label
+// vanished and FRI's label sat between THU and FRI. Root cause was a
+// station-side filter (`dropEmptyStationToday`) that dropped the empty
+// trailing today-bucket, making the boundary asymmetric. That filter
+// is gone now, so the chart's own data path no longer triggers this
+// case — but HA integrations can still serve asymmetric data (e.g. a
+// weather entity whose forecast hangs a day behind the station). The
+// `boundaryIsSameDay` gate keeps the rendering correct in that edge
+// case.
 
 import { describe, it, expect } from 'vitest';
 import { boundaryIsSameDay } from '../src/chart/orchestrator.js';
